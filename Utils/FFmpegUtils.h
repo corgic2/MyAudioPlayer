@@ -40,7 +40,7 @@ public:
     // 开始录音
     static void StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat);
     // 显示录音设备的参数
-    static void showSpec(AVFormatContext* ctx);
+    static void ShowSpec(AVFormatContext* ctx);
 
 private:
     static const AVCodec* FindEncoder(const char* format_name);

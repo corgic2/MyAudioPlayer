@@ -39,7 +39,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
         return;
     }
     AVFormatContext* inputFormatCtx = nullptr;
-    QByteArray utf8DeviceName = QString(DEVICE_INPUTMICRONAME).toUtf8(); // 显式转为UTF-8
+    QByteArray utf8DeviceName = QString(DEVICE_INPUTMICRONAME).toUtf8();
     int ret = avformat_open_input(&inputFormatCtx, utf8DeviceName.constData(), fmt, nullptr); //获取输入设备上下文
     if (ret < 0)
     {
@@ -48,7 +48,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
         av_strerror(ret, errbuf, sizeof(errbuf));
         return;
     }
-    showSpec(inputFormatCtx); // 显示设备参数
+    ShowSpec(inputFormatCtx); // 显示设备参数
 
     AVFormatContext* outputFormatCtx = nullptr;
     avformat_alloc_output_context2(&outputFormatCtx, nullptr, encoderFormat.toStdString().c_str(), outputFilePath.toUtf8().constData()); // 输出格式上下文初始化
@@ -60,7 +60,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
     }
 
     // 创建音频流
-    AVStream* outStream = avformat_new_stream(outputFormatCtx, nullptr); // 由输出格式上下文创建音频流
+    AVStream* outStream = avformat_new_stream(outputFormatCtx, nullptr);
     if (!outStream)
     {
         qWarning() << "Failed to create output stream";
@@ -73,7 +73,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
     const AVCodec* codec = FindEncoder(encoderFormat.toStdString().c_str());
     AVCodecContext* enc_ctx = avcodec_alloc_context3(codec);
     AVCodecParameters* codecPar = outStream->codecpar;
-    codecPar->codec_id = codec->id; // 必须明确指定
+    codecPar->codec_id = codec->id;
     codecPar->codec_type = AVMEDIA_TYPE_AUDIO;
     codecPar->ch_layout = AV_CHANNEL_LAYOUT_STEREO; // 立体声
     ConfigureEncoderParams(codecPar, enc_ctx);
@@ -142,7 +142,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
 }
 
 // 从AVFormatContext中获取录音设备的相关参数
-void FFmpegUtils::showSpec(AVFormatContext* ctx)
+void FFmpegUtils::ShowSpec(AVFormatContext* ctx)
 {
     // 获取输入流
     AVStream* stream = ctx->streams[0];
