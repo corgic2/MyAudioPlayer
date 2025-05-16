@@ -1,4 +1,4 @@
-# 指定CMake的最低版本
+﻿# 指定CMake的最低版本
 cmake_minimum_required(VERSION 3.10)
 
 # 设置项目名称
@@ -37,6 +37,12 @@ else()
     set(PLATFORM_CPU "x86")
 endif()
 message(STATUS "PLATFORM_CPU: ${PLATFORM_CPU}")
+
+if(MSVC)
+    add_compile_options(/utf-8)  # MSVC 强制使用UTF-8
+else()
+    add_compile_options(-finput-charset=UTF-8 -fexec-charset=UTF-8)  # GCC/Clang
+endif()
 
 
 # 添加VS过滤器
@@ -107,5 +113,6 @@ endforeach()
 
 # 添加头文件
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/include")
+target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/UIModule")
 
 

@@ -1,0 +1,133 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/27.0.5 Chrome/134.0.6998.205 Electron/35.3.0 Safari/537.36" version="27.0.5">
+  <diagram name="第 1 页" id="_NFarAgpQ4GfLmJn2ZJR">
+    <mxGraphModel dx="1188" dy="701" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="H96HpfF0UiEP_2RXt-ve-1" target="H96HpfF0UiEP_2RXt-ve-5" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-1" value="注册设备" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="160" y="80" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-2" value="录音功能" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="190" y="40" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="H96HpfF0UiEP_2RXt-ve-5" target="H96HpfF0UiEP_2RXt-ve-6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-5" value="获取设备" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="160" y="160" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="H96HpfF0UiEP_2RXt-ve-6" target="H96HpfF0UiEP_2RXt-ve-8" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-6" value="打开设备" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="160" y="240" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="H96HpfF0UiEP_2RXt-ve-8" target="H96HpfF0UiEP_2RXt-ve-13" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-8" value="采集数据" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="160" y="320" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="H96HpfF0UiEP_2RXt-ve-13" target="H96HpfF0UiEP_2RXt-ve-16" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-13" value="保存数据" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="160" y="430" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-16" value="释放资源" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+          <mxGeometry x="160" y="510" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-19" value="录音功能会阻塞主线程，需要使用子线程进行录制。设备资源需要及时释放" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fontColor=#000000;darkOpacity=0.05;fillColor=#FFF9B2;strokeColor=none;fillStyle=solid;direction=west;gradientDirection=north;gradientColor=#FFF2A1;shadow=1;size=20;pointerEvents=1;" parent="1" vertex="1">
+          <mxGeometry x="320" y="80" width="150" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-23" value="avdevice_register_all" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="60" y="85" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-24" value="av_find_input_format" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="60" y="165" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-25" value="avformat_open_input" style="text;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="30" y="240" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-26" value="avformat_close_input" style="text;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="30" y="520" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-27" value="av_packet_alloc" style="text;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="30" y="310" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-28" value="av_read_frame" style="text;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="30" y="330" width="110" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-29" value="QFile::write" style="text;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="30" y="430" width="60" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-30" value="av_packet_unref数据包使用完后必须显式释放" style="text;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="30" y="350" width="130" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="H96HpfF0UiEP_2RXt-ve-31" value="av_packet_free" style="text;whiteSpace=wrap;" parent="1" vertex="1">
+          <mxGeometry x="30" y="500" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="mEtiiClBbONQ0UdDunjL-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="540" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-1" value="播放设备" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="400" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-2" value="音频解码" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="510" y="280" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="mEtiiClBbONQ0UdDunjL-3" target="mEtiiClBbONQ0UdDunjL-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-3" value="音频文件" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="320" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-8" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="mEtiiClBbONQ0UdDunjL-6" target="mEtiiClBbONQ0UdDunjL-7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-6" value="解码" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="480" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-7" value="播放" style="whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="480" y="560" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="mEtiiClBbONQ0UdDunjL-9">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="700" y="480" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-9" value="设备采集音频" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="640" y="400" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-10" value="音频编码" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="670" y="280" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-15" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="mEtiiClBbONQ0UdDunjL-12">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="700" y="560" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-12" value="编码" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="640" y="480" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="mEtiiClBbONQ0UdDunjL-13" target="mEtiiClBbONQ0UdDunjL-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-13" value="打开设备" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="640" y="320" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-17" value="音频文件" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="640" y="560" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="mEtiiClBbONQ0UdDunjL-18" value="音频编码解码过程，根据不同的音频格式需要选择不同的编码方法，有损相比于无损还存在额外压缩编码的方式" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fontColor=#000000;darkOpacity=0.05;fillColor=#FFF9B2;strokeColor=none;fillStyle=solid;direction=west;gradientDirection=north;gradientColor=#FFF2A1;shadow=1;size=20;pointerEvents=1;" vertex="1" parent="1">
+          <mxGeometry x="600" y="80" width="140" height="160" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

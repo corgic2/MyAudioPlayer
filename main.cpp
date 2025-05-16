@@ -1,18 +1,20 @@
 ﻿#include <QApplication>
-// 为了使用qDebug函数
 #include <QDebug>
+#include <QTextCodec>
+#include "UIModule/AudioMainWidget.h"
+#include "Utils/FFmpegUtils.h"
 
-// FFmpeg是C语言库
-// 有了extern "C"，才能在C++中导入C语言函数
-extern "C" {
-#include "libavutil/avutil.h"
+void InitCoreObject()
+{
+    FFmpegUtils::ResigsterDevice();
+    // 设置全局编码为UTF-8（Qt 5及以下）
+    QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
 }
-
 int main(int argc, char* argv[])
 {
-    // 打印版本信息
-    qDebug() << av_version_info();
-
+    InitCoreObject();
     QApplication a(argc, argv);
+    AudioMainWidget widget;
+    widget.show();
     return a.exec();
 }

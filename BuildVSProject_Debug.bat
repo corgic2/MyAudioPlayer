@@ -1,0 +1,29 @@
+@ECHO OFF
+set CURDIR=%~dp0
+
+
+set "FFMPEGDIR=D:\WorkSpace\ffmpeg-7.1.1-full_build-shared"
+if not exist "%~dp0include\" mkdir "%~dp0include"
+if not exist "%~dp0x64\Debug\" mkdir "%~dp0x64\Debug"
+
+xcopy "%FFMPEGDIR%\include\*" "%~dp0include\" /E /I /Y
+xcopy "%FFMPEGDIR%\lib\*" "%~dp0x64\Debug\" /E /I /Y
+xcopy "%FFMPEGDIR%\bin\*" "%~dp0x64\Debug\" /E /I /Y
+
+echo Operation completed.
+
+md build
+cd build
+cmake -DCMAKE_CONFIGURATION_TYPES=Debug .. -G "Visual Studio 17 2022"
+cmake --build . --config Debug
+
+@REM windeployqt
+if defined QT_DIR (
+    set QTDIR=%QT_DIR%
+) else (
+    set QTDIR=D:/Qt/5.15.2/msvc2019_64
+)
+
+cd %CURDIR%
+
+pause
