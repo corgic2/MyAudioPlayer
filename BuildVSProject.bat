@@ -3,7 +3,7 @@ set CURDIR=%~dp0
 
 
 set "FFMPEGDIR=D:\WorkSpace\ffmpeg-7.1.1-full_build-shared"
-set "SDLDIR=D:\WorkSpace\SDL3-3.2.14\i686-w64-mingw32"
+set "SDLDIR=D:\WorkSpace\SDL3-3.2.14\x86_64-w64-mingw32"
 
 if not exist "%~dp0include\" mkdir "%~dp0include"
 if not exist "%~dp0x64\Release\" mkdir "%~dp0x64\Release"

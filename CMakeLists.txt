@@ -97,22 +97,21 @@ target_link_libraries(${TARGET_NAME} PUBLIC
   Qt5::Widgets
 )
 
+# 添加头文件
+target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/include")
+target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/UIModule")
+
 # 添加lib信息
 set(ffmpegLibFile "${CMAKE_SOURCE_DIR}/ffmpegLib.txt")
 file(STRINGS ${ffmpegLibFile} LIBRARIES)
 
-set(ffmpegLibDir "${CMAKE_SOURCE_DIR}/x64/Release")
-target_link_directories(${TARGET_NAME} PUBLIC ${ffmpegLibDir})
-
+set(DebugDir "${CMAKE_SOURCE_DIR}/x64/Debug")
+target_link_directories(${TARGET_NAME} PUBLIC ${DebugDir})
+target_link_libraries(${TARGET_NAME} PUBLIC "${DebugDir}/SDL3/libSDL3.dll.a")
 foreach(lib ${LIBRARIES})
     string(STRIP ${lib} lib)
     if(lib)
         target_link_libraries(${TARGET_NAME} PUBLIC ${lib})
     endif()
 endforeach()
-
-# 添加头文件
-target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/include")
-target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/UIModule")
-
 
