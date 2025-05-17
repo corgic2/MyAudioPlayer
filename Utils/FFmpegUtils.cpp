@@ -162,7 +162,6 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     }
     // 初始化解码器
     const AVCodecParameters* codecParams = formatCtx->streams[audioStreamIdx]->codecpar;
-
     const AVCodec* codec = avcodec_find_decoder(codecParams->codec_id);
     AVCodecContext* codecCtx = avcodec_alloc_context3(codec);
     avcodec_parameters_to_context(codecCtx, codecParams);
@@ -198,8 +197,8 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
         return;
     }
     // 播放音频
-    SDL_AsyncIOQueue* queue = SDL_CreateAsyncIOQueue();
-    SDL_PauseAudioDevice(audioDevice); // 开始播放
+    SDL_BindAudioStream(audioDevice, audioStreamSDL); // 关键：绑定流和设备
+    SDL_ResumeAudioDevice(audioDevice); // 开始播放
     AVPacket* pkt = av_packet_alloc();
     while (av_read_frame(formatCtx, pkt) >= 0)
     {
@@ -211,14 +210,18 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
         }
         av_packet_unref(pkt);
     }
+    // 等待音频播放完成
+    while (SDL_GetAudioStreamQueued(audioStreamSDL) > 0)
+    {
+        SDL_Delay(100);
+    }
     // 清理资源
-    SDL_CloseAudioDevice(audioDevice);
     av_packet_free(&pkt);
-    // 关闭音频设备
+    SDL_CloseAudioDevice(audioDevice);
+    SDL_DestroyAudioStream(audioStreamSDL);
     SDL_Quit();
-    qDebug() << "Audio playback finished";
-    // 释放资源
-    avformat_free_context(formatCtx);
+    avcodec_free_context(&codecCtx);
+    avformat_close_input(&formatCtx);
 }
 // 从AVFormatContext中获取录音设备的相关参数
 void FFmpegUtils::ShowSpec(AVFormatContext* ctx)
