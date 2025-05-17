@@ -1,7 +1,9 @@
 ﻿#include "FFmpegUtils.h"
+#include "../include/SDL3/SDL.h"
 #include <QFile>
 #define FMT_NAME "dshow"
 #define DEVICE_INPUTMICRONAME "audio=麦克风 (2- USB Audio Device)"
+#define DEVICE_OUTPUTMICRONAME "audio=扬声器 (2- USB Audio Device)"
 #pragma execution_character_set("utf-8")
 //根据不同设备进行修改，此电脑为USB音频设备
 FFmpegUtils::FFmpegUtils(QObject *parent)
@@ -21,13 +23,13 @@ QString FFmpegUtils::GetFileInfomation(const QString& inputFilePath, const QStri
     return QString();
 }
 
-void FFmpegUtils::PlayAudio(const QString& inputFilePath, const QStringList& args)
-{
-}
-
 void FFmpegUtils::ResigsterDevice()
 {
     avdevice_register_all();
+    if (SDL_Init(SDL_INIT_AUDIO))
+    {
+        qDebug() << "SDL_Init failed" << SDL_GetError();
+    }
 }
 
 void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat)
@@ -141,6 +143,83 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
 
 }
 
+void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QStringList& args)
+{
+    // 播放音频文件
+    AVFormatContext* formatCtx = nullptr;
+    int ret = avformat_open_input(&formatCtx, inputFilePath.toUtf8().constData(), nullptr, nullptr);
+    if (ret < 0)
+    {
+        qWarning() << "Failed to open input file";
+        return;
+    }
+    int audioStreamIdx = av_find_best_stream(formatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
+    if (audioStreamIdx < 0)
+    {
+        qWarning() << "未找到音频流";
+        avformat_close_input(&formatCtx);
+        return;
+    }
+    // 初始化解码器
+    const AVCodecParameters* codecParams = formatCtx->streams[audioStreamIdx]->codecpar;
+
+    const AVCodec* codec = avcodec_find_decoder(codecParams->codec_id);
+    AVCodecContext* codecCtx = avcodec_alloc_context3(codec);
+    avcodec_parameters_to_context(codecCtx, codecParams);
+    avcodec_open2(codecCtx, codec, nullptr);
+    // 输入格式（解码后的数据格式）
+    SDL_AudioSpec srcSpec;
+    SDL_zero(srcSpec);
+    srcSpec.freq = codecParams->sample_rate; // 采样率
+    srcSpec.format = FFmpegToSDLFormat((AVSampleFormat)codecParams->format); // 格式转换（见下文）
+    srcSpec.channels = codecParams->ch_layout.nb_channels; // 声道数
+
+    // 输出格式（设备支持的格式）
+    SDL_AudioSpec dstSpec;
+    SDL_zero(dstSpec);
+    dstSpec.freq = srcSpec.freq; // 保持采样率一致
+    dstSpec.format = SDL_AUDIO_S16; // SDL 常用格式（16位整型）
+    dstSpec.channels = srcSpec.channels; // 声道数（需与设备匹配）
+
+    // 创建音频流（自动处理重采样和格式转换）
+    SDL_AudioStream* audioStreamSDL = SDL_CreateAudioStream(&srcSpec, &dstSpec);
+    if (!audioStreamSDL)
+    {
+        qWarning() << "创建音频流失败:" << SDL_GetError();
+        return;
+    }
+
+    // 打开音频设备
+    SDL_AudioDeviceID audioDevice = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &dstSpec);
+    if (audioDevice == 0)
+    {
+        qWarning() << "Failed to open audio device";
+        avformat_close_input(&formatCtx);
+        return;
+    }
+    // 播放音频
+    SDL_AsyncIOQueue* queue = SDL_CreateAsyncIOQueue();
+    SDL_PauseAudioDevice(audioDevice); // 开始播放
+    AVPacket* pkt = av_packet_alloc();
+    while (av_read_frame(formatCtx, pkt) >= 0)
+    {
+        if (pkt->stream_index == audioStreamIdx)
+        {
+            avcodec_send_packet(codecCtx, pkt);
+            // 播放音频数据
+            SDL_PutAudioStreamData(audioStreamSDL, pkt->data, pkt->size);
+        }
+        av_packet_unref(pkt);
+    }
+    // 清理资源
+    SDL_CloseAudioDevice(audioDevice);
+    av_packet_free(&pkt);
+    // 关闭音频设备
+    SDL_Quit();
+    qDebug() << "Audio playback finished";
+    // 释放资源
+    avformat_free_context(formatCtx);
+}
 // 从AVFormatContext中获取录音设备的相关参数
 void FFmpegUtils::ShowSpec(AVFormatContext* ctx)
 {
@@ -189,5 +268,24 @@ void FFmpegUtils::ConfigureEncoderParams(AVCodecParameters* codecPar, AVCodecCon
             enc_ctx->bit_rate = 192000; // 典型比特率
             enc_ctx->sample_fmt = AV_SAMPLE_FMT_FLTP; // MP3编码器要求的输入格式
             break;
+    }
+}
+
+SDL_AudioFormat FFmpegUtils::FFmpegToSDLFormat(AVSampleFormat fmt)
+{
+    switch (fmt)
+    {
+        case AV_SAMPLE_FMT_U8:
+            return SDL_AUDIO_U8;
+        case AV_SAMPLE_FMT_S16:
+            return SDL_AUDIO_S16;
+        case AV_SAMPLE_FMT_S32:
+            return SDL_AUDIO_S32;
+        case AV_SAMPLE_FMT_FLT:
+            return SDL_AUDIO_F32;
+        case AV_SAMPLE_FMT_DBL:
+            return SDL_AUDIO_S32LE;
+        default:
+            return SDL_AUDIO_S16; // 默认兼容格式
     }
 }

@@ -1,7 +1,6 @@
 ﻿#include <QApplication>
 #include <QDebug>
 #include <QTextCodec>
-#include "SDL3/SDL_version.h"
 #include "UIModule/AudioMainWidget.h"
 #include "Utils/FFmpegUtils.h"
 
@@ -18,7 +17,5 @@ int main(int argc, char* argv[])
     QApplication a(argc, argv);
     AudioMainWidget widget;
     widget.show();
-    int SDLVersion = SDL_GetVersion();
-    qDebug() << "SDL Version:" << SDLVersion;
     return a.exec();
 }

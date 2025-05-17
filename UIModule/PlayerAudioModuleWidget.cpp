@@ -11,7 +11,8 @@ PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
 
 void PlayerAudioModuleWidget::ConnectSignals()
 {
-    connect(ui->pushButton, &QPushButton::clicked, this, &PlayerAudioModuleWidget::SlotPushButtonClicked);
+    connect(ui->pushButton, &QPushButton::clicked, this, &PlayerAudioModuleWidget::SlotPushButtonRecodingAudioClicked);
+    connect(ui->pushButton_2, &QPushButton::clicked, this, &PlayerAudioModuleWidget::SlotPushButtonPlayAudioClicked);
 }
 
 PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
@@ -19,9 +20,16 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
     delete ui;
 }
 
-void PlayerAudioModuleWidget::SlotPushButtonClicked()
+void PlayerAudioModuleWidget::SlotPushButtonRecodingAudioClicked()
 {
     QString filePath = QApplication::applicationDirPath();
     QString fileName = "test.wav";
     FFmpegUtils::StartAudioRecording(filePath + '/' + fileName, "wav");
+}
+
+void PlayerAudioModuleWidget::SlotPushButtonPlayAudioClicked()
+{
+    QString filePath = QApplication::applicationDirPath();
+    QString fileName = "test.wav";
+    FFmpegUtils::StartAudioPlayback(filePath + '/' + fileName);
 }

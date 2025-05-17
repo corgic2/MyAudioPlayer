@@ -20,7 +20,9 @@ public:
     ~PlayerAudioModuleWidget() override;
 
 protected slots:
-    void SlotPushButtonClicked();
+    void SlotPushButtonRecodingAudioClicked();
+
+    void SlotPushButtonPlayAudioClicked();
 
 private:
     void ConnectSignals();
