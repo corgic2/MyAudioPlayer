@@ -1,8 +1,8 @@
 ﻿#include "FFmpegPublicUtils.h"
-
 #include <qDebug>
+#include <string>
+#include <unordered_map>
 
-// 根据输出格式自动选择编码器
 const AVCodec* FFmpegPublicUtils::FindEncoder(const char* formatName)
 {
     if (!formatName)
@@ -21,6 +21,7 @@ const AVCodec* FFmpegPublicUtils::FindEncoder(const char* formatName)
     // 其他格式处理...
     return nullptr;
 }
+
 
 void FFmpegPublicUtils::ConfigureEncoderParams(AVCodecParameters* codecPar, AVCodecContext* encCtx)
 {

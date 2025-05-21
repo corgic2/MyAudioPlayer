@@ -1,6 +1,9 @@
 ﻿#pragma once
 #include "FFmpegAudioBaseStrcutDefine.h"
+
+extern "C" {
 #include "libavformat/avformat.h"
+}
 #include "SDL3/SDL_init.h"
 
 struct ST_OpenAudioDevice
@@ -8,14 +11,25 @@ struct ST_OpenAudioDevice
     ST_AVInputFormat m_pInputFormatCtx; // 输入设备格式
     ST_AVFormatContext m_pFormatCtx; // 输入格式上下文
     ST_OpenAudioDevice() = default;
-    ~ST_OpenAudioDevice() = default;
 
-    ST_OpenAudioDevice(ST_OpenAudioDevice&& obj)
+    ~ST_OpenAudioDevice()
+    {
+        qDebug() << "~ST_OpenAudioDevice()";
+    }
+
+    ST_OpenAudioDevice(ST_OpenAudioDevice&) = delete;
+    ST_OpenAudioDevice(const ST_OpenAudioDevice&) = delete;
+    ST_OpenAudioDevice& operator=(ST_OpenAudioDevice&) = delete;
+    ST_OpenAudioDevice& operator=(const ST_OpenAudioDevice&) = delete;
+
+    // 移动构造函数
+    ST_OpenAudioDevice(ST_OpenAudioDevice&& obj) noexcept
     {
         m_pInputFormatCtx = std::move(obj.m_pInputFormatCtx);
         m_pFormatCtx = std::move(obj.m_pFormatCtx);
-        obj.m_pInputFormatCtx.m_pInputFormatCtx = nullptr;
-        obj.m_pFormatCtx.m_pFormatCtx = nullptr;
+        //其本身的移动语义已经置空，不再额外操作
+        //obj.m_pInputFormatCtx.m_pInputFormatCtx = nullptr;
+        //obj.m_pFormatCtx.m_pFormatCtx = nullptr;
     }
 
     // 移动赋值运算符
@@ -25,8 +39,9 @@ struct ST_OpenAudioDevice
         {
             m_pInputFormatCtx = std::move(obj.m_pInputFormatCtx);
             m_pFormatCtx = std::move(obj.m_pFormatCtx);
-            obj.m_pInputFormatCtx.m_pInputFormatCtx = nullptr;
-            obj.m_pFormatCtx.m_pFormatCtx = nullptr;
+            // 其本身的移动语义已经置空，不再额外操作
+            //obj.m_pInputFormatCtx.m_pInputFormatCtx = nullptr;
+            //obj.m_pFormatCtx.m_pFormatCtx = nullptr;
         }
         return *this;
     }
@@ -61,7 +76,7 @@ public:
     /// <param name="sampleRate"></param>
     /// <param name="format"></param>
     /// <param name="channels"></param>
-    void InitAudioSpec(bool bsrc, int sampleRate, AVSampleFormat format, int channels);
+    void InitAudioSpec(bool bsrc, int sampleRate, SDL_AudioFormat format, int channels);
     /// <summary>
     /// 初始化流，必须在initSpec后
     /// </summary>
@@ -96,8 +111,8 @@ public:
     void Delay(Uint32 ms);
 
 private:
-    ST_SDLAudioDeviceID m_audioDeviceId;
     ST_SDLAudioStream m_audioStream;
+    ST_SDLAudioDeviceID m_audioDeviceId;
     SDL_AudioSpec m_srcSpec;
     SDL_AudioSpec m_dstSpec;
 };

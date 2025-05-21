@@ -5,9 +5,21 @@
 #include "Utils/FFmpegPublicUtils.h"
 #include "Utils/FFmpegUtils.h"
 
+void custom_log(void* ptr, int level, const char* fmt, va_list vl)
+{
+    if (level <= av_log_get_level())
+    {
+        vfprintf(stderr, fmt, vl); // 输出到控制台
+        // 或写入文件
+    }
+}
+
 void InitCoreObject()
 {
     FFmpegUtils::ResigsterDevice();
+    av_log_set_level(AV_LOG_DEBUG);
+    // 在初始化时设置回调
+    av_log_set_callback(custom_log);
     // 设置全局编码为UTF-8（Qt 5及以下）
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
 }

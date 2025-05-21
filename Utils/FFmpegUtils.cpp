@@ -2,9 +2,8 @@
 #include <QFile>
 #include "FFmpegPublicUtils.h"
 #include "../include/SDL3/SDL.h"
-#include "libavdevice/avdevice.h"
 #define FMT_NAME "dshow"
-#define DEVICE_INPUTMICRONAME "audio=麦克风 (2- USB Audio Device)"
+#define DEVICE_INPUTMICRONAME "audio=麦克风 (3- USB Audio Device)"
 #define DEVICE_OUTPUTMICRONAME "audio=扬声器 (2- USB Audio Device)"
 #pragma execution_character_set("utf-8")
 //根据不同设备进行修改，此电脑为USB音频设备
@@ -34,17 +33,17 @@ void FFmpegUtils::ResigsterDevice()
     }
 }
 
-ST_OpenAudioDevice FFmpegUtils::OpenDevice(const QString& devieceFormat, const QString& deviceName)
+std::unique_ptr<ST_OpenAudioDevice> FFmpegUtils::OpenDevice(const QString& devieceFormat, const QString& deviceName)
 {
-    ST_OpenAudioDevice openDeviceParam;
-    openDeviceParam.m_pInputFormatCtx.FindInputFormat(devieceFormat);
-    if (!openDeviceParam.m_pInputFormatCtx.m_pInputFormatCtx)
+    auto openDeviceParam = std::make_unique<ST_OpenAudioDevice>();
+    openDeviceParam->m_pInputFormatCtx.FindInputFormat(devieceFormat);
+    if (!openDeviceParam->m_pInputFormatCtx.m_pInputFormatCtx)
     {
         qDebug() << "not find InputDevice";
         return openDeviceParam;
     }
     QByteArray utf8DeviceName = QString(deviceName).toUtf8();
-    int ret = openDeviceParam.m_pFormatCtx.OpenInputFilePath(utf8DeviceName.constData(), openDeviceParam.m_pInputFormatCtx.m_pInputFormatCtx, nullptr); // 获取输入设备上下文
+    int ret = openDeviceParam->m_pFormatCtx.OpenInputFilePath(utf8DeviceName.constData(), openDeviceParam->m_pInputFormatCtx.m_pInputFormatCtx, nullptr); // 获取输入设备上下文
     if (ret < 0)
     {
         char errbuf[1024] = {0};
@@ -57,7 +56,7 @@ ST_OpenAudioDevice FFmpegUtils::OpenDevice(const QString& devieceFormat, const Q
 
 void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat)
 {
-    ST_OpenAudioDevice openAudioDevice = OpenDevice(FMT_NAME, DEVICE_INPUTMICRONAME);
+    std::unique_ptr<ST_OpenAudioDevice> openAudioDevice = std::move(OpenDevice(FMT_NAME, DEVICE_INPUTMICRONAME));
 
     ST_AVFormatContext outputFormatCtx;
     outputFormatCtx.OpenOutputFilePath(nullptr, encoderFormat.toStdString().c_str(), outputFilePath.toUtf8().constData()); // 输出格式上下文初始化
@@ -108,11 +107,11 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
     int count = 50;
     while (count-- > 0)
     {
-        ret = pkt.ReadPacket(openAudioDevice.m_pFormatCtx.m_pFormatCtx);
+        ret = pkt.ReadPacket(openAudioDevice->m_pFormatCtx.m_pFormatCtx);
         if (ret == 0)
         {
             // 直接复用原始数据包（假设输入格式与输出格式匹配）
-            av_packet_rescale_ts(pkt.m_pkt, openAudioDevice.m_pFormatCtx.m_pFormatCtx->streams[0]->time_base, outStream->time_base);
+            av_packet_rescale_ts(pkt.m_pkt, openAudioDevice->m_pFormatCtx.m_pFormatCtx->streams[0]->time_base, outStream->time_base);
             pkt.m_pkt->stream_index = outStream->index;
             av_interleaved_write_frame(outputFormatCtx.m_pFormatCtx, pkt.m_pkt);
             pkt.UnrefPacket();
@@ -149,13 +148,13 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     }
     // 初始化解码器
     ST_AVCodecParameters codecParams(formatCtx.m_pFormatCtx->streams[audioStreamIdx]->codecpar);
-    ST_AVCodec codec(codecParams.GetDeviceId());
+    ST_AVCodec codec(codecParams.GetCodecId());
     ST_AVCodecContext codeCtx(codec.m_pAvCodec);
     codeCtx.BindParamToContext(codecParams.m_codecParameters);
     codeCtx.OpenCodec(codec.m_pAvCodec, nullptr);
     ST_AudioPlayInfo playInfo;
-    playInfo.InitAudioSpec(true, codecParams.m_codecParameters->sample_rate, codecParams.GetSampleFormat(), codecParams.m_codecParameters->ch_layout.nb_channels);
-    playInfo.InitAudioSpec(false, playInfo.GetAudioSpec(true).freq, (AVSampleFormat)SDL_AUDIO_S16, playInfo.GetAudioSpec(true).channels);
+    playInfo.InitAudioSpec(true, codecParams.m_codecParameters->sample_rate, FFmpegPublicUtils::FFmpegToSDLFormat(codecParams.GetSampleFormat()), codecParams.m_codecParameters->ch_layout.nb_channels);
+    playInfo.InitAudioSpec(false, playInfo.GetAudioSpec(true).freq, SDL_AUDIO_S16, playInfo.GetAudioSpec(true).channels);
     playInfo.InitAudioStream();
     playInfo.InitAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK);
     // 打开音频设备
@@ -184,6 +183,7 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
         playInfo.Delay(100);
     }
 }
+
 // 从AVFormatContext中获取录音设备的相关参数
 void FFmpegUtils::ShowSpec(AVFormatContext* ctx)
 {

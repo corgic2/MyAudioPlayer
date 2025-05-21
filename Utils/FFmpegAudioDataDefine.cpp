@@ -22,20 +22,20 @@ ST_SDLAudioDeviceID& ST_AudioPlayInfo::GetDeviceId()
     return m_audioDeviceId;
 }
 
-void ST_AudioPlayInfo::InitAudioSpec(bool bsrc, int sampleRate, AVSampleFormat format, int channels)
+void ST_AudioPlayInfo::InitAudioSpec(bool bsrc, int sampleRate, SDL_AudioFormat format, int channels)
 {
     if (bsrc)
     {
         SDL_zero(m_srcSpec);
         m_srcSpec.freq = sampleRate; // 采样率
-        m_srcSpec.format = FFmpegPublicUtils::FFmpegToSDLFormat(format); // 格式转换（见下文）
+        m_srcSpec.format = format; // 格式转换（见下文）
         m_srcSpec.channels = channels; // 声道数
     }
     else
     {
         SDL_zero(m_dstSpec);
         m_dstSpec.freq = sampleRate; // 采样率
-        m_dstSpec.format = FFmpegPublicUtils::FFmpegToSDLFormat(format); // 格式转换（见下文）
+        m_dstSpec.format = format; // 格式转换（见下文）
         m_dstSpec.channels = channels; // 声道数
     }
 }

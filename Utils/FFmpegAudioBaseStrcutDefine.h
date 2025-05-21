@@ -1,29 +1,51 @@
 ﻿#pragma once
+#include <qDebug>
 #include <algorithm>
 #include <qtextstream.h>
 #include "FFmpegPublicUtils.h"
+
+extern "C" {
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
+}
+
 #include "SDL3/SDL_audio.h"
 
 struct ST_AVFormatContext
 {
     AVFormatContext* m_pFormatCtx = nullptr;
-
+    ST_AVFormatContext() = default;
     ~ST_AVFormatContext()
     {
+        qDebug() << "~ST_AVFormatContext()";
         if (m_pFormatCtx)
         {
-            avformat_free_context(m_pFormatCtx);
-            avio_closep(&m_pFormatCtx->pb);
+            avformat_close_input(&m_pFormatCtx);
+            m_pFormatCtx = nullptr;
         }
     }
 
+    // 禁用拷贝操作
+    ST_AVFormatContext(const ST_AVFormatContext&) = delete;
+    ST_AVFormatContext& operator=(const ST_AVFormatContext&) = delete;
+
+    ST_AVFormatContext(ST_AVFormatContext&& other) noexcept
+        : m_pFormatCtx(other.m_pFormatCtx)
+    {
+        other.m_pFormatCtx = nullptr;
+    }
     ST_AVFormatContext& operator=(ST_AVFormatContext&& obj)
     {
         if (this != &obj)
         {
-            m_pFormatCtx = std::move(obj.m_pFormatCtx);
+            // 释放当前资源
+            if (m_pFormatCtx)
+            {
+                avformat_close_input(&m_pFormatCtx);
+                m_pFormatCtx = nullptr;
+            }
+            // 转移资源
+            m_pFormatCtx = obj.m_pFormatCtx;
             obj.m_pFormatCtx = nullptr;
         }
         return *this;
@@ -76,6 +98,7 @@ struct ST_AVPacket
 
     ~ST_AVPacket()
     {
+        qDebug() << "~ST_AVPacket()";
         av_packet_free(&m_pkt);
     }
 };
@@ -85,13 +108,14 @@ struct ST_AVInputFormat
     const AVInputFormat* m_pInputFormatCtx = nullptr; // 输入设备格式
     ~ST_AVInputFormat()
     {
+        qDebug() << "~ST_AVInputFormat()";
     }
-
+    
     ST_AVInputFormat& operator=(ST_AVInputFormat&& obj)
     {
         if (this != &obj)
         {
-            m_pInputFormatCtx = obj.m_pInputFormatCtx;
+            m_pInputFormatCtx = std::move(obj.m_pInputFormatCtx);
             obj.m_pInputFormatCtx = nullptr;
         }
         return *this;
@@ -110,14 +134,12 @@ struct ST_AVCodecContext
 
     ST_AVCodecContext(const AVCodec* codec)
     {
-        if (codec != nullptr)
-        {
-            m_pCodecContext = avcodec_alloc_context3(codec);
-        }
+        m_pCodecContext = avcodec_alloc_context3(codec);
     }
 
     ~ST_AVCodecContext()
     {
+        qDebug() << "~ST_AVCodecContext()";
         avcodec_free_context(&m_pCodecContext);
     }
 
@@ -139,10 +161,7 @@ struct ST_SDLAudioDeviceID
 
     ST_SDLAudioDeviceID(SDL_AudioDeviceID devid, const SDL_AudioSpec* spec)
     {
-        if (!spec)
-        {
-            m_audioDevice = SDL_OpenAudioDevice(devid, spec);
-        }
+        m_audioDevice = SDL_OpenAudioDevice(devid, spec);
     }
 
     ST_SDLAudioDeviceID& operator=(ST_SDLAudioDeviceID&& obj)
@@ -150,16 +169,17 @@ struct ST_SDLAudioDeviceID
         if (this != &obj)
         {
             m_audioDevice = obj.m_audioDevice;
+            obj.m_audioDevice = 0;
         }
         return *this;
     }
 
     ~ST_SDLAudioDeviceID()
     {
+        qDebug() << "~ST_SDLAudioDeviceID()";
         SDL_CloseAudioDevice(m_audioDevice);
     }
 };
-
 
 struct ST_SDLAudioStream
 {
@@ -168,10 +188,7 @@ struct ST_SDLAudioStream
 
     ST_SDLAudioStream(SDL_AudioSpec* srcSpec, SDL_AudioSpec* dstSpec)
     {
-        if (!srcSpec && !dstSpec)
-        {
-            m_audioStreamSdl = SDL_CreateAudioStream(srcSpec, dstSpec);
-        }
+        m_audioStreamSdl = SDL_CreateAudioStream(srcSpec, dstSpec);
     }
 
     ST_SDLAudioStream& operator=(ST_SDLAudioStream&& obj)
@@ -186,6 +203,7 @@ struct ST_SDLAudioStream
 
     ~ST_SDLAudioStream()
     {
+        qDebug() << "~ST_SDLAudioStream()";
         SDL_DestroyAudioStream(m_audioStreamSdl);
     }
 };
@@ -194,7 +212,7 @@ struct ST_AVCodecParameters
 {
     AVCodecParameters* m_codecParameters = nullptr;
 
-    AVCodecID GetDeviceId()
+    AVCodecID GetCodecId()
     {
         return m_codecParameters->codec_id;
     }
@@ -202,6 +220,12 @@ struct ST_AVCodecParameters
     ST_AVCodecParameters(AVCodecParameters* obj)
     {
         m_codecParameters = obj;
+    }
+
+    ~ST_AVCodecParameters()
+    {
+        m_codecParameters = nullptr;
+        qDebug() << "~ST_AVCodecParameters()";
     }
 
     int GetSamplePerRate()
@@ -224,6 +248,11 @@ struct ST_AVCodec
 {
     const AVCodec* m_pAvCodec = nullptr;
     ST_AVCodec() = default;
+
+    ~ST_AVCodec()
+    {
+        qDebug() << "~ST_AVCodec()";
+    }
 
     ST_AVCodec(enum AVCodecID id)
     {

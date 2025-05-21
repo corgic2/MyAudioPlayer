@@ -7,7 +7,8 @@
 #include "SDL3/SDL_stdinc.h"
 
 extern "C" {
-#include "../include/libavformat/avformat.h"
+#include "libavformat/avformat.h"
+#include "libavdevice/avdevice.h"
 }
 
 
@@ -22,25 +23,44 @@ public:
     static void ResigsterDevice();
 
 public:
-    // 编码或解码 ffmpeg
-    // inputFilePath 表示需要修改的文件路径
-    // outputFilePath 表示输出的文件路径
-    // bEncoder 表示是否编码 true表示编码，false表示解码
-    // args 表示ffmpeg的参数
+    /// <summary>
+    /// 编码或解码 ffmpeg
+    /// </summary>
+    /// <param name="inputFilePath">inputFilePath 表示需要修改的文件路径</param>
+    /// <param name="outputFilePath">outputFilePath 表示输出的文件路径</param>
+    /// <param name="bEncoder">bEncoder 表示是否编码 true表示编码，false表示解码</param>
+    /// <param name="args">args 表示ffmpeg的参数</param>
     void EncoderOrDecoder(const QString& inputFilePath, const QString& outputFilePath, bool bEncoder, const QStringList& args = QStringList());
-    // 查看音视频的参数信息 ffprobe
-    // inputFilePath 表示需要查看的文件路径
-    // args 表示ffprobe的参数
+    /// <summary>
+    /// 查看音视频的参数信息 ffprobe
+    /// </summary>
+    /// <param name="inputFilePath">inputFilePath 表示需要查看的文件路径</param>
+    /// <param name="args">args 表示ffprobe的参数</param>
+    /// <returns></returns>
     QString GetFileInfomation(const QString& inputFilePath, const QStringList& args = QStringList());
-
-    ST_OpenAudioDevice OpenDevice(const QString& devieceFormat, const QString& deviceName);
-    // 开始录音
+    /// <summary>
+    /// 打开音频设备
+    /// </summary>
+    /// <param name="devieceFormat"></param>
+    /// <param name="deviceName"></param>
+    /// <returns></returns>
+    std::unique_ptr<ST_OpenAudioDevice> OpenDevice(const QString& devieceFormat, const QString& deviceName);
+    /// <summary>
+    /// 开始录音
+    /// </summary>
+    /// <param name="outputFilePath"></param>
+    /// <param name="encoderFormat"></param>
     void StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat);
-    // 播放音视频文件 ffplay
-    // inputFilePath 表示需要播放的文件路径
-    // args 表示ffplay的参数
+    /// <summary>
+    /// 播放音视频文件 ffplay
+    /// </summary>
+    /// <param name="inputFilePath">inputFilePath 表示需要播放的文件路径</param>
+    /// <param name="args">args 表示ffplay的参数</param>
     void StartAudioPlayback(const QString& inputFilePath, const QStringList& args = QStringList());
-    // 显示录音设备的参数S
+    /// <summary>
+    /// 显示录音设备的参数S
+    /// </summary>
+    /// <param name="ctx"></param>
     void ShowSpec(AVFormatContext* ctx);
     //void ResampleAudio(ST_ResampleAudioData* input, ST_ResampleAudioData* output);
 };
