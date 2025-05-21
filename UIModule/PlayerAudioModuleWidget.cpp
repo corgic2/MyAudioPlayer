@@ -24,12 +24,12 @@ void PlayerAudioModuleWidget::SlotPushButtonRecodingAudioClicked()
 {
     QString filePath = QApplication::applicationDirPath();
     QString fileName = "test.wav";
-    FFmpegUtils::StartAudioRecording(filePath + '/' + fileName, "wav");
+    m_ffmpeg.StartAudioRecording(filePath + '/' + fileName, "wav");
 }
 
 void PlayerAudioModuleWidget::SlotPushButtonPlayAudioClicked()
 {
     QString filePath = QApplication::applicationDirPath();
     QString fileName = "test.wav";
-    FFmpegUtils::StartAudioPlayback(filePath + '/' + fileName);
+    m_ffmpeg.StartAudioPlayback(filePath + '/' + fileName);
 }

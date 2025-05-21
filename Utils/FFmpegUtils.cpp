@@ -1,6 +1,8 @@
 ﻿#include "FFmpegUtils.h"
-#include "../include/SDL3/SDL.h"
 #include <QFile>
+#include "FFmpegPublicUtils.h"
+#include "../include/SDL3/SDL.h"
+#include "libavdevice/avdevice.h"
 #define FMT_NAME "dshow"
 #define DEVICE_INPUTMICRONAME "audio=麦克风 (2- USB Audio Device)"
 #define DEVICE_OUTPUTMICRONAME "audio=扬声器 (2- USB Audio Device)"
@@ -32,92 +34,88 @@ void FFmpegUtils::ResigsterDevice()
     }
 }
 
-void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat)
+ST_OpenAudioDevice FFmpegUtils::OpenDevice(const QString& devieceFormat, const QString& deviceName)
 {
-    const AVInputFormat* fmt = av_find_input_format(FMT_NAME);
-    if (!fmt)
+    ST_OpenAudioDevice openDeviceParam;
+    openDeviceParam.m_pInputFormatCtx.FindInputFormat(devieceFormat);
+    if (!openDeviceParam.m_pInputFormatCtx.m_pInputFormatCtx)
     {
         qDebug() << "not find InputDevice";
-        return;
+        return openDeviceParam;
     }
-    AVFormatContext* inputFormatCtx = nullptr;
-    QByteArray utf8DeviceName = QString(DEVICE_INPUTMICRONAME).toUtf8();
-    int ret = avformat_open_input(&inputFormatCtx, utf8DeviceName.constData(), fmt, nullptr); //获取输入设备上下文
+    QByteArray utf8DeviceName = QString(deviceName).toUtf8();
+    int ret = openDeviceParam.m_pFormatCtx.OpenInputFilePath(utf8DeviceName.constData(), openDeviceParam.m_pInputFormatCtx.m_pInputFormatCtx, nullptr); // 获取输入设备上下文
     if (ret < 0)
     {
         char errbuf[1024] = {0};
         qWarning() << "open Device failed";
         av_strerror(ret, errbuf, sizeof(errbuf));
-        return;
+        return openDeviceParam;
     }
-    ShowSpec(inputFormatCtx); // 显示设备参数
+    return openDeviceParam;
+}
 
-    AVFormatContext* outputFormatCtx = nullptr;
-    avformat_alloc_output_context2(&outputFormatCtx, nullptr, encoderFormat.toStdString().c_str(), outputFilePath.toUtf8().constData()); // 输出格式上下文初始化
-    if (!outputFormatCtx)
+void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat)
+{
+    ST_OpenAudioDevice openAudioDevice = OpenDevice(FMT_NAME, DEVICE_INPUTMICRONAME);
+
+    ST_AVFormatContext outputFormatCtx;
+    outputFormatCtx.OpenOutputFilePath(nullptr, encoderFormat.toStdString().c_str(), outputFilePath.toUtf8().constData()); // 输出格式上下文初始化
+    if (!outputFormatCtx.m_pFormatCtx)
     {
         qWarning() << "Failed to create output context";
-        avformat_close_input(&inputFormatCtx); //输出格式初始化失败则关闭输入设备
         return;
     }
 
     // 创建音频流
-    AVStream* outStream = avformat_new_stream(outputFormatCtx, nullptr);
+    AVStream* outStream = avformat_new_stream(outputFormatCtx.m_pFormatCtx, nullptr);
     if (!outStream)
     {
         qWarning() << "Failed to create output stream";
-        avformat_free_context(outputFormatCtx); // 释放输出格式上下文
-        avformat_close_input(&inputFormatCtx);
         return;
     }
 
     // 配置音频编码参数（需与输入设备参数匹配）
-    const AVCodec* codec = FindEncoder(encoderFormat.toStdString().c_str());
-    AVCodecContext* enc_ctx = avcodec_alloc_context3(codec);
-    AVCodecParameters* codecPar = outStream->codecpar;
-    codecPar->codec_id = codec->id;
-    codecPar->codec_type = AVMEDIA_TYPE_AUDIO;
-    codecPar->ch_layout = AV_CHANNEL_LAYOUT_STEREO; // 立体声
-    ConfigureEncoderParams(codecPar, enc_ctx);
-
+    ST_AVCodec codec(FFmpegPublicUtils::FindEncoder(encoderFormat.toStdString().c_str()));
+    ST_AVCodecContext encCtx(codec.m_pAvCodec);
+    ST_AVCodecParameters codecPar(outStream->codecpar);
+    codecPar.m_codecParameters->codec_id = codec.m_pAvCodec->id;
+    codecPar.m_codecParameters->codec_type = AVMEDIA_TYPE_AUDIO;
+    codecPar.m_codecParameters->ch_layout = AV_CHANNEL_LAYOUT_STEREO; // 立体声
+    FFmpegPublicUtils::ConfigureEncoderParams(codecPar.m_codecParameters, encCtx.m_pCodecContext);
+    int ret = 0;
     // 打开输出文件
-    if (!(outputFormatCtx->oformat->flags & AVFMT_NOFILE))
+    if (!(outputFormatCtx.m_pFormatCtx->oformat->flags & AVFMT_NOFILE))
     {
-        ret = avio_open(&outputFormatCtx->pb, outputFilePath.toUtf8().constData(), AVIO_FLAG_WRITE);
+        ret = avio_open(&outputFormatCtx.m_pFormatCtx->pb, outputFilePath.toUtf8().constData(), AVIO_FLAG_WRITE);
         if (ret < 0)
         {
             char errbuf[1024];
             av_strerror(ret, errbuf, sizeof(errbuf));
             qWarning() << "Could not open output file:" << errbuf;
-            avformat_free_context(outputFormatCtx);
-            avformat_close_input(&inputFormatCtx);
             return;
         }
     }
 
     // 写入文件头
-    ret = avformat_write_header(outputFormatCtx, nullptr);
+    ret = outputFormatCtx.WriteFileHeader(nullptr);
     if (ret < 0)
     {
         qWarning() << "Error writing header";
-        avio_closep(&outputFormatCtx->pb);
-        avformat_free_context(outputFormatCtx);
-        avformat_close_input(&inputFormatCtx);
         return;
     }
-
-    AVPacket* pkt = av_packet_alloc();
+    ST_AVPacket pkt;
     int count = 50;
     while (count-- > 0)
     {
-        ret = av_read_frame(inputFormatCtx, pkt);
+        ret = pkt.ReadPacket(openAudioDevice.m_pFormatCtx.m_pFormatCtx);
         if (ret == 0)
         {
             // 直接复用原始数据包（假设输入格式与输出格式匹配）
-            av_packet_rescale_ts(pkt, inputFormatCtx->streams[0]->time_base, outStream->time_base);
-            pkt->stream_index = outStream->index;
-            av_interleaved_write_frame(outputFormatCtx, pkt);
-            av_packet_unref(pkt);
+            av_packet_rescale_ts(pkt.m_pkt, openAudioDevice.m_pFormatCtx.m_pFormatCtx->streams[0]->time_base, outStream->time_base);
+            pkt.m_pkt->stream_index = outStream->index;
+            av_interleaved_write_frame(outputFormatCtx.m_pFormatCtx, pkt.m_pkt);
+            pkt.UnrefPacket();
         }
         else if (ret == AVERROR(EAGAIN))
         {
@@ -130,165 +128,153 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
     }
 
     // 写入文件尾
-    av_write_trailer(outputFormatCtx);
-
-    // 清理资源
-    av_packet_free(&pkt);
-    if (outputFormatCtx && !(outputFormatCtx->oformat->flags & AVFMT_NOFILE))
-    {
-        avio_closep(&outputFormatCtx->pb);
-    }
-    avformat_free_context(outputFormatCtx);
-    avformat_close_input(&inputFormatCtx);
-
+    outputFormatCtx.WriteFileTrailer();
 }
 
 void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QStringList& args)
 {
     // 播放音频文件
-    AVFormatContext* formatCtx = nullptr;
-    int ret = avformat_open_input(&formatCtx, inputFilePath.toUtf8().constData(), nullptr, nullptr);
+    ST_AVFormatContext formatCtx;
+    int ret = formatCtx.OpenInputFilePath(inputFilePath.toUtf8().constData(), nullptr, nullptr);
     if (ret < 0)
     {
         qWarning() << "Failed to open input file";
         return;
     }
-    int audioStreamIdx = av_find_best_stream(formatCtx, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
+    int audioStreamIdx = formatCtx.FindBestStream(AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
     if (audioStreamIdx < 0)
     {
         qWarning() << "未找到音频流";
-        avformat_close_input(&formatCtx);
         return;
     }
     // 初始化解码器
-    const AVCodecParameters* codecParams = formatCtx->streams[audioStreamIdx]->codecpar;
-    const AVCodec* codec = avcodec_find_decoder(codecParams->codec_id);
-    AVCodecContext* codecCtx = avcodec_alloc_context3(codec);
-    avcodec_parameters_to_context(codecCtx, codecParams);
-    avcodec_open2(codecCtx, codec, nullptr);
-    // 输入格式（解码后的数据格式）
-    SDL_AudioSpec srcSpec;
-    SDL_zero(srcSpec);
-    srcSpec.freq = codecParams->sample_rate; // 采样率
-    srcSpec.format = FFmpegToSDLFormat((AVSampleFormat)codecParams->format); // 格式转换（见下文）
-    srcSpec.channels = codecParams->ch_layout.nb_channels; // 声道数
-
-    // 输出格式（设备支持的格式）
-    SDL_AudioSpec dstSpec;
-    SDL_zero(dstSpec);
-    dstSpec.freq = srcSpec.freq; // 保持采样率一致
-    dstSpec.format = SDL_AUDIO_S16; // SDL 常用格式（16位整型）
-    dstSpec.channels = srcSpec.channels; // 声道数（需与设备匹配）
-
-    // 创建音频流（自动处理重采样和格式转换）
-    SDL_AudioStream* audioStreamSDL = SDL_CreateAudioStream(&srcSpec, &dstSpec);
-    if (!audioStreamSDL)
-    {
-        qWarning() << "创建音频流失败:" << SDL_GetError();
-        return;
-    }
-
+    ST_AVCodecParameters codecParams(formatCtx.m_pFormatCtx->streams[audioStreamIdx]->codecpar);
+    ST_AVCodec codec(codecParams.GetDeviceId());
+    ST_AVCodecContext codeCtx(codec.m_pAvCodec);
+    codeCtx.BindParamToContext(codecParams.m_codecParameters);
+    codeCtx.OpenCodec(codec.m_pAvCodec, nullptr);
+    ST_AudioPlayInfo playInfo;
+    playInfo.InitAudioSpec(true, codecParams.m_codecParameters->sample_rate, codecParams.GetSampleFormat(), codecParams.m_codecParameters->ch_layout.nb_channels);
+    playInfo.InitAudioSpec(false, playInfo.GetAudioSpec(true).freq, (AVSampleFormat)SDL_AUDIO_S16, playInfo.GetAudioSpec(true).channels);
+    playInfo.InitAudioStream();
+    playInfo.InitAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK);
     // 打开音频设备
-    SDL_AudioDeviceID audioDevice = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &dstSpec);
-    if (audioDevice == 0)
+    if (playInfo.GetDeviceId().m_audioDevice == 0)
     {
         qWarning() << "Failed to open audio device";
-        avformat_close_input(&formatCtx);
         return;
     }
-    // 播放音频
-    SDL_BindAudioStream(audioDevice, audioStreamSDL); // 关键：绑定流和设备
-    SDL_ResumeAudioDevice(audioDevice); // 开始播放
-    AVPacket* pkt = av_packet_alloc();
-    while (av_read_frame(formatCtx, pkt) >= 0)
+    // 绑定流和设备
+    playInfo.BindStreamAndDevice();
+    playInfo.BeginPlayAudio(); // 开始播放
+    ST_AVPacket pkt;
+    while (pkt.ReadPacket(formatCtx.m_pFormatCtx) >= 0)
     {
-        if (pkt->stream_index == audioStreamIdx)
+        if (pkt.m_pkt->stream_index == audioStreamIdx)
         {
-            avcodec_send_packet(codecCtx, pkt);
+            pkt.SendPacket(codeCtx.m_pCodecContext);
             // 播放音频数据
-            SDL_PutAudioStreamData(audioStreamSDL, pkt->data, pkt->size);
+            playInfo.PutDataToStream(pkt.m_pkt->data, pkt.m_pkt->size);
         }
-        av_packet_unref(pkt);
+        pkt.UnrefPacket();
     }
     // 等待音频播放完成
-    while (SDL_GetAudioStreamQueued(audioStreamSDL) > 0)
+    while (playInfo.GetDataIsEnd() > 0)
     {
-        SDL_Delay(100);
+        playInfo.Delay(100);
     }
-    // 清理资源
-    av_packet_free(&pkt);
-    SDL_CloseAudioDevice(audioDevice);
-    SDL_DestroyAudioStream(audioStreamSDL);
-    SDL_Quit();
-    avcodec_free_context(&codecCtx);
-    avformat_close_input(&formatCtx);
 }
 // 从AVFormatContext中获取录音设备的相关参数
 void FFmpegUtils::ShowSpec(AVFormatContext* ctx)
 {
+    if (!ctx)
+    {
+        qWarning() << "ShowSpec() : AVformatContext ctx is nullptr";
+        return;
+    }
     // 获取输入流
     AVStream* stream = ctx->streams[0];
     // 获取音频参数
-    AVCodecParameters* params = stream->codecpar;
+    ST_AVCodecParameters params(stream->codecpar);
     // 声道数
-    qDebug() << "channels: " << params->ch_layout.nb_channels;
+    qDebug() << "channels: " << params.m_codecParameters->ch_layout.nb_channels;
     // 采样率
-    qDebug() << "samplerate: " << params->sample_rate;
+    qDebug() << "samplerate: " << params.m_codecParameters->sample_rate;
     // 采样格式
-    qDebug() << "format: " << params->format;
+    qDebug() << "format: " << params.m_codecParameters->format;
     // 每一个样本的一个声道占用多少个字节
-    qDebug() << "per sample bytes: " << av_get_bytes_per_sample((AVSampleFormat)params->format);
+    qDebug() << "per sample bytes: " << params.GetSamplePerRate();
     // 编码ID（可以看出采样格式）
-    qDebug() << "codecid: " << params->codec_id;
+    qDebug() << "codecid: " << params.m_codecParameters->codec_id;
     // 每一个样本的一个声道占用多少位（这个函数需要用到avcodec库）
-    qDebug() << "per sample bits: " << av_get_bits_per_sample(params->codec_id);
+    qDebug() << "per sample bits: " << params.GetBitPerSample();
 }
 
-// 根据输出格式自动选择编码器
-const AVCodec* FFmpegUtils::FindEncoder(const char* format_name)
+#if 0
+void FFmpegUtils::ResampleAudio(ST_ResampleAudioData* input, ST_ResampleAudioData* output)
 {
-    if (strcmp(format_name, "wav") == 0)
+    if (nullptr == input || nullptr == output)
     {
-        return avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
+        return;
     }
-    else if (strcmp(format_name, "mp3") == 0)
-    {
-        return avcodec_find_encoder(AV_CODEC_ID_MP3);
-    }
-    // 其他格式处理...
-}
 
-void FFmpegUtils::ConfigureEncoderParams(AVCodecParameters* codecPar, AVCodecContext* enc_ctx)
-{
-    switch (codecPar->codec_id)
-    {
-        case AV_CODEC_ID_PCM_S16LE: // WAV/PCM
-            codecPar->format = AV_SAMPLE_FMT_S16;
-            codecPar->sample_rate = 44100;
-            codecPar->bit_rate = 1411200; // 44100Hz * 16bit * 2channels
-            break;
-        case AV_CODEC_ID_MP3: // MP3
-            enc_ctx->bit_rate = 192000; // 典型比特率
-            enc_ctx->sample_fmt = AV_SAMPLE_FMT_FLTP; // MP3编码器要求的输入格式
-            break;
-    }
-}
+    // 初始化重采样上下文
+    swr_alloc_set_opts2(&input->pSwrCtx, &output->pCodecCtx->ch_layout, (AVSampleFormat)output->pCodecCtx->sample_fmt, output->pCodecCtx->sample_rate, &input->pCodecCtx->ch_layout, (AVSampleFormat)input->pCodecCtx->sample_fmt, input->pCodecCtx->sample_rate, 0, nullptr);
 
-SDL_AudioFormat FFmpegUtils::FFmpegToSDLFormat(AVSampleFormat fmt)
-{
-    switch (fmt)
+    if (!input->pSwrCtx)
     {
-        case AV_SAMPLE_FMT_U8:
-            return SDL_AUDIO_U8;
-        case AV_SAMPLE_FMT_S16:
-            return SDL_AUDIO_S16;
-        case AV_SAMPLE_FMT_S32:
-            return SDL_AUDIO_S32;
-        case AV_SAMPLE_FMT_FLT:
-            return SDL_AUDIO_F32;
-        case AV_SAMPLE_FMT_DBL:
-            return SDL_AUDIO_S32LE;
-        default:
-            return SDL_AUDIO_S16; // 默认兼容格式
+        qWarning() << "Failed to allocate SwrContext";
+        return;
     }
+
+    if (swr_init(input->pSwrCtx) < 0)
+    {
+        qWarning() << "Failed to initialize SwrContext";
+        return;
+    }
+
+    // 重采样
+    int ret = swr_convert(input->pSwrCtx, output->pFrame->data, output->pFrame->nb_samples, input->pFrame->data, input->pFrame->nb_samples);
+
+    if (ret < 0)
+    {
+        qWarning() << "Failed to convert audio";
+        return;
+    }
+
+    // 设置输出帧的参数
+    output->pFrame->format = output->pCodecCtx->sample_fmt;
+    output->pFrame->ch_layout = output->pCodecCtx->ch_layout;
+    output->pFrame->sample_rate = output->pCodecCtx->sample_rate;
+    output->pFrame->nb_samples = input->pFrame->nb_samples * output->pCodecCtx->sample_rate / input->pCodecCtx->sample_rate;
+    // 计算输出帧的大小
+    int size = av_samples_get_buffer_size(nullptr, output->pCodecCtx->ch_layout.nb_channels, output->pFrame->nb_samples, (AVSampleFormat)output->pCodecCtx->sample_fmt, 1);
+    if (size < 0)
+    {
+        qWarning() << "Failed to get buffer size";
+        return;
+    }
+    // 分配输出帧的内存
+    output->pFrame->data[0] = (uint8_t*)av_malloc(size);
+    if (!output->pFrame->data[0])
+    {
+        qWarning() << "Failed to allocate output frame data";
+        return;
+    }
+    // 将重采样后的数据复制到输出帧
+    memcpy(output->pFrame->data[0], input->pFrame->data[0], size);
+    // 清理资源
+    swr_free(&input->pSwrCtx);
+    av_frame_free(&input->pFrame);
+    av_frame_free(&output->pFrame);
+    av_packet_free(&input->pPacket);
+    av_packet_free(&output->pPacket);
+    avformat_free_context(input->pFormatCtx);
+    avformat_free_context(output->pFormatCtx);
+    avcodec_free_context(&input->pCodecCtx);
+    avcodec_free_context(&output->pCodecCtx);
+    SDL_FreeAudioStream(input->pAudioStream);
+    SDL_FreeAudioStream(output->pAudioStream);
+    SDL_Quit();
 }
+#endif 

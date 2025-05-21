@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include "ui_PlayerAudioModuleWidget.h"
+#include "../Utils/FFmpegUtils.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -29,4 +30,5 @@ private:
 
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;
+    FFmpegUtils m_ffmpeg;
 };

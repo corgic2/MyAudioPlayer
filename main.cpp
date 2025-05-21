@@ -2,8 +2,8 @@
 #include <QDebug>
 #include <QTextCodec>
 #include "UIModule/AudioMainWidget.h"
+#include "Utils/FFmpegPublicUtils.h"
 #include "Utils/FFmpegUtils.h"
-
 
 void InitCoreObject()
 {
