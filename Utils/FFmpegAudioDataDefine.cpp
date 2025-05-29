@@ -65,9 +65,9 @@ void ST_AudioPlayInfo::PutDataToStream(const void* buf, int len)
     SDL_PutAudioStreamData(m_audioStream.m_audioStreamSdl, buf, len);
 }
 
-int ST_AudioPlayInfo::GetDataIsEnd()
+bool ST_AudioPlayInfo::GetDataIsEnd()
 {
-    return SDL_GetAudioStreamQueued(m_audioStream.m_audioStreamSdl);
+    return SDL_GetAudioStreamQueued(m_audioStream.m_audioStreamSdl) > 0;
 }
 
 void ST_AudioPlayInfo::Delay(Uint32 ms)

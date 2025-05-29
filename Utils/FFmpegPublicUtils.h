@@ -18,4 +18,6 @@ public:
     static void ConfigureEncoderParams(AVCodecParameters* codecPar, AVCodecContext* encCtx);
     // 将 FFmpeg 的 AVSampleFormat 转换为 SDL_AudioFormat
     static SDL_AudioFormat FFmpegToSDLFormat(AVSampleFormat fmt);
+
+
 };

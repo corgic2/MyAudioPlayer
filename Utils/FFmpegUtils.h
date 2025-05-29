@@ -62,5 +62,8 @@ public:
     /// </summary>
     /// <param name="ctx"></param>
     void ShowSpec(AVFormatContext* ctx);
-    //void ResampleAudio(ST_ResampleAudioData* input, ST_ResampleAudioData* output);
+    /// <summary>
+    /// 音频重采样
+    /// </summary>
+    void ResampleAudio(const uint8_t* input, size_t input_size, ST_ResampleResult& output, const ST_ResampleParams& params);
 };

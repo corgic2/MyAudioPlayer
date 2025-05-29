@@ -104,7 +104,7 @@ public:
     /// 判断是否终止
     /// </summary>
     /// <returns></returns>
-    int GetDataIsEnd();
+    bool GetDataIsEnd();
     /// <summary>
     /// 等待一段时间
     /// </summary>
@@ -115,4 +115,41 @@ private:
     ST_SDLAudioDeviceID m_audioDeviceId;
     SDL_AudioSpec m_srcSpec;
     SDL_AudioSpec m_dstSpec;
+};
+struct ST_ResampleSimpleData
+{
+    int m_sampleRate;
+    int m_channels;
+    ST_AVSampleFormat m_sampleFmt;
+    ST_AVChannelLayout m_channelLayout; // 0表示自动推导
+};
+// 重采样参数结构体
+struct ST_ResampleParams
+{
+    // 输入参数
+    ST_ResampleSimpleData input;
+    // 输出参数
+    ST_ResampleSimpleData output;
+
+    // 自动填充默认值
+    ST_ResampleParams()
+    {
+        input.m_sampleRate = 48000;
+        input.m_channels = 2;
+        input.m_sampleFmt.sampleFormat = AV_SAMPLE_FMT_FLTP;
+
+        output.m_sampleRate = 44100;
+        output.m_channels = 2;
+        output.m_sampleFmt.sampleFormat = AV_SAMPLE_FMT_S16;
+    }
+};
+
+// 重采样结果结构体
+struct ST_ResampleResult
+{
+    std::vector<uint8_t> data; // 重采样后的数据
+    int m_samples;               // 实际采样点数
+    int m_channels;              // 输出声道数
+    int m_sampleRate;           // 输出采样率
+    ST_AVSampleFormat m_sampleFmt; // 输出格式
 };

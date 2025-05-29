@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <qtextstream.h>
 #include "FFmpegPublicUtils.h"
+#include "libswresample/swresample.h"
 
 extern "C" {
 #include "libavcodec/avcodec.h"
@@ -262,5 +263,44 @@ struct ST_AVCodec
     ST_AVCodec(const AVCodec* obj)
     {
         m_pAvCodec = obj;
+    }
+};
+
+
+struct ST_AVSampleFormat
+{
+    AVSampleFormat sampleFormat;
+};
+
+
+struct ST_SwrContext
+{
+    SwrContext *m_swrCtx = nullptr;
+    ST_SwrContext()
+    {
+
+    }
+
+    ~ST_SwrContext()
+    {
+        if (m_swrCtx)
+        {
+            swr_free(&m_swrCtx);
+        }   
+    }
+    void SwrContextInit()
+    {
+        swr_init(m_swrCtx);
+    }
+
+};
+
+struct ST_AVChannelLayout
+{
+    AVChannelLayout *channel = nullptr;
+    ST_AVChannelLayout() = default;
+    ST_AVChannelLayout(AVChannelLayout* ptr)
+    {
+        channel = ptr;
     }
 };

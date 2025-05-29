@@ -1,7 +1,9 @@
 ﻿#include "FFmpegUtils.h"
 #include <QFile>
+#include "AudioResampler.h"
 #include "FFmpegPublicUtils.h"
 #include "../include/SDL3/SDL.h"
+#include "libswresample/swresample.h"
 #define FMT_NAME "dshow"
 #define DEVICE_INPUTMICRONAME "audio=麦克风 (3- USB Audio Device)"
 #define DEVICE_OUTPUTMICRONAME "audio=扬声器 (2- USB Audio Device)"
@@ -178,7 +180,7 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
         pkt.UnrefPacket();
     }
     // 等待音频播放完成
-    while (playInfo.GetDataIsEnd() > 0)
+    while (playInfo.GetDataIsEnd())
     {
         playInfo.Delay(100);
     }
@@ -209,72 +211,31 @@ void FFmpegUtils::ShowSpec(AVFormatContext* ctx)
     // 每一个样本的一个声道占用多少位（这个函数需要用到avcodec库）
     qDebug() << "per sample bits: " << params.GetBitPerSample();
 }
-
-#if 0
-void FFmpegUtils::ResampleAudio(ST_ResampleAudioData* input, ST_ResampleAudioData* output)
+void FFmpegUtils::ResampleAudio(const uint8_t *input, size_t inputSize, ST_ResampleResult &output, const ST_ResampleParams &params)
 {
-    if (nullptr == input || nullptr == output)
-    {
-        return;
-    }
+    AudioResampler resampler;
+    ST_ResampleResult tmp;
 
-    // 初始化重采样上下文
-    swr_alloc_set_opts2(&input->pSwrCtx, &output->pCodecCtx->ch_layout, (AVSampleFormat)output->pCodecCtx->sample_fmt, output->pCodecCtx->sample_rate, &input->pCodecCtx->ch_layout, (AVSampleFormat)input->pCodecCtx->sample_fmt, input->pCodecCtx->sample_rate, 0, nullptr);
-
-    if (!input->pSwrCtx)
+    // 计算输入样本数
+    int inChannels = params.input.m_channels;
+    if (params.input.m_channelLayout.channel)
     {
-        qWarning() << "Failed to allocate SwrContext";
-        return;
+        inChannels = params.input.m_channels;
     }
+    // 获取单个格式字节数
+    int bytesPerSample = av_get_bytes_per_sample(params.input.m_sampleFmt.sampleFormat);
+    int inputSamples = inputSize / (inChannels * bytesPerSample);
 
-    if (swr_init(input->pSwrCtx) < 0)
-    {
-        qWarning() << "Failed to initialize SwrContext";
-        return;
-    }
+    // 准备输入指针数组
+    const uint8_t *in_data[AV_NUM_DATA_POINTERS] = {input};
 
-    // 重采样
-    int ret = swr_convert(input->pSwrCtx, output->pFrame->data, output->pFrame->nb_samples, input->pFrame->data, input->pFrame->nb_samples);
-
-    if (ret < 0)
+    // 执行重采样
+    resampler.Resample(in_data, inputSamples, output, params);
+    // 刷新剩余数据
+    resampler.Flush(tmp, params);
+    if (!tmp.data.empty())
     {
-        qWarning() << "Failed to convert audio";
-        return;
+        output.data.insert(output.data.end(), tmp.data.begin(), tmp.data.end());
+        output.m_samples += tmp.m_samples;
     }
-
-    // 设置输出帧的参数
-    output->pFrame->format = output->pCodecCtx->sample_fmt;
-    output->pFrame->ch_layout = output->pCodecCtx->ch_layout;
-    output->pFrame->sample_rate = output->pCodecCtx->sample_rate;
-    output->pFrame->nb_samples = input->pFrame->nb_samples * output->pCodecCtx->sample_rate / input->pCodecCtx->sample_rate;
-    // 计算输出帧的大小
-    int size = av_samples_get_buffer_size(nullptr, output->pCodecCtx->ch_layout.nb_channels, output->pFrame->nb_samples, (AVSampleFormat)output->pCodecCtx->sample_fmt, 1);
-    if (size < 0)
-    {
-        qWarning() << "Failed to get buffer size";
-        return;
-    }
-    // 分配输出帧的内存
-    output->pFrame->data[0] = (uint8_t*)av_malloc(size);
-    if (!output->pFrame->data[0])
-    {
-        qWarning() << "Failed to allocate output frame data";
-        return;
-    }
-    // 将重采样后的数据复制到输出帧
-    memcpy(output->pFrame->data[0], input->pFrame->data[0], size);
-    // 清理资源
-    swr_free(&input->pSwrCtx);
-    av_frame_free(&input->pFrame);
-    av_frame_free(&output->pFrame);
-    av_packet_free(&input->pPacket);
-    av_packet_free(&output->pPacket);
-    avformat_free_context(input->pFormatCtx);
-    avformat_free_context(output->pFormatCtx);
-    avcodec_free_context(&input->pCodecCtx);
-    avcodec_free_context(&output->pCodecCtx);
-    SDL_FreeAudioStream(input->pAudioStream);
-    SDL_FreeAudioStream(output->pAudioStream);
-    SDL_Quit();
 }
-#endif 
