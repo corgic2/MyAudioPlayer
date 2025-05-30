@@ -1,6 +1,7 @@
-#include "AudioResampler.h"
+ï»¿#include "AudioResampler.h"
 
 AudioResampler::AudioResampler()
+    : m_lastInLayout{}, m_lastOutLayout{}
 {
     m_lastInFmt = AV_SAMPLE_FMT_NONE;
     m_lastOutFmt = AV_SAMPLE_FMT_NONE;
@@ -8,13 +9,13 @@ AudioResampler::AudioResampler()
 
 void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_ResampleResult& output, const ST_ResampleParams& params)
 {
-    // ÑéÖ¤ÊäÈë
+    // éªŒè¯è¾“å…¥
     if (!inputData || inputSamples <= 0)
     {
         return;
     }
 
-    // ×Ô¶¯ÍÆµ¼ÉùµÀ²¼¾Ö
+    // è‡ªåŠ¨æ¨å¯¼å£°é“å¸ƒå±€
     uint64_t inLayout = params.input.m_channelLayout.channel->nb_channels;
     if (inLayout == 0)
     {
@@ -27,18 +28,18 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
         outLayout = params.output.m_channels;
     }
 
-    // ¼ì²éÊÇ·ñĞèÒªÖØĞÂ³õÊ¼»¯
+    // æ£€æŸ¥æ˜¯å¦éœ€è¦é‡æ–°åˆå§‹åŒ–
     if (!m_swrCtx.m_swrCtx || inLayout != m_lastInLayout.nb_channels || outLayout != m_lastOutLayout.nb_channels 
         || params.input.m_sampleRate != m_lastInRate || params.output.m_sampleRate != m_lastOutRate || params.input.m_sampleFmt.sampleFormat != m_lastInFmt
         || params.output.m_sampleFmt.sampleFormat != m_lastOutFmt)
     {
-        // ÊÍ·Å¾ÉÉÏÏÂÎÄ
+        // é‡Šæ”¾æ—§ä¸Šä¸‹æ–‡
         if (m_swrCtx.m_swrCtx)
         {
             swr_free(&m_swrCtx.m_swrCtx);
         }
 
-        // ´´½¨ĞÂÉÏÏÂÎÄ
+        // åˆ›å»ºæ–°ä¸Šä¸‹æ–‡
         swr_alloc_set_opts2(&m_swrCtx.m_swrCtx, params.output.m_channelLayout.channel, params.output.m_sampleFmt.sampleFormat, params.output.m_sampleRate,
             params.input.m_channelLayout.channel, params.input.m_sampleFmt.sampleFormat, params.input.m_sampleRate, 0, nullptr);
 
@@ -47,7 +48,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
             return;
         }
 
-        // ³õÊ¼»¯
+        // åˆå§‹åŒ–
         int ret = swr_init(m_swrCtx.m_swrCtx);
         if (ret < 0)
         {
@@ -55,22 +56,22 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
         }
 
     }
-    // ±£´æµ±Ç°²ÎÊı
+    // ä¿å­˜å½“å‰å‚æ•°
     m_lastInLayout.nb_channels = inLayout;
     m_lastOutLayout.nb_channels = outLayout;
     m_lastInRate = params.input.m_sampleRate;
     m_lastOutRate = params.output.m_sampleRate;
     m_lastInFmt = params.input.m_sampleFmt.sampleFormat;
     m_lastOutFmt = params.output.m_sampleFmt.sampleFormat;
-    // ¼ÆËãÊä³öÑù±¾Êı
+    // è®¡ç®—è¾“å‡ºæ ·æœ¬æ•°
     int outSamples = swr_get_out_samples(m_swrCtx.m_swrCtx, inputSamples);
     if (outSamples < 0)
     {
-        outSamples = av_rescale_rnd(swr_get_delay(m_swrCtx.m_swrCtx, params.input.m_sampleRate) + inputSamples,
+        outSamples = av_rescale_rnd(swr_get_delay(m_swrCtx.m_swrCtx, params.input.m_sampleRate) + inputSamples,  // NOLINT(clang-diagnostic-shorten-64-to-32)
             params.output.m_sampleRate, params.input.m_sampleRate, AV_ROUND_UP);
     }
 
-    // ·ÖÅäÊä³ö»º³åÇø
+    // åˆ†é…è¾“å‡ºç¼“å†²åŒº
     int outChannels = params.output.m_channels;
     size_t bufSize = av_samples_get_buffer_size(nullptr, outChannels, outSamples, params.output.m_sampleFmt.sampleFormat, 1);
 
@@ -82,7 +83,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     output.data.resize(bufSize);
     uint8_t* outBuf = output.data.data();
 
-    // Ö´ĞĞÖØ²ÉÑù
+    // æ‰§è¡Œé‡é‡‡æ ·
     int realOutSamples = swr_convert(m_swrCtx.m_swrCtx, &outBuf, outSamples, inputData, inputSamples);
 
     if (realOutSamples < 0)
@@ -90,7 +91,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
         return;
     }
 
-    // ¸üĞÂÊµ¼ÊÊä³ö´óĞ¡
+    // æ›´æ–°å®é™…è¾“å‡ºå¤§å°
     size_t realBufSize = av_samples_get_buffer_size(nullptr, outChannels, realOutSamples, params.output.m_sampleFmt.sampleFormat, 1);
 
     if (realBufSize < bufSize)
@@ -98,7 +99,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
         output.data.resize(realBufSize);
     }
 
-    // Ìî³ä½á¹ûĞÅÏ¢
+    // å¡«å……ç»“æœä¿¡æ¯
     output.m_samples = realOutSamples;
     output.m_channels = outChannels;
     output.m_sampleRate = params.output.m_sampleRate;
@@ -112,7 +113,7 @@ void AudioResampler::Flush(ST_ResampleResult& output, const ST_ResampleParams& p
         return;
     }
 
-    // ¹ÀËãÊ£ÓàÑù±¾
+    // ä¼°ç®—å‰©ä½™æ ·æœ¬
     int delaySamples = swr_get_delay(m_swrCtx.m_swrCtx, params.output.m_sampleRate);
     if (delaySamples <= 0)
     {
@@ -127,14 +128,14 @@ void AudioResampler::Flush(ST_ResampleResult& output, const ST_ResampleParams& p
     output.data.resize(bufSize);
     uint8_t* outBuf = output.data.data();
 
-    // »ñÈ¡Ê£ÓàÊı¾İ
+    // è·å–å‰©ä½™æ•°æ®
     int realOutSamples = swr_convert(m_swrCtx.m_swrCtx, &outBuf, delaySamples, nullptr, 0);
     if (realOutSamples < 0)
     {
         return;
     }
 
-    // µ÷ÕûÊµ¼Ê´óĞ¡
+    // è°ƒæ•´å®é™…å¤§å°
     size_t realBufSize = av_samples_get_buffer_size(nullptr, outChannels, realOutSamples, m_lastOutFmt, 1);
 
     if (realBufSize < static_cast<size_t>(bufSize))
@@ -142,7 +143,7 @@ void AudioResampler::Flush(ST_ResampleResult& output, const ST_ResampleParams& p
         output.data.resize(realBufSize);
     }
 
-    // Ìî³ä½á¹û
+    // å¡«å……ç»“æœ
     output.m_samples = realOutSamples;
     output.m_channels = outChannels;
     output.m_sampleRate = m_lastOutRate;

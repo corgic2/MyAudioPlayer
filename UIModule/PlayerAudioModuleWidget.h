@@ -17,16 +17,16 @@ class PlayerAudioModuleWidget : public QWidget
     Q_OBJECT
 
 public:
-    PlayerAudioModuleWidget(QWidget* parent = nullptr);
-    ~PlayerAudioModuleWidget() override;
+    explicit PlayerAudioModuleWidget(QWidget* parent = nullptr);
+    ~PlayerAudioModuleWidget();
 
 protected slots:
     void SlotPushButtonRecodingAudioClicked();
-
     void SlotPushButtonPlayAudioClicked();
-
+    void SlotInputDeviceChanged(int index);
 private:
     void ConnectSignals();
+    void InitAudioDevices();
 
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;

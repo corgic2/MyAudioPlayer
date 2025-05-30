@@ -45,9 +45,10 @@ void ST_AudioPlayInfo::InitAudioStream()
     m_audioStream = std::move(ST_SDLAudioStream(&m_srcSpec, &m_dstSpec));
 }
 
-void ST_AudioPlayInfo::InitAudioDevice(SDL_AudioDeviceID devid)
+void ST_AudioPlayInfo::InitAudioDevice(SDL_AudioDeviceID deviceId)
 {
-    m_audioDeviceId = std::move(ST_SDLAudioDeviceID(devid, &m_dstSpec));
+    // 使用SDL设备ID打开音频设备
+    m_audioDeviceId = std::move(ST_SDLAudioDeviceID(deviceId, &m_dstSpec));
 }
 
 void ST_AudioPlayInfo::BindStreamAndDevice()

@@ -3,10 +3,7 @@
 #include "AudioResampler.h"
 #include "FFmpegPublicUtils.h"
 #include "../include/SDL3/SDL.h"
-#include "libswresample/swresample.h"
 #define FMT_NAME "dshow"
-#define DEVICE_INPUTMICRONAME "audio=麦克风 (3- USB Audio Device)"
-#define DEVICE_OUTPUTMICRONAME "audio=扬声器 (2- USB Audio Device)"
 #pragma execution_character_set("utf-8")
 //根据不同设备进行修改，此电脑为USB音频设备
 FFmpegUtils::FFmpegUtils(QObject *parent)
@@ -35,7 +32,7 @@ void FFmpegUtils::ResigsterDevice()
     }
 }
 
-std::unique_ptr<ST_OpenAudioDevice> FFmpegUtils::OpenDevice(const QString& devieceFormat, const QString& deviceName)
+std::unique_ptr<ST_OpenAudioDevice> FFmpegUtils::OpenDevice(const QString& devieceFormat, const QString& deviceName,bool bAudio)
 {
     auto openDeviceParam = std::make_unique<ST_OpenAudioDevice>();
     openDeviceParam->m_pInputFormatCtx.FindInputFormat(devieceFormat);
@@ -44,7 +41,8 @@ std::unique_ptr<ST_OpenAudioDevice> FFmpegUtils::OpenDevice(const QString& devie
         qDebug() << "not find InputDevice";
         return openDeviceParam;
     }
-    QByteArray utf8DeviceName = QString(deviceName).toUtf8();
+    QString type = bAudio ? "audio=" : "vedio=";
+    QByteArray utf8DeviceName = type.toUtf8() + QString(deviceName).toUtf8();
     int ret = openDeviceParam->m_pFormatCtx.OpenInputFilePath(utf8DeviceName.constData(), openDeviceParam->m_pInputFormatCtx.m_pInputFormatCtx, nullptr); // 获取输入设备上下文
     if (ret < 0)
     {
@@ -58,7 +56,8 @@ std::unique_ptr<ST_OpenAudioDevice> FFmpegUtils::OpenDevice(const QString& devie
 
 void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat)
 {
-    std::unique_ptr<ST_OpenAudioDevice> openAudioDevice = std::move(OpenDevice(FMT_NAME, DEVICE_INPUTMICRONAME));
+    // 使用当前选择的输入设备
+    std::unique_ptr<ST_OpenAudioDevice> openAudioDevice = std::move(OpenDevice(FMT_NAME, m_currentInputDevice));
 
     ST_AVFormatContext outputFormatCtx;
     outputFormatCtx.OpenOutputFilePath(nullptr, encoderFormat.toStdString().c_str(), outputFilePath.toUtf8().constData()); // 输出格式上下文初始化
@@ -155,10 +154,16 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     codeCtx.BindParamToContext(codecParams.m_codecParameters);
     codeCtx.OpenCodec(codec.m_pAvCodec, nullptr);
     ST_AudioPlayInfo playInfo;
-    playInfo.InitAudioSpec(true, codecParams.m_codecParameters->sample_rate, FFmpegPublicUtils::FFmpegToSDLFormat(codecParams.GetSampleFormat()), codecParams.m_codecParameters->ch_layout.nb_channels);
-    playInfo.InitAudioSpec(false, playInfo.GetAudioSpec(true).freq, SDL_AUDIO_S16, playInfo.GetAudioSpec(true).channels);
+    playInfo.InitAudioSpec(true, codecParams.m_codecParameters->sample_rate, 
+                          FFmpegPublicUtils::FFmpegToSDLFormat(codecParams.GetSampleFormat()), 
+                          codecParams.m_codecParameters->ch_layout.nb_channels);
+    playInfo.InitAudioSpec(false, playInfo.GetAudioSpec(true).freq, SDL_AUDIO_S16, 
+                          playInfo.GetAudioSpec(true).channels);
     playInfo.InitAudioStream();
+    
+    // 使用SDL设备ID初始化音频设备
     playInfo.InitAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK);
+    
     // 打开音频设备
     if (playInfo.GetDeviceId().m_audioDevice == 0)
     {
@@ -238,4 +243,37 @@ void FFmpegUtils::ResampleAudio(const uint8_t *input, size_t inputSize, ST_Resam
         output.data.insert(output.data.end(), tmp.data.begin(), tmp.data.end());
         output.m_samples += tmp.m_samples;
     }
+}
+
+QStringList FFmpegUtils::GetInputAudioDevices()
+{
+    QStringList devices;
+    const AVInputFormat* inputFormat = av_find_input_format(FMT_NAME);
+    if (!inputFormat) {
+        qWarning() << "Failed to find input format:" << FMT_NAME;
+        return devices;
+    }
+
+    AVDeviceInfoList* deviceList = nullptr;
+    int ret = avdevice_list_input_sources(inputFormat, nullptr, nullptr, &deviceList);
+    if (ret < 0) {
+        char errbuf[1024];
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        qWarning() << "Failed to get input devices:" << errbuf;
+        return devices;
+    }
+
+    for (int i = 0; i < deviceList->nb_devices; i++) {
+        if (*deviceList->devices[i]->media_types == AVMEDIA_TYPE_AUDIO) {
+            devices.append(QString::fromUtf8(deviceList->devices[i]->device_description));
+        }
+    }
+
+    avdevice_free_list_devices(&deviceList);
+    return devices;
+}
+
+void FFmpegUtils::SetInputDevice(const QString& deviceName)
+{
+    m_currentInputDevice = deviceName;
 }

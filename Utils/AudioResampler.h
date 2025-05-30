@@ -1,8 +1,6 @@
-#pragma once
+ï»¿#pragma once
 #include "FFmpegAudioDataDefine.h"
-#include "libswresample/swresample.h"
-
-// ÖØ²ÉÑùÆ÷Àà£¨Ö§³ÖÁ¬ĞøÖØ²ÉÑù£©
+// é‡é‡‡æ ·å™¨ç±»ï¼ˆæ”¯æŒè¿ç»­é‡é‡‡æ ·ï¼‰
 class AudioResampler
 {
   public:
@@ -10,10 +8,10 @@ class AudioResampler
 
     ~AudioResampler() = default;
 
-    // Ö÷ÖØ²ÉÑùº¯Êı
+    // ä¸»é‡é‡‡æ ·å‡½æ•°
     void Resample(const uint8_t **inputData, int inputSamples, ST_ResampleResult &output, const ST_ResampleParams &params);
 
-    // Ë¢ĞÂÖØ²ÉÑùÆ÷£¨»ñÈ¡Ê£ÓàÊı¾İ£©
+    // åˆ·æ–°é‡é‡‡æ ·å™¨ï¼ˆè·å–å‰©ä½™æ•°æ®ï¼‰
     void Flush(ST_ResampleResult &output, const ST_ResampleParams &params);
   private:
     ST_SwrContext m_swrCtx;

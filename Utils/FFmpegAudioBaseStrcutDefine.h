@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <qtextstream.h>
 #include "FFmpegPublicUtils.h"
-#include "libswresample/swresample.h"
 
 extern "C" {
+#include "libswresample/swresample.h"
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
 }
@@ -160,9 +160,10 @@ struct ST_SDLAudioDeviceID
     SDL_AudioDeviceID m_audioDevice;
     ST_SDLAudioDeviceID() = default;
 
-    ST_SDLAudioDeviceID(SDL_AudioDeviceID devid, const SDL_AudioSpec* spec)
+    ST_SDLAudioDeviceID(SDL_AudioDeviceID deviceId, const SDL_AudioSpec* spec)
     {
-        m_audioDevice = SDL_OpenAudioDevice(devid, spec);
+        // 使用设备ID打开音频设备
+        m_audioDevice = SDL_OpenAudioDevice(deviceId, spec);
     }
 
     ST_SDLAudioDeviceID& operator=(ST_SDLAudioDeviceID&& obj)
