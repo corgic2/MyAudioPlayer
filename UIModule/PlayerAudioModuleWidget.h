@@ -1,8 +1,8 @@
 ﻿#pragma once
 
 #include <QWidget>
+#include "FFmpegUtils.h"
 #include "ui_PlayerAudioModuleWidget.h"
-#include "../Utils/FFmpegUtils.h"
 
 QT_BEGIN_NAMESPACE
 

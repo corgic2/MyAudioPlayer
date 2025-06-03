@@ -1,7 +1,6 @@
 ﻿#include "PlayerAudioModuleWidget.h"
 
 #include "AudioMainWidget.h"
-#include "../Utils/FFmpegUtils.h"
 
 PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
     : QWidget(parent)

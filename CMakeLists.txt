@@ -100,6 +100,8 @@ target_link_libraries(${TARGET_NAME} PUBLIC
 # 添加头文件
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/include")
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/UIModule")
+target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/DataDefine")
+target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/Utils")
 
 # 添加lib信息
 set(ffmpegLibFile "${CMAKE_SOURCE_DIR}/ffmpegLib.txt")

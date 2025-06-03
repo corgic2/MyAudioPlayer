@@ -1,8 +1,6 @@
 ﻿#pragma once
 #include <qDebug>
 #include <algorithm>
-#include <qtextstream.h>
-#include "FFmpegPublicUtils.h"
 
 extern "C" {
 #include "libswresample/swresample.h"

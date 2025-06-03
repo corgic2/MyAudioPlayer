@@ -27,6 +27,29 @@ public:
 
 public:
     /// <summary>
+    /// 开始录音
+    /// </summary>
+    /// <param name="outputFilePath"></param>
+    /// <param name="encoderFormat"></param>
+    void StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat);
+    /// <summary>
+    /// 播放音视频文件 ffplay
+    /// </summary>
+    /// <param name="inputFilePath">inputFilePath 表示需要播放的文件路径</param>
+    /// <param name="args">args 表示ffplay的参数</param>
+    void StartAudioPlayback(const QString& inputFilePath, const QStringList& args = QStringList());
+    /// <summary>
+    /// 获取所有可用的音频输入设备（FFmpeg设备）
+    /// </summary>
+    /// <returns>返回设备名称列表</returns>
+    QStringList GetInputAudioDevices();
+    /// <summary>
+    /// 设置当前使用的输入设备（FFmpeg设备）
+    /// </summary>
+    void SetInputDevice(const QString& deviceName);
+
+private:
+    /// <summary>
     /// 编码或解码 ffmpeg
     /// </summary>
     /// <param name="inputFilePath">inputFilePath 表示需要修改的文件路径</param>
@@ -49,18 +72,6 @@ public:
     /// <returns></returns>
     std::unique_ptr<ST_OpenAudioDevice> OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio = true);
     /// <summary>
-    /// 开始录音
-    /// </summary>
-    /// <param name="outputFilePath"></param>
-    /// <param name="encoderFormat"></param>
-    void StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat);
-    /// <summary>
-    /// 播放音视频文件 ffplay
-    /// </summary>
-    /// <param name="inputFilePath">inputFilePath 表示需要播放的文件路径</param>
-    /// <param name="args">args 表示ffplay的参数</param>
-    void StartAudioPlayback(const QString& inputFilePath, const QStringList& args = QStringList());
-    /// <summary>
     /// 显示录音设备的参数S
     /// </summary>
     /// <param name="ctx"></param>
@@ -69,17 +80,6 @@ public:
     /// 音频重采样
     /// </summary>
     void ResampleAudio(const uint8_t* input, size_t input_size, ST_ResampleResult& output, const ST_ResampleParams& params);
-
-    /// <summary>
-    /// 获取所有可用的音频输入设备（FFmpeg设备）
-    /// </summary>
-    /// <returns>返回设备名称列表</returns>
-    QStringList GetInputAudioDevices();
-
-    /// <summary>
-    /// 设置当前使用的输入设备（FFmpeg设备）
-    /// </summary>
-    void SetInputDevice(const QString& deviceName);
 
 private:
     QString m_currentInputDevice;  // 当前选择的FFmpeg输入设备

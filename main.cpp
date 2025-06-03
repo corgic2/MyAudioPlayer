@@ -2,8 +2,8 @@
 #include <QDebug>
 #include <QTextCodec>
 #include "UIModule/AudioMainWidget.h"
+#include "UIModule/FFmpegUtils.h"
 #include "Utils/FFmpegPublicUtils.h"
-#include "Utils/FFmpegUtils.h"
 
 void custom_log(void* ptr, int level, const char* fmt, va_list vl)
 {
