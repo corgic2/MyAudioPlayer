@@ -1,29 +1,27 @@
 @ECHO OFF
 set CURDIR=%~dp0
 
-
 set "FFMPEGDIR=D:\WorkSpace\ffmpeg-7.1.1-full_build-shared"
 set "SDLDIR=D:\WorkSpace\SDL3-3.2.14\x86_64-w64-mingw32"
 set "CustomUIDir=D:\Program Files\Projects\MyCustomUIWidget"
 if not exist "%~dp0include\" mkdir "%~dp0include"
-if not exist "%~dp0x64\Debug\" mkdir "%~dp0x64\Debug"
+if not exist "%~dp0x64\Release\" mkdir "%~dp0x64\Release"
 
 xcopy "%FFMPEGDIR%\include\*" "%~dp0include\" /E /I /Y
 xcopy "%SDLDIR%\include\*" "%~dp0include\" /E /I /Y
 xcopy "%CustomUIDir%\MuCustomUiWidget\*.h" "%~dp0include\" /E /I /Y
 xcopy "%CustomUIDir%\MuCustomUiWidget\*.ui" "%~dp0include\" /E /I /Y
 
-xcopy "%FFMPEGDIR%\lib\*" "%~dp0x64\Debug\" /E /I /Y
-xcopy "%FFMPEGDIR%\bin\*" "%~dp0x64\Debug\" /E /I /Y
-xcopy "%CustomUIDir%\x64\Debug\MuCustomUiWidget.dll" "%~dp0x64\Debug\" /Y
-xcopy "%CustomUIDir%\x64\Debug\MuCustomUiWidget.lib" "%~dp0x64\Debug\" /Y
-
+xcopy "%FFMPEGDIR%\lib\*" "%~dp0x64\Release\" /E /I /Y
+xcopy "%FFMPEGDIR%\bin\*" "%~dp0x64\Release\" /E /I /Y
+xcopy "%CustomUIDir%\x64\Release\MuCustomUiWidget.dll" "%~dp0x64\Release\" /E /I /Y
+xcopy "%CustomUIDir%\x64\Release\MuCustomUiWidget.lib" "%~dp0x64\Release\" /E /I /Y
 echo Operation completed.
 
 md build
 cd build
-cmake -DCMAKE_CONFIGURATION_TYPES=Debug .. -G "Visual Studio 17 2022"
-cmake --build . --config Debug
+cmake -DCMAKE_CONFIGURATION_TYPES=Release .. -G "Visual Studio 17 2022"
+cmake --build . --config Release
 
 @REM windeployqt
 if defined QT_DIR (
@@ -34,4 +32,4 @@ if defined QT_DIR (
 
 cd %CURDIR%
 
-pause
+pause 

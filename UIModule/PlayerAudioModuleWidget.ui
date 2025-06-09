@@ -14,14 +14,32 @@
    <string>PlayerAudioModuleWidget</string>
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout">
+   <property name="spacing">
+    <number>16</number>
+   </property>
+   <property name="leftMargin">
+    <number>16</number>
+   </property>
+   <property name="topMargin">
+    <number>16</number>
+   </property>
+   <property name="rightMargin">
+    <number>16</number>
+   </property>
+   <property name="bottomMargin">
+    <number>16</number>
+   </property>
    <item>
     <layout class="QVBoxLayout" name="verticalLayout">
+     <property name="spacing">
+      <number>12</number>
+     </property>
      <item>
-      <widget class="QLabel" name="label_2">
+      <widget class="CustomLabel" name="labelFileList">
        <property name="maximumSize">
         <size>
          <width>300</width>
-         <height>16777215</height>
+         <height>30</height>
         </size>
        </property>
        <property name="text">
@@ -30,7 +48,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QListWidget" name="listWidget">
+      <widget class="FilePathIconListWidget" name="audioFileList">
        <property name="maximumSize">
         <size>
          <width>300</width>
@@ -50,6 +68,21 @@
       <enum>QFrame::Raised</enum>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_3">
+      <property name="spacing">
+       <number>12</number>
+      </property>
+      <property name="leftMargin">
+       <number>12</number>
+      </property>
+      <property name="topMargin">
+       <number>12</number>
+      </property>
+      <property name="rightMargin">
+       <number>12</number>
+      </property>
+      <property name="bottomMargin">
+       <number>12</number>
+      </property>
       <item>
        <widget class="QFrame" name="VedioFrame">
         <property name="minimumSize">
@@ -67,97 +100,124 @@
        </widget>
       </item>
       <item>
-       <layout class="QVBoxLayout" name="VedioFrame_2">
+       <layout class="QVBoxLayout" name="controlLayout">
+        <property name="spacing">
+         <number>12</number>
+        </property>
         <item>
-         <widget class="QPushButton" name="pushButton">
+         <widget class="CustomToolButton" name="btnRecord">
           <property name="minimumSize">
            <size>
             <width>0</width>
-            <height>30</height>
+            <height>36</height>
            </size>
           </property>
           <property name="text">
            <string>录制</string>
           </property>
+          <property name="toolTipsText" stdset="0">
+           <string>开始/停止录制音频</string>
+          </property>
          </widget>
         </item>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <property name="spacing">
+           <number>12</number>
+          </property>
           <item>
-           <widget class="QToolButton" name="toolButton">
+           <widget class="CustomToolButton" name="btnPrevious">
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>30</height>
+              <height>36</height>
              </size>
             </property>
             <property name="text">
-             <string>上集</string>
+             <string>上一个</string>
+            </property>
+            <property name="toolTipsText" stdset="0">
+             <string>播放上一个音频文件</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QToolButton" name="toolButton_3">
+           <widget class="CustomToolButton" name="btnBackward">
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>30</height>
+              <height>36</height>
              </size>
             </property>
             <property name="text">
-             <string>前移15s</string>
+             <string>后退15秒</string>
+            </property>
+            <property name="toolTipsText" stdset="0">
+             <string>快退15秒</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QToolButton" name="toolButton_5">
+           <widget class="CustomToolButton" name="btnPause">
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>30</height>
+              <height>36</height>
              </size>
             </property>
             <property name="text">
              <string>暂停</string>
             </property>
+            <property name="toolTipsText" stdset="0">
+             <string>暂停播放</string>
+            </property>
            </widget>
           </item>
           <item>
-           <widget class="QPushButton" name="pushButton_2">
+           <widget class="CustomToolButton" name="btnPlay">
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>30</height>
+              <height>36</height>
              </size>
             </property>
             <property name="text">
              <string>播放</string>
             </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="QToolButton" name="toolButton_4">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>30</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>后移15秒</string>
+            <property name="toolTipsText" stdset="0">
+             <string>开始播放</string>
             </property>
            </widget>
           </item>
           <item>
-           <widget class="QToolButton" name="toolButton_2">
+           <widget class="CustomToolButton" name="btnForward">
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>30</height>
+              <height>36</height>
              </size>
             </property>
             <property name="text">
-             <string>下集</string>
+             <string>前进15秒</string>
+            </property>
+            <property name="toolTipsText" stdset="0">
+             <string>快进15秒</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="CustomToolButton" name="btnNext">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>36</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>下一个</string>
+            </property>
+            <property name="toolTipsText" stdset="0">
+             <string>播放下一个音频文件</string>
             </property>
            </widget>
           </item>
@@ -189,8 +249,26 @@
       <enum>QFrame::Raised</enum>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_4">
+      <property name="spacing">
+       <number>12</number>
+      </property>
+      <property name="leftMargin">
+       <number>12</number>
+      </property>
+      <property name="topMargin">
+       <number>12</number>
+      </property>
+      <property name="rightMargin">
+       <number>12</number>
+      </property>
+      <property name="bottomMargin">
+       <number>12</number>
+      </property>
       <item>
        <layout class="QVBoxLayout" name="verticalLayout_2">
+        <property name="spacing">
+         <number>12</number>
+        </property>
         <item>
          <widget class="QFrame" name="ToolButtonFrame">
           <property name="maximumSize">
@@ -207,28 +285,31 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_5">
            <property name="spacing">
-            <number>0</number>
+            <number>12</number>
            </property>
            <property name="leftMargin">
-            <number>0</number>
+            <number>12</number>
            </property>
            <property name="topMargin">
-            <number>0</number>
+            <number>12</number>
            </property>
            <property name="rightMargin">
-            <number>0</number>
+            <number>12</number>
            </property>
            <property name="bottomMargin">
-            <number>0</number>
+            <number>12</number>
            </property>
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_3">
+             <property name="spacing">
+              <number>12</number>
+             </property>
              <item>
-              <widget class="QLabel" name="label">
+              <widget class="CustomLabel" name="labelInput">
                <property name="maximumSize">
                 <size>
-                 <width>50</width>
-                 <height>16777215</height>
+                 <width>80</width>
+                 <height>36</height>
                 </size>
                </property>
                <property name="text">
@@ -237,57 +318,24 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboBoxInput">
+              <widget class="CustomComboBox" name="comboBoxInput">
                <property name="minimumSize">
                 <size>
                  <width>50</width>
-                 <height>30</height>
+                 <height>36</height>
                 </size>
                </property>
                <property name="maximumSize">
                 <size>
                  <width>16777215</width>
-                 <height>30</height>
+                 <height>36</height>
                 </size>
                </property>
               </widget>
              </item>
             </layout>
            </item>
-           <item>
-            <spacer name="verticalSpacer">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>263</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
           </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="QFrame" name="DevideFrame">
-          <property name="frameShape">
-           <enum>QFrame::StyledPanel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Raised</enum>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QFrame" name="DetailInformationFrame">
-          <property name="frameShape">
-           <enum>QFrame::StyledPanel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Raised</enum>
-          </property>
          </widget>
         </item>
        </layout>
@@ -298,6 +346,28 @@
   </layout>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>CustomComboBox</class>
+   <extends>QComboBox</extends>
+   <header>CoreWidget/CustomComboBox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>CustomLabel</class>
+   <extends>QLabel</extends>
+   <header>CoreWidget/CustomLabel.h</header>
+  </customwidget>
+  <customwidget>
+   <class>CustomToolButton</class>
+   <extends>QToolButton</extends>
+   <header>CoreWidget/CustomToolButton.h</header>
+  </customwidget>
+  <customwidget>
+   <class>FilePathIconListWidget</class>
+   <extends>QWidget</extends>
+   <header>DomainWidget/FilePathIconListWidget.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

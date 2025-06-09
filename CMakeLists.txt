@@ -24,6 +24,10 @@ set(CMAKE_AUTOUIC ON)
 # 设置生成文件的输出目录
 set(CMAKE_AUTOMOC_OUTPUT_DIR "${CMAKE_BINARY_DIR}/moc")
 
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /Zi")
+set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
+set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
+
 # 启用C++11
 add_compile_options(-std=c++17)
 
@@ -43,7 +47,6 @@ if(MSVC)
 else()
     add_compile_options(-finput-charset=UTF-8 -fexec-charset=UTF-8)  # GCC/Clang
 endif()
-
 
 # 添加VS过滤器
 macro(source_group_by_dir source_files)
@@ -107,13 +110,13 @@ target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/Utils")
 set(ffmpegLibFile "${CMAKE_SOURCE_DIR}/ffmpegLib.txt")
 file(STRINGS ${ffmpegLibFile} LIBRARIES)
 
-set(DebugDir "${CMAKE_SOURCE_DIR}/x64/Debug")
-target_link_directories(${TARGET_NAME} PUBLIC ${DebugDir})
-target_link_libraries(${TARGET_NAME} PUBLIC "${DebugDir}/SDL3/libSDL3.dll.a")
+set(PublishDir "${CMAKE_SOURCE_DIR}/x64/$<CONFIG>")
+target_link_directories(${TARGET_NAME} PUBLIC ${PublishDir})
+target_link_libraries(${TARGET_NAME} PUBLIC "${PublishDir}/SDL3/libSDL3.dll.a")
+target_link_libraries(${TARGET_NAME} PUBLIC "${PublishDir}/MuCustomUiWidget.lib")
 foreach(lib ${LIBRARIES})
     string(STRIP ${lib} lib)
     if(lib)
         target_link_libraries(${TARGET_NAME} PUBLIC ${lib})
     endif()
 endforeach()
-
