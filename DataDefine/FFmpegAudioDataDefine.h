@@ -4,7 +4,10 @@
 extern "C" {
 #include "libavformat/avformat.h"
 }
-#include "SDL3/SDL_init.h"
+
+#include "SDL3/SDL.h"
+#include "SDL3/SDL_audio.h"
+#include "SDL3/SDL_timer.h"
 struct ST_OpenAudioDevice
 {
     ST_AVInputFormat m_pInputFormatCtx; // 输入设备格式
@@ -109,11 +112,55 @@ public:
     /// </summary>
     void Delay(Uint32 ms);
 
+    /// <summary>
+    /// 暂停音频播放
+    /// </summary>
+    void PauseAudio();
+
+    /// <summary>
+    /// 恢复音频播放
+    /// </summary>
+    void ResumeAudio();
+
+    /// <summary>
+    /// 停止音频播放
+    /// </summary>
+    void StopAudio();
+
+    /// <summary>
+    /// 音频跳转
+    /// </summary>
+    /// <param name="seconds">跳转的秒数，正数表示向前，负数表示向后</param>
+    void SeekAudio(int seconds);
+
+    /// <summary>
+    /// 获取当前播放位置（秒）
+    /// </summary>
+    double GetCurrentPosition() const;
+
+    /// <summary>
+    /// 获取音频总时长（秒）
+    /// </summary>
+    double GetDuration() const;
+
+    /// <summary>
+    /// 清空音频流
+    /// </summary>
+    void FlushAudioStream();
+
+    /// <summary>
+    /// 获取音频流缓冲区大小（字节）
+    /// </summary>
+    int GetAudioStreamAvailable() const;
+
 private:
     ST_SDLAudioStream m_audioStream;
     ST_SDLAudioDeviceID m_audioDeviceId;
     SDL_AudioSpec m_srcSpec;
     SDL_AudioSpec m_dstSpec;
+    double m_duration;          /// 音频总时长（秒）
+    double m_currentPosition;   /// 当前播放位置（秒）
+    int64_t m_startTime;       /// 开始播放的时间戳
 };
 struct ST_ResampleSimpleData
 {

@@ -69,11 +69,6 @@ protected slots:
     void SlotBtnPlayClicked();
 
     /// <summary>
-    /// 暂停按钮点击槽函数
-    /// </summary>
-    void SlotBtnPauseClicked();
-
-    /// <summary>
     /// 前进按钮点击槽函数
     /// </summary>
     void SlotBtnForwardClicked();
@@ -129,11 +124,32 @@ private:
     /// </summary>
     void UpdatePlayState(bool isPlaying);
 
+    /// <summary>
+    /// 将文件移动到列表顶部
+    /// </summary>
+    /// <param name="filePath">要移动的文件路径</param>
+    void MoveFileToTop(const QString& filePath);
+
+    /// <summary>
+    /// 检查文件是否已存在于列表中
+    /// </summary>
+    /// <param name="filePath">要检查的文件路径</param>
+    /// <returns>true表示文件已存在，false表示文件不存在</returns>
+    bool IsFileExists(const QString& filePath) const;
+
+    /// <summary>
+    /// 获取文件在列表中的索引
+    /// </summary>
+    /// <param name="filePath">要查找的文件路径</param>
+    /// <returns>文件在列表中的索引，如果不存在则返回-1</returns>
+    int GetFileIndex(const QString& filePath) const;
+
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;
     FFmpegUtils m_ffmpeg;
     QString m_currentAudioFile;  /// 当前播放的音频文件
     bool m_isRecording;         /// 是否正在录制
     bool m_isPlaying;           /// 是否正在播放
+    bool m_isPaused; /// 是否已暂停
     QTimer* m_playTimer;        /// 播放定时器
 };

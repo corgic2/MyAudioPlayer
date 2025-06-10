@@ -6,6 +6,7 @@ extern "C" {
 #include "libswresample/swresample.h"
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
+#include "libavutil/time.h"
 }
 
 #include "SDL3/SDL_audio.h"
@@ -33,6 +34,7 @@ struct ST_AVFormatContext
     {
         other.m_pFormatCtx = nullptr;
     }
+
     ST_AVFormatContext& operator=(ST_AVFormatContext&& obj)
     {
         if (this != &obj)
@@ -50,29 +52,88 @@ struct ST_AVFormatContext
         return *this;
     }
 
+    /// <summary>
+    /// 打开输入文件
+    /// </summary>
     int OpenInputFilePath(const char* url, const AVInputFormat* fmt, AVDictionary** options)
     {
         return avformat_open_input(&m_pFormatCtx, url, fmt, options);
     }
 
+    /// <summary>
+    /// 打开输出文件
+    /// </summary>
     int OpenOutputFilePath(const AVOutputFormat* oformat, const char* formatName, const char* filename)
     {
-        return avformat_alloc_output_context2(&m_pFormatCtx, oformat, formatName, filename); // 输出格式上下文初始化
+        return avformat_alloc_output_context2(&m_pFormatCtx, oformat, formatName, filename);
     }
 
+    /// <summary>
+    /// 查找最佳流
+    /// </summary>
     int FindBestStream(enum AVMediaType type, int wanted_stream_nb, int related_stream, const struct AVCodec** decoder_ret, int flags)
     {
         return av_find_best_stream(m_pFormatCtx, type, wanted_stream_nb, related_stream, decoder_ret, flags);
     }
 
+    /// <summary>
+    /// 写入文件尾
+    /// </summary>
     void WriteFileTrailer()
     {
         av_write_trailer(m_pFormatCtx);
     }
 
+    /// <summary>
+    /// 写入文件头
+    /// </summary>
     int WriteFileHeader(AVDictionary** options)
     {
         return avformat_write_header(m_pFormatCtx, options);
+    }
+
+    /// <summary>
+    /// 获取流的总时长（秒）
+    /// </summary>
+    double GetStreamDuration(int streamIndex) const
+    {
+        if (!m_pFormatCtx || streamIndex < 0 || streamIndex >= m_pFormatCtx->nb_streams)
+        {
+            return 0.0;
+        }
+        AVStream* stream = m_pFormatCtx->streams[streamIndex];
+        if (stream->duration == AV_NOPTS_VALUE)
+        {
+            return 0.0;
+        }
+        return stream->duration * av_q2d(stream->time_base);
+    }
+
+    /// <summary>
+    /// 跳转到指定时间点
+    /// </summary>
+    int SeekFrame(int streamIndex, double timestamp)
+    {
+        if (!m_pFormatCtx || streamIndex < 0 || streamIndex >= m_pFormatCtx->nb_streams)
+        {
+            return -1;
+        }
+        AVStream* stream = m_pFormatCtx->streams[streamIndex];
+        int64_t ts = (int64_t)(timestamp / av_q2d(stream->time_base));
+        return av_seek_frame(m_pFormatCtx, streamIndex, ts, AVSEEK_FLAG_BACKWARD);
+    }
+
+    /// <summary>
+    /// 获取当前时间戳
+    /// </summary>
+    double GetCurrentTimestamp(int streamIndex) const
+    {
+        if (!m_pFormatCtx || streamIndex < 0 || streamIndex >= m_pFormatCtx->nb_streams)
+        {
+            return 0.0;
+        }
+        AVStream* stream = m_pFormatCtx->streams[streamIndex];
+        return av_gettime() * av_q2d(stream->time_base);
     }
 };
 
@@ -80,25 +141,114 @@ struct ST_AVPacket
 {
     AVPacket* m_pkt = av_packet_alloc();
 
+    ~ST_AVPacket()
+    {
+        qDebug() << "~ST_AVPacket()";
+        av_packet_free(&m_pkt);
+    }
+
+    /// <summary>
+    /// 从格式上下文读取一个数据包
+    /// </summary>
     int ReadPacket(AVFormatContext* pFormatContext)
     {
         return av_read_frame(pFormatContext, m_pkt);
     }
 
-    void SendPacket(AVCodecContext* pCodecContext)
+    /// <summary>
+    /// 发送数据包到解码器
+    /// </summary>
+    int SendPacket(AVCodecContext* pCodecContext)
     {
-        avcodec_send_packet(pCodecContext, m_pkt);
+        return avcodec_send_packet(pCodecContext, m_pkt);
     }
 
+    /// <summary>
+    /// 释放数据包引用
+    /// </summary>
     void UnrefPacket()
     {
         av_packet_unref(m_pkt);
     }
 
-    ~ST_AVPacket()
+    /// <summary>
+    /// 复制数据包
+    /// </summary>
+    int CopyPacket(const AVPacket* src)
     {
-        qDebug() << "~ST_AVPacket()";
-        av_packet_free(&m_pkt);
+        return av_packet_copy_props(m_pkt, src);
+    }
+
+    /// <summary>
+    /// 移动数据包
+    /// </summary>
+    void MovePacket(AVPacket* src)
+    {
+        av_packet_move_ref(m_pkt, src);
+    }
+
+    /// <summary>
+    /// 重置数据包时间戳
+    /// </summary>
+    void RescaleTimestamp(const AVRational& srcTimeBase, const AVRational& dstTimeBase)
+    {
+        av_packet_rescale_ts(m_pkt, srcTimeBase, dstTimeBase);
+    }
+
+    /// <summary>
+    /// 获取数据包大小
+    /// </summary>
+    int GetPacketSize() const
+    {
+        return m_pkt->size;
+    }
+
+    /// <summary>
+    /// 获取数据包时间戳
+    /// </summary>
+    int64_t GetTimestamp() const
+    {
+        return m_pkt->pts;
+    }
+
+    /// <summary>
+    /// 获取数据包持续时间
+    /// </summary>
+    int64_t GetDuration() const
+    {
+        return m_pkt->duration;
+    }
+
+    /// <summary>
+    /// 获取数据包所属流索引
+    /// </summary>
+    int GetStreamIndex() const
+    {
+        return m_pkt->stream_index;
+    }
+
+    /// <summary>
+    /// 设置数据包时间戳
+    /// </summary>
+    void SetTimestamp(int64_t pts)
+    {
+        m_pkt->pts = pts;
+    }
+
+    /// <summary>
+    /// 设置数据包持续时间
+    /// </summary>
+    void SetDuration(int64_t duration)
+    {
+        m_pkt->duration = duration;
+    }
+
+    /// <summary>
+    /// 设置数据包所属流索引
+    /// </summary>
+    void SetStreamIndex(int index)
+    {
+        m_pkt->stream_index = index;
     }
 };
 
@@ -301,5 +451,31 @@ struct ST_AVChannelLayout
     ST_AVChannelLayout(AVChannelLayout* ptr)
     {
         channel = ptr;
+    }
+};
+
+/// <summary>
+/// 音频播放状态结构体
+/// </summary>
+struct ST_AudioPlayState
+{
+    bool m_isPlaying = false;    /// 是否正在播放
+    bool m_isPaused = false;     /// 是否已暂停
+    bool m_isRecording = false;  /// 是否正在录制
+    double m_currentPosition = 0.0;  /// 当前播放位置（秒）
+    double m_duration = 0.0;     /// 总时长（秒）
+    int64_t m_startTime = 0;     /// 开始播放的时间戳
+
+    /// <summary>
+    /// 重置播放状态
+    /// </summary>
+    void Reset()
+    {
+        m_isPlaying = false;
+        m_isPaused = false;
+        m_isRecording = false;
+        m_currentPosition = 0.0;
+        m_duration = 0.0;
+        m_startTime = 0;
     }
 };

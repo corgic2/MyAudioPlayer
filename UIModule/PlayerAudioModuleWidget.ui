@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1732</width>
-    <height>836</height>
+    <height>878</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -15,19 +15,19 @@
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout">
    <property name="spacing">
-    <number>16</number>
+    <number>8</number>
    </property>
    <property name="leftMargin">
-    <number>16</number>
+    <number>8</number>
    </property>
    <property name="topMargin">
-    <number>16</number>
+    <number>8</number>
    </property>
    <property name="rightMargin">
-    <number>16</number>
+    <number>8</number>
    </property>
    <property name="bottomMargin">
-    <number>16</number>
+    <number>8</number>
    </property>
    <item>
     <layout class="QVBoxLayout" name="verticalLayout">
@@ -49,6 +49,12 @@
      </item>
      <item>
       <widget class="FilePathIconListWidget" name="audioFileList">
+       <property name="minimumSize">
+        <size>
+         <width>300</width>
+         <height>0</height>
+        </size>
+       </property>
        <property name="maximumSize">
         <size>
          <width>300</width>
@@ -69,19 +75,19 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_3">
       <property name="spacing">
-       <number>12</number>
+       <number>0</number>
       </property>
       <property name="leftMargin">
-       <number>12</number>
+       <number>0</number>
       </property>
       <property name="topMargin">
-       <number>12</number>
+       <number>0</number>
       </property>
       <property name="rightMargin">
-       <number>12</number>
+       <number>0</number>
       </property>
       <property name="bottomMargin">
-       <number>12</number>
+       <number>0</number>
       </property>
       <item>
        <widget class="QFrame" name="VedioFrame">
@@ -102,29 +108,29 @@
       <item>
        <layout class="QVBoxLayout" name="controlLayout">
         <property name="spacing">
-         <number>12</number>
+         <number>0</number>
         </property>
-        <item>
-         <widget class="CustomToolButton" name="btnRecord">
-          <property name="minimumSize">
-           <size>
-            <width>0</width>
-            <height>36</height>
-           </size>
-          </property>
-          <property name="text">
-           <string>录制</string>
-          </property>
-          <property name="toolTipsText" stdset="0">
-           <string>开始/停止录制音频</string>
-          </property>
-         </widget>
-        </item>
         <item>
          <layout class="QHBoxLayout" name="horizontalLayout_2">
           <property name="spacing">
-           <number>12</number>
+           <number>0</number>
           </property>
+          <item>
+           <widget class="CustomToolButton" name="btnRecord">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>36</height>
+             </size>
+            </property>
+            <property name="text">
+             <string>录制</string>
+            </property>
+            <property name="toolTipsText" stdset="0">
+             <string>开始/停止录制音频</string>
+            </property>
+           </widget>
+          </item>
           <item>
            <widget class="CustomToolButton" name="btnPrevious">
             <property name="minimumSize">
@@ -154,22 +160,6 @@
             </property>
             <property name="toolTipsText" stdset="0">
              <string>快退15秒</string>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="CustomToolButton" name="btnPause">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>36</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>暂停</string>
-            </property>
-            <property name="toolTipsText" stdset="0">
-             <string>暂停播放</string>
             </property>
            </widget>
           </item>
@@ -250,24 +240,24 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_4">
       <property name="spacing">
-       <number>12</number>
+       <number>0</number>
       </property>
       <property name="leftMargin">
-       <number>12</number>
+       <number>0</number>
       </property>
       <property name="topMargin">
-       <number>12</number>
+       <number>0</number>
       </property>
       <property name="rightMargin">
-       <number>12</number>
+       <number>0</number>
       </property>
       <property name="bottomMargin">
-       <number>12</number>
+       <number>0</number>
       </property>
       <item>
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <property name="spacing">
-         <number>12</number>
+         <number>0</number>
         </property>
         <item>
          <widget class="QFrame" name="ToolButtonFrame">
@@ -285,24 +275,24 @@
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_5">
            <property name="spacing">
-            <number>12</number>
+            <number>0</number>
            </property>
            <property name="leftMargin">
-            <number>12</number>
+            <number>0</number>
            </property>
            <property name="topMargin">
-            <number>12</number>
+            <number>0</number>
            </property>
            <property name="rightMargin">
-            <number>12</number>
+            <number>0</number>
            </property>
            <property name="bottomMargin">
-            <number>12</number>
+            <number>0</number>
            </property>
            <item>
             <layout class="QHBoxLayout" name="horizontalLayout_3">
              <property name="spacing">
-              <number>12</number>
+              <number>0</number>
              </property>
              <item>
               <widget class="CustomLabel" name="labelInput">
@@ -364,7 +354,7 @@
   </customwidget>
   <customwidget>
    <class>FilePathIconListWidget</class>
-   <extends>QWidget</extends>
+   <extends>QListWidget</extends>
    <header>DomainWidget/FilePathIconListWidget.h</header>
   </customwidget>
  </customwidgets>

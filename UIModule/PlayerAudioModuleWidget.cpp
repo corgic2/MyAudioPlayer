@@ -18,6 +18,7 @@ PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
     , m_isRecording(false)
     , m_isPlaying(false)
     , m_playTimer(nullptr)
+    , m_isPaused(false)
 {
     ui->setupUi(this);
     InitializeWidget();
@@ -37,10 +38,9 @@ void PlayerAudioModuleWidget::InitializeWidget()
     ui->labelFileList->SetFontColor(UIColorDefine::font_color::Primary);
     ui->labelFileList->SetBackgroundType(CustomLabel::BackgroundType_Transparent);
     ui->labelFileList->SetBackgroundColor(UIColorDefine::background_color::Transparent);
-    ui->labelFileList->EnableBorder(true, UIColorDefine::border_color::Default, 1);
     
     // 设置文件列表样式
-    ui->audioFileList->SetBackgroundColor(UIColorDefine::background_color::Light);
+    ui->audioFileList->SetBackgroundColor(UIColorDefine::background_color::White);
     ui->audioFileList->SetItemHoverColor(UIColorDefine::background_color::HoverBackground);
     ui->audioFileList->SetItemSelectedColor(UIColorDefine::theme_color::Info);
     ui->audioFileList->SetItemTextColor(UIColorDefine::font_color::Primary);
@@ -63,15 +63,6 @@ void PlayerAudioModuleWidget::InitializeWidget()
     ui->btnPlay->SetTipsType(CustomToolTips::Info);
     ui->btnPlay->SetBorderWidth(1);
     ui->btnPlay->SetBorderColor(UIColorDefine::border_color::Default);
-
-    // 设置暂停按钮样式
-    ui->btnPause->SetBackgroundType(CustomToolButton::BackgroundType_Solid);
-    ui->btnPause->SetBackgroundColor(UIColorDefine::theme_color::Info);
-    ui->btnPause->SetFontColor(UIColorDefine::font_color::White);
-    ui->btnPause->SetTipsType(CustomToolTips::Info);
-    ui->btnPause->SetBorderWidth(1);
-    ui->btnPause->SetBorderColor(UIColorDefine::border_color::Default);
-    ui->btnPause->setEnabled(false);
 
     // 设置前进后退按钮样式
     auto SetControlButtonStyle = [](CustomToolButton* btn)
@@ -103,6 +94,19 @@ void PlayerAudioModuleWidget::InitializeWidget()
     ui->comboBoxInput->SetBackgroundColor(UIColorDefine::background_color::Transparent);
     ui->comboBoxInput->SetBorderWidth(1);
     ui->comboBoxInput->SetBorderColor(UIColorDefine::border_color::Default);
+
+    // 设置各个Frame的边框样式
+    ui->VedioFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
+    ui->VedioFrame->setLineWidth(1);
+    ui->VedioFrame->setMidLineWidth(0);
+
+    ui->RightLayoutFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
+    ui->RightLayoutFrame->setLineWidth(1);
+    ui->RightLayoutFrame->setMidLineWidth(0);
+
+    ui->ToolButtonFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
+    ui->ToolButtonFrame->setLineWidth(1);
+    ui->ToolButtonFrame->setMidLineWidth(0);
 }
 
 void PlayerAudioModuleWidget::ConnectSignals()
@@ -110,7 +114,6 @@ void PlayerAudioModuleWidget::ConnectSignals()
     // 录制和播放按钮
     connect(ui->btnRecord, &CustomToolButton::clicked, this, &PlayerAudioModuleWidget::SlotBtnRecordClicked);
     connect(ui->btnPlay, &CustomToolButton::clicked, this, &PlayerAudioModuleWidget::SlotBtnPlayClicked);
-    connect(ui->btnPause, &CustomToolButton::clicked, this, &PlayerAudioModuleWidget::SlotBtnPauseClicked);
 
     // 前进后退按钮
     connect(ui->btnForward, &CustomToolButton::clicked, this, &PlayerAudioModuleWidget::SlotBtnForwardClicked);
@@ -146,28 +149,28 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
 
 void PlayerAudioModuleWidget::SlotBtnRecordClicked()
 {
-    //     if (!m_isRecording)
-    //     {
-    //         QString filePath = QFileDialog::getSaveFileName(this,
-    //             tr("保存录音文件"),
-    //             QDir::currentPath(),
-    //             tr("Wave Files (*.wav)"));
-    // 
-    //         if (!filePath.isEmpty())
-    //         {
-    //             m_isRecording = true;
-    //             ui->btnRecord->setText(tr("停止录制"));
-    //             ui->btnRecord->SetBackgroundColor(UIColorDefine::theme_color::Error);
-    //             m_ffmpeg.StartAudioRecording(filePath, "wav");
-    //         }
-    //     }
-    //     else
-    //     {
-    //         m_isRecording = false;
-    //         ui->btnRecord->setText(tr("录制"));
-    //         ui->btnRecord->SetBackgroundColor(UIColorDefine::theme_color::Primary);
-    //         m_ffmpeg.StopAudioRecording();
-    //     }
+    if (!m_isRecording)
+    {
+        QString filePath = QFileDialog::getSaveFileName(this,
+                                                        tr("保存录音文件"),
+                                                        QDir::currentPath(),
+                                                        tr("Wave Files (*.wav)"));
+
+        if (!filePath.isEmpty())
+        {
+            m_isRecording = true;
+            ui->btnRecord->setText(tr("停止录制"));
+            ui->btnRecord->SetBackgroundColor(UIColorDefine::theme_color::Error);
+            m_ffmpeg.StartAudioRecording(filePath, "wav");
+        }
+    }
+    else
+    {
+        m_isRecording = false;
+        ui->btnRecord->setText(tr("录制"));
+        ui->btnRecord->SetBackgroundColor(UIColorDefine::theme_color::Info);
+        m_ffmpeg.StopAudioRecording();
+    }
 }
 
 void PlayerAudioModuleWidget::SlotBtnPlayClicked()
@@ -177,8 +180,16 @@ void PlayerAudioModuleWidget::SlotBtnPlayClicked()
         if (!m_isPlaying)
         {
             m_isPlaying = true;
+            m_isPaused = false;
             UpdatePlayState(true);
             m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
+        }
+        else
+        {
+            m_isPlaying = false;
+            m_isPaused = false;
+            UpdatePlayState(false);
+            m_ffmpeg.StopAudioPlayback();
         }
     }
     else
@@ -187,96 +198,88 @@ void PlayerAudioModuleWidget::SlotBtnPlayClicked()
     }
 }
 
-void PlayerAudioModuleWidget::SlotBtnPauseClicked()
-{
-    //if (m_isPlaying)
-    //{
-    //    m_isPlaying = false;
-    //    UpdatePlayState(false);
-    //    m_ffmpeg.PauseAudioPlayback();
-    //}
-}
-
 void PlayerAudioModuleWidget::SlotBtnForwardClicked()
 {
-    //if (m_isPlaying)
-    //{
-    //    m_ffmpeg.SeekAudioPlayback(15); // 前进15秒
-    //}
+    if (m_isPlaying)
+    {
+        m_ffmpeg.SeekAudioForward(15); // 前进15秒
+    }
 }
 
 void PlayerAudioModuleWidget::SlotBtnBackwardClicked()
 {
-    //if (m_isPlaying)
-    //{
-    //    m_ffmpeg.SeekAudioPlayback(-15); // 后退15秒
-    //}
+    if (m_isPlaying)
+    {
+        m_ffmpeg.SeekAudioBackward(15); // 后退15秒
+    }
 }
 
 void PlayerAudioModuleWidget::SlotBtnNextClicked()
 {
     // 获取当前项的索引
-    //     FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
-    //     if (currentItem)
-    //     {
-    //         int currentIndex = ui->audioFileList->GetItemCount() - 1;
-    //         for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
-    //         {
-    //             if (ui->audioFileList->GetItem(i) == currentItem)
-    //             {
-    //                 currentIndex = i;
-    //                 break;
-    //             }
-    //         }
-    // 
-    //         // 切换到下一个文件
-    //         if (currentIndex < ui->audioFileList->GetItemCount() - 1)
-    //         {
-    //             FilePathIconListWidgetItem* nextItem = ui->audioFileList->GetItem(currentIndex + 1);
-    //             if (nextItem)
-    //             {
-    //                 m_currentAudioFile = nextItem->GetNodeInfo().filePath;
-    //                 if (m_isPlaying)
-    //                 {
-    //                     m_ffmpeg.StopAudioPlayback();
-    //                     m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
-    //                 }
-    //             }
-    //         }
-    //     }
+    FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
+    if (currentItem)
+    {
+        int currentIndex = ui->audioFileList->GetItemCount() - 1;
+        for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
+        {
+            if (ui->audioFileList->GetItem(i) == currentItem)
+            {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        // 切换到下一个文件
+        if (currentIndex < ui->audioFileList->GetItemCount() - 1)
+        {
+            FilePathIconListWidgetItem* nextItem = ui->audioFileList->GetItem(currentIndex + 1);
+            if (nextItem)
+            {
+                m_currentAudioFile = nextItem->GetNodeInfo().filePath;
+                if (m_isPlaying)
+                {
+                    m_ffmpeg.StopAudioPlayback();
+                    m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
+                }
+                ui->audioFileList->MoveItemToTop(nextItem);
+            }
+        }
+    }
 }
 
 void PlayerAudioModuleWidget::SlotBtnPreviousClicked()
 {
     // 获取当前项的索引
-    //     FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
-    //     if (currentItem)
-    //     {
-    //         int currentIndex = 0;
-    //         for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
-    //         {
-    //             if (ui->audioFileList->GetItem(i) == currentItem)
-    //             {
-    //                 currentIndex = i;
-    //                 break;
-    //             }
-    //         }
-    // 
-    //         // 切换到上一个文件
-    //         if (currentIndex > 0)
-    //         {
-    //             FilePathIconListWidgetItem* prevItem = ui->audioFileList->GetItem(currentIndex - 1);
-    //             if (prevItem)
-    //             {
-    //                 m_currentAudioFile = prevItem->GetNodeInfo().filePath;
-    //                 if (m_isPlaying)
-    //                 {
-    //                     m_ffmpeg.StopAudioPlayback();
-    //                     m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
-    //                 }
-    //             }
-    //         }
-    //     }
+    FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
+    if (currentItem)
+    {
+        int currentIndex = 0;
+        for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
+        {
+            if (ui->audioFileList->GetItem(i) == currentItem)
+            {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        // 切换到上一个文件
+        if (currentIndex > 0)
+        {
+            FilePathIconListWidgetItem* prevItem = ui->audioFileList->GetItem(currentIndex - 1);
+            if (prevItem)
+            {
+                m_currentAudioFile = prevItem->GetNodeInfo().filePath;
+                if (m_isPlaying)
+                {
+                    m_ffmpeg.StopAudioPlayback();
+                    m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
+                }
+                ui->audioFileList->MoveItemToTop(prevItem);
+            }
+        }
+    }
 }
 
 void PlayerAudioModuleWidget::InitAudioDevices()
@@ -314,6 +317,7 @@ void PlayerAudioModuleWidget::SlotAudioFileSelected(const QString& filePath)
 void PlayerAudioModuleWidget::SlotAudioFileDoubleClicked(const QString& filePath)
 {
     m_currentAudioFile = filePath;
+    MoveFileToTop(filePath); // 将双击的文件移动到顶部
     SlotBtnPlayClicked(); // 自动开始播放
 }
 
@@ -323,13 +327,13 @@ void PlayerAudioModuleWidget::UpdatePlayState(bool isPlaying)
     {
         ui->btnPlay->setText(tr("停止"));
         ui->btnPlay->SetBackgroundColor(UIColorDefine::theme_color::Error);
-        ui->btnPause->setEnabled(true);
+        m_isPaused = false;
     }
     else
     {
         ui->btnPlay->setText(tr("播放"));
         ui->btnPlay->SetBackgroundColor(UIColorDefine::theme_color::Success);
-        ui->btnPause->setEnabled(false);
+        m_isPaused = false;
     }
 }
 
@@ -337,58 +341,85 @@ void PlayerAudioModuleWidget::AddAudioFiles(const QStringList& filePaths)
 {
     for (const QString& filePath : filePaths)
     {
-        FilePathIconListWidgetItem::ST_NodeInfo nodeInfo;
-        nodeInfo.filePath = filePath;
-        nodeInfo.displayName = QFileInfo(filePath).fileName();
-        nodeInfo.filePath = ":/icons/audio.png";
+        if (!IsFileExists(filePath))
+        {
+            FilePathIconListWidgetItem::ST_NodeInfo nodeInfo;
+            nodeInfo.filePath = filePath;
+            nodeInfo.displayName = QFileInfo(filePath).fileName();
+            nodeInfo.iconPath = ":/icons/audio.png";
 
-        ui->audioFileList->AddFileItem(nodeInfo);
+            // 在列表顶部插入新项
+            ui->audioFileList->InsertFileItem(0, nodeInfo);
+        }
     }
 }
 
 void PlayerAudioModuleWidget::RemoveAudioFile(const QString& filePath)
 {
-    //FilePathIconListWidgetItem* item = nullptr;
-    //for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
-    //{
-    //    FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetItem(i);
-    //    if (currentItem && currentItem->GetNodeInfo().filePath == filePath)
-    //    {
-    //        item = currentItem;
-    //        break;
-    //    }
-    //}
+    int index = GetFileIndex(filePath);
+    if (index != -1)
+    {
+        // 如果正在播放这个文件，先停止播放
+        if (m_currentAudioFile == filePath && m_isPlaying)
+        {
+            m_ffmpeg.StopAudioPlayback();
+            m_isPlaying = false;
+            UpdatePlayState(false);
+        }
 
-    //if (item)
-    //{
-    //     如果正在播放这个文件，先停止播放
-    //    if (m_currentAudioFile == filePath && m_isPlaying)
-    //    {
-    //        m_ffmpeg.StopAudioPlayback();
-    //        m_isPlaying = false;
-    //        UpdatePlayState(false);
-    //    }
+        ui->audioFileList->RemoveItemByIndex(index);
 
-    //    ui->audioFileList->RemoveItem(item);
-    //    
-    //     如果移除的是当前文件，清空当前文件路径
-    //    if (m_currentAudioFile == filePath)
-    //    {
-    //        m_currentAudioFile.clear();
-    //    }
-    //}
+        // 如果移除的是当前文件，清空当前文件路径
+        if (m_currentAudioFile == filePath)
+        {
+            m_currentAudioFile.clear();
+        }
+    }
 }
 
 void PlayerAudioModuleWidget::ClearAudioFiles()
 {
-    //// 如果正在播放，先停止播放
-    //if (m_isPlaying)
-    //{
-    //    m_ffmpeg.StopAudioPlayback();
-    //    m_isPlaying = false;
-    //    UpdatePlayState(false);
-    //}
+    // 如果正在播放，先停止播放
+    if (m_isPlaying)
+    {
+        m_ffmpeg.StopAudioPlayback();
+        m_isPlaying = false;
+        UpdatePlayState(false);
+    }
 
-    //ui->audioFileList->Clear();
-    //m_currentAudioFile.clear();
+    ui->audioFileList->Clear();
+    m_currentAudioFile.clear();
+}
+
+void PlayerAudioModuleWidget::MoveFileToTop(const QString& filePath)
+{
+    int index = GetFileIndex(filePath);
+    if (index > 0) // 如果文件不在顶部
+    {
+        FilePathIconListWidgetItem* item = ui->audioFileList->GetItem(index);
+        if (item)
+        {
+            FilePathIconListWidgetItem::ST_NodeInfo nodeInfo = item->GetNodeInfo();
+            ui->audioFileList->RemoveItemByIndex(index);
+            ui->audioFileList->InsertFileItem(0, nodeInfo);
+        }
+    }
+}
+
+bool PlayerAudioModuleWidget::IsFileExists(const QString& filePath) const
+{
+    return GetFileIndex(filePath) != -1;
+}
+
+int PlayerAudioModuleWidget::GetFileIndex(const QString& filePath) const
+{
+    for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
+    {
+        FilePathIconListWidgetItem* item = ui->audioFileList->GetItem(i);
+        if (item && item->GetNodeInfo().filePath == filePath)
+        {
+            return i;
+        }
+    }
+    return -1;
 }

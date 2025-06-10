@@ -82,5 +82,4 @@ private:
 private:
     Ui::AudioMainWidgetClass* ui;
     QString m_currentAudioFile; /// 当前音频文件路径
-    CustomToolBar* m_toolBar = nullptr; /// 自定义工具栏
 };
