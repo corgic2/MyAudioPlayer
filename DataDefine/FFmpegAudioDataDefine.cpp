@@ -23,8 +23,23 @@ ST_OpenAudioDevice& ST_OpenAudioDevice::operator=(ST_OpenAudioDevice&& other) no
 // ST_AudioPlayInfo implementation
 ST_AudioPlayInfo::~ST_AudioPlayInfo()
 {
-    StopAudio();
-    SDL_Quit();
+    // 先暂停设备
+    if (m_audioDeviceId.GetRawDeviceID())
+    {
+        SDL_PauseAudioDevice(m_audioDeviceId.GetRawDeviceID());
+    }
+
+    // 解绑音频流和设备
+    if (m_audioDeviceId.GetRawDeviceID() && m_audioStream.GetRawStream())
+    {
+        SDL_UnbindAudioStream(m_audioStream.GetRawStream());
+    }
+
+    // 清空音频流
+    if (m_audioStream.GetRawStream())
+    {
+        SDL_FlushAudioStream(m_audioStream.GetRawStream());
+    }
 }
 
 ST_SDLAudioStream& ST_AudioPlayInfo::GetAudioStream()
@@ -72,14 +87,38 @@ void ST_AudioPlayInfo::InitAudioDevice(SDL_AudioDeviceID deviceId)
 
 void ST_AudioPlayInfo::BindStreamAndDevice()
 {
-    SDL_BindAudioStream(m_audioDeviceId.GetRawDeviceID(), m_audioStream.GetRawStream());
+    if (m_audioDeviceId.GetRawDeviceID() && m_audioStream.GetRawStream())
+    {
+        // 先暂停设备
+        SDL_PauseAudioDevice(m_audioDeviceId.GetRawDeviceID());
+        
+        // 解绑之前的流（如果有）
+        SDL_UnbindAudioStream(m_audioStream.GetRawStream());
+        
+        // 绑定新的流
+        SDL_BindAudioStream(m_audioDeviceId.GetRawDeviceID(), m_audioStream.GetRawStream());
+        
+        // 清空流
+        SDL_FlushAudioStream(m_audioStream.GetRawStream());
+    }
 }
 
 void ST_AudioPlayInfo::BeginPlayAudio()
 {
-    m_startTime = SDL_GetTicks();
-    m_currentPosition = 0;
-    SDL_ResumeAudioDevice(m_audioDeviceId.GetRawDeviceID());
+    if (m_audioDeviceId.GetRawDeviceID())
+    {
+        m_startTime = SDL_GetTicks();
+        m_currentPosition = 0;
+        
+        // 确保设备已经绑定了音频流
+        if (m_audioStream.GetRawStream())
+        {
+            SDL_FlushAudioStream(m_audioStream.GetRawStream());
+        }
+        
+        // 恢复设备播放
+        SDL_ResumeAudioDevice(m_audioDeviceId.GetRawDeviceID());
+    }
 }
 
 void ST_AudioPlayInfo::PauseAudio()
@@ -96,8 +135,24 @@ void ST_AudioPlayInfo::ResumeAudio()
 
 void ST_AudioPlayInfo::StopAudio()
 {
-    SDL_PauseAudioDevice(m_audioDeviceId.GetRawDeviceID());
-    FlushAudioStream();
+    // 先暂停设备
+    if (m_audioDeviceId.GetRawDeviceID())
+    {
+        SDL_PauseAudioDevice(m_audioDeviceId.GetRawDeviceID());
+    }
+
+    // 解绑音频流和设备
+    if (m_audioDeviceId.GetRawDeviceID() && m_audioStream.GetRawStream())
+    {
+        SDL_UnbindAudioStream(m_audioStream.GetRawStream());
+    }
+
+    // 清空音频流
+    if (m_audioStream.GetRawStream())
+    {
+        SDL_FlushAudioStream(m_audioStream.GetRawStream());
+    }
+
     m_currentPosition = 0;
 }
 
@@ -122,12 +177,28 @@ void ST_AudioPlayInfo::SeekAudio(int seconds)
 
 void ST_AudioPlayInfo::PutDataToStream(const void* buf, int len)
 {
-    SDL_PutAudioStreamData(m_audioStream.GetRawStream(), buf, len);
+    if (m_audioStream.GetRawStream() && buf && len > 0)
+    {
+        int result = SDL_PutAudioStreamData(m_audioStream.GetRawStream(), buf, len);
+        if (result < 0)
+        {
+            qWarning() << "Failed to put audio data to stream:" << SDL_GetError();
+        }
+    }
 }
 
 bool ST_AudioPlayInfo::GetDataIsEnd()
 {
-    return SDL_GetAudioStreamQueued(m_audioStream.GetRawStream()) > 0;
+    if (!m_audioStream.GetRawStream())
+    {
+        return true;
+    }
+    
+    int queued = SDL_GetAudioStreamQueued(m_audioStream.GetRawStream());
+    int available = SDL_GetAudioStreamAvailable(m_audioStream.GetRawStream());
+    
+    // 如果队列中没有数据且没有可用数据，则认为数据已结束
+    return queued == 0 && available == 0;
 }
 
 void ST_AudioPlayInfo::Delay(Uint32 ms)
@@ -151,12 +222,15 @@ double ST_AudioPlayInfo::GetDuration() const
 
 void ST_AudioPlayInfo::FlushAudioStream()
 {
-    SDL_FlushAudioStream(m_audioStream.GetRawStream());
+    if (m_audioStream.GetRawStream())
+    {
+        SDL_FlushAudioStream(m_audioStream.GetRawStream());
+    }
 }
 
 int ST_AudioPlayInfo::GetAudioStreamAvailable() const
 {
-    return SDL_GetAudioStreamAvailable(m_audioStream.GetRawStream());
+    return m_audioStream.GetRawStream() ? SDL_GetAudioStreamAvailable(m_audioStream.GetRawStream()) : 0;
 }
 
 // ST_ResampleParams implementation
@@ -175,4 +249,3 @@ ST_ResampleParams::ST_ResampleParams()
     SetInput(input);
     SetOutput(output);
 }
-

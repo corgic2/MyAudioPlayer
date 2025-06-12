@@ -1,4 +1,4 @@
-#include "FFmpegAudioBaseStrcutDefine.h"
+﻿#include "FFmpegAudioBaseStrcutDefine.h"
 
 ST_AVFormatContext::~ST_AVFormatContext()
 {
@@ -39,8 +39,7 @@ int ST_AVFormatContext::OpenOutputFilePath(const AVOutputFormat* oformat, const 
     return avformat_alloc_output_context2(&m_pFormatCtx, oformat, formatName, filename);
 }
 
-int ST_AVFormatContext::FindBestStream(enum AVMediaType type, int wanted_stream_nb, 
-                                     int related_stream, const AVCodec** decoder_ret, int flags)
+int ST_AVFormatContext::FindBestStream(enum AVMediaType type, int wanted_stream_nb, int related_stream, const AVCodec** decoder_ret, int flags)
 {
     return av_find_best_stream(m_pFormatCtx, type, wanted_stream_nb, related_stream, decoder_ret, flags);
 }

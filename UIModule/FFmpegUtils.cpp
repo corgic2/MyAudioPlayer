@@ -1,12 +1,12 @@
 ﻿#include "FFmpegUtils.h"
 #include <QFile>
+#include "../include/SDL3/SDL.h"
 #include "../Utils/AudioResampler.h"
 #include "../Utils/FFmpegPublicUtils.h"
-#include "../include/SDL3/SDL.h"
 #define FMT_NAME "dshow"
 #pragma execution_character_set("utf-8")
 //根据不同设备进行修改，此电脑为USB音频设备
-FFmpegUtils::FFmpegUtils(QObject *parent)
+FFmpegUtils::FFmpegUtils(QObject* parent)
     : QObject(parent)
 {
     m_playState.Reset();
@@ -48,9 +48,9 @@ std::unique_ptr<ST_OpenAudioDevice> FFmpegUtils::OpenDevice(const QString& devie
 
     QString type = bAudio ? "audio=" : "video=";
     QByteArray utf8DeviceName = type.toUtf8() + deviceName.toUtf8();
-    int ret = openDeviceParam->GetFormatContext().OpenInputFilePath(utf8DeviceName.constData(), 
-                                                                   openDeviceParam->GetInputFormat().GetRawFormat(), 
-                                                                   nullptr);
+    int ret = openDeviceParam->GetFormatContext().OpenInputFilePath(utf8DeviceName.constData(),
+                                                                    openDeviceParam->GetInputFormat().GetRawFormat(),
+                                                                    nullptr);
     if (ret < 0)
     {
         char errbuf[1024] = {0};
@@ -133,9 +133,9 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
         if (ret == 0)
         {
             // 直接复用原始数据包
-            av_packet_rescale_ts(pkt.GetRawPacket(), 
-                m_recordDevice->GetFormatContext().GetRawContext()->streams[0]->time_base, 
-                outStream->time_base);
+            av_packet_rescale_ts(pkt.GetRawPacket(),
+                                 m_recordDevice->GetFormatContext().GetRawContext()->streams[0]->time_base,
+                                 outStream->time_base);
             pkt.GetRawPacket()->stream_index = outStream->index;
             av_interleaved_write_frame(outputFormatCtx.GetRawContext(), pkt.GetRawPacket());
             pkt.UnrefPacket();
@@ -167,9 +167,19 @@ void FFmpegUtils::StopAudioRecording()
 
 void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QStringList& args)
 {
+    // 先停止当前播放并等待资源释放
     if (m_playState.IsPlaying())
     {
         StopAudioPlayback();
+        SDL_Delay(100); // 给予系统一些时间来清理资源
+    }
+
+    // 确保之前的资源被完全释放
+    if (m_playInfo)
+    {
+        m_playInfo->StopAudio();
+        m_playInfo.reset();
+        SDL_Delay(50); // 等待资源释放
     }
 
     m_playInfo = std::make_unique<ST_AudioPlayInfo>();
@@ -180,6 +190,7 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     if (ret < 0)
     {
         qWarning() << "Failed to open input file";
+        m_playInfo.reset();
         return;
     }
 
@@ -187,6 +198,7 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     if (audioStreamIdx < 0)
     {
         qWarning() << "No audio stream found";
+        m_playInfo.reset();
         return;
     }
 
@@ -194,26 +206,48 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     ST_AVCodecParameters codecParams(formatCtx.GetRawContext()->streams[audioStreamIdx]->codecpar);
     ST_AVCodec codec(codecParams.GetCodecId());
     ST_AVCodecContext codeCtx(codec.GetRawCodec());
-    codeCtx.BindParamToContext(codecParams.GetRawParameters());
-    codeCtx.OpenCodec(codec.GetRawCodec(), nullptr);
-
-    // 初始化音频规格
-    m_playInfo->InitAudioSpec(true, codecParams.GetRawParameters()->sample_rate,
-                             FFmpegPublicUtils::FFmpegToSDLFormat(codecParams.GetSampleFormat()),
-                             codecParams.GetRawParameters()->ch_layout.nb_channels);
-    m_playInfo->InitAudioSpec(false, m_playInfo->GetAudioSpec(true).freq, SDL_AUDIO_S16,
-                             m_playInfo->GetAudioSpec(true).channels);
-    m_playInfo->InitAudioStream();
-
-    // 打开音频设备
-    m_playInfo->InitAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK);
-    if (m_playInfo->GetDeviceId().GetRawDeviceID() == 0)
+    
+    if (!codec.GetRawCodec())
     {
-        qWarning() << "Failed to open audio device";
+        qWarning() << "Failed to find codec";
+        m_playInfo.reset();
         return;
     }
 
-    // 绑定流和设备
+    if (codeCtx.BindParamToContext(codecParams.GetRawParameters()) < 0)
+    {
+        qWarning() << "Failed to bind codec parameters";
+        m_playInfo.reset();
+        return;
+    }
+
+    if (codeCtx.OpenCodec(codec.GetRawCodec(), nullptr) < 0)
+    {
+        qWarning() << "Failed to open codec";
+        m_playInfo.reset();
+        return;
+    }
+
+    // 初始化音频规格
+    SDL_AudioSpec wantedSpec = {};
+    wantedSpec.freq = codecParams.GetRawParameters()->sample_rate;
+    wantedSpec.format = FFmpegPublicUtils::FFmpegToSDLFormat(codecParams.GetSampleFormat());
+    wantedSpec.channels = codecParams.GetRawParameters()->ch_layout.nb_channels;
+
+    m_playInfo->InitAudioSpec(true, wantedSpec.freq, wantedSpec.format, wantedSpec.channels);
+    m_playInfo->InitAudioSpec(false, wantedSpec.freq, SDL_AUDIO_S16, wantedSpec.channels);
+    m_playInfo->InitAudioStream();
+
+    // 打开音频设备
+    SDL_AudioDeviceID deviceId = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &wantedSpec);
+    if (deviceId == 0)
+    {
+        qWarning() << "Failed to open audio device:" << SDL_GetError();
+        m_playInfo.reset();
+        return;
+    }
+
+    m_playInfo->InitAudioDevice(deviceId);
     m_playInfo->BindStreamAndDevice();
     m_playInfo->BeginPlayAudio();
 
@@ -221,6 +255,22 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     m_playState.SetPaused(false);
     m_playState.SetStartTime(SDL_GetTicks());
     m_playState.SetCurrentPosition(0.0);
+    ST_AVPacket pkt;
+    while (pkt.ReadPacket(formatCtx.GetRawContext()) >= 0)
+    {
+        if (pkt.GetRawPacket()->stream_index == audioStreamIdx)
+        {
+            pkt.SendPacket(codeCtx.GetRawContext());
+            // 播放音频数据
+            m_playInfo->PutDataToStream(pkt.GetRawPacket()->data, pkt.GetRawPacket()->size);
+        }
+        pkt.UnrefPacket();
+    }
+    // 等待音频播放完成
+    while (m_playInfo->GetDataIsEnd() > 0)
+    {
+        m_playInfo->Delay(100);
+    }
     emit SigPlayStateChanged(true);
 }
 
@@ -233,8 +283,7 @@ void FFmpegUtils::PauseAudioPlayback()
 
     m_playState.SetPaused(true);
     m_playInfo->PauseAudio();
-    m_playState.SetCurrentPosition(m_playState.GetCurrentPosition() + 
-        (SDL_GetTicks() - m_playState.GetStartTime()) / 1000.0);
+    m_playState.SetCurrentPosition(m_playState.GetCurrentPosition() + (SDL_GetTicks() - m_playState.GetStartTime()) / 1000.0);
 }
 
 void FFmpegUtils::ResumeAudioPlayback()
@@ -256,11 +305,22 @@ void FFmpegUtils::StopAudioPlayback()
         return;
     }
 
+    // 先停止播放状态
     m_playState.Reset();
+
+    // 停止音频播放并释放资源
     if (m_playInfo)
     {
+        // 先停止音频播放
         m_playInfo->StopAudio();
+
+        // 给系统一些时间来处理停止操作
+        SDL_Delay(50);
+
+        // 最后释放资源
+        m_playInfo.reset();
     }
+
     emit SigPlayStateChanged(false);
 }
 
