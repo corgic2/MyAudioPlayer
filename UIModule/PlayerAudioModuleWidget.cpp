@@ -10,13 +10,14 @@
 #include <QJsonObject>
 #include <QStandardPaths>
 #include <QCloseEvent>
+#include <QDebug>
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "DomainWidget/FilePathIconListWidgetItem.h"
 #include "CoreWidget/CustomLabel.h"
 #include "CoreWidget/CustomToolButton.h"
 #include "CoreWidget/CustomComboBox.h"
 #include "UtilsWidget/CustomToolTips.h"
-#include <QDebug>
+#include "AudioFileSystem.h"
 
 PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
     : QWidget(parent)
@@ -360,14 +361,14 @@ void PlayerAudioModuleWidget::AddAudioFiles(const QStringList& filePaths)
     for (const QString& filePath : filePaths)
     {
         std::string stdPath = my_sdk::FileSystem::QtPathToStdPath(filePath.toStdString());
-        if (!my_sdk::FileSystem::IsAudioFile(stdPath))
+        if (!audio_player::AudioFileSystem::IsAudioFile(stdPath))
         {
             continue;
         }
 
         if (!IsFileExists(filePath))
         {
-            my_sdk::ST_AudioFileInfo audioInfo = my_sdk::FileSystem::GetAudioFileInfo(stdPath);
+            audio_player::ST_AudioFileInfo audioInfo = audio_player::AudioFileSystem::GetAudioFileInfo(stdPath);
             FilePathIconListWidgetItem::ST_NodeInfo nodeInfo;
             nodeInfo.filePath = filePath;
             nodeInfo.displayName = QString::fromStdString(audioInfo.m_displayName);
@@ -463,42 +464,28 @@ QString PlayerAudioModuleWidget::GetJsonFilePath() const
 
 void PlayerAudioModuleWidget::SaveFileListToJson()
 {
-    // 构建JSON对象字符串
-    std::string jsonStr = "{";
-    bool first = true;
-
+    QJsonObject rootObject;
+    
     for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
     {
         FilePathIconListWidgetItem* item = ui->audioFileList->GetItem(i);
         if (item)
         {
-            if (!first)
-            {
-                jsonStr += ",";
-            }
-            first = false;
+            QJsonObject fileObject;
+            fileObject["filePath"] = item->GetNodeInfo().filePath;
+            fileObject["displayName"] = item->GetNodeInfo().displayName;
+            fileObject["iconPath"] = item->GetNodeInfo().iconPath;
 
-            // 转义路径和名称
-            std::string filePath = my_sdk::FileSystem::EscapeJsonString(
-                my_sdk::FileSystem::QtPathToStdPath(item->GetNodeInfo().filePath.toStdString())
-            );
-            std::string displayName = my_sdk::FileSystem::EscapeJsonString(
-                item->GetNodeInfo().displayName.toStdString()
-            );
-            std::string iconPath = my_sdk::FileSystem::EscapeJsonString(
-                item->GetNodeInfo().iconPath.toStdString()
-            );
-
-            // 构建JSON对象字符串，使用空字符串作为键
-            jsonStr += "\"\":{";
-            jsonStr += "\"filePath\":\"" + filePath + "\",";
-            jsonStr += "\"displayName\":\"" + displayName + "\",";
-            jsonStr += "\"iconPath\":\"" + iconPath + "\"";
-            jsonStr += "}";
+            rootObject[QString::number(i)] = fileObject;
         }
     }
-    jsonStr += "}";
 
+    QJsonDocument doc(rootObject);
+    QString jsonQStr = doc.toJson(QJsonDocument::Indented);
+    std::string jsonStr = jsonQStr.toUtf8().constData();
+
+    qDebug() << "JsonStr : " << jsonQStr;
+    
     // 使用FileSystem API保存JSON
     my_sdk::EM_JsonOperationResult result = my_sdk::FileSystem::WriteJsonToFile(GetJsonFilePath().toStdString(), jsonStr, true);
 
@@ -517,7 +504,7 @@ void PlayerAudioModuleWidget::LoadFileListFromJson()
     {
         // 使用Qt的JSON解析功能解析数据
         QJsonDocument document = QJsonDocument::fromJson(QString::fromStdString(jsonStr).toUtf8());
-        if (document.isObject())  // 注意这里改为isObject
+        if (document.isObject())
         {
             QJsonObject rootObject = document.object();
             // 遍历根对象的所有子对象
@@ -526,29 +513,16 @@ void PlayerAudioModuleWidget::LoadFileListFromJson()
                 QJsonObject fileObject = it.value().toObject();
                 if (!fileObject.isEmpty())
                 {
-                    // 反转义路径和名称
-                    std::string filePath = my_sdk::FileSystem::UnescapeJsonString(
-                        fileObject["filePath"].toString().toStdString()
-                    );
-                    QString qtFilePath = QString::fromStdString(
-                        my_sdk::FileSystem::StdPathToQtPath(filePath)
-                    );
+                    std::string filePath = my_sdk::FileSystem::QtPathToStdPath(fileObject["filePath"].toString().toStdString());
+                    QString qtFilePath = QString::fromStdString(my_sdk::FileSystem::StdPathToQtPath(filePath));
 
                     // 使用FileSystem API检查文件是否存在
                     if (my_sdk::FileSystem::Exists(filePath))
                     {
                         FilePathIconListWidgetItem::ST_NodeInfo nodeInfo;
                         nodeInfo.filePath = qtFilePath;
-                        nodeInfo.displayName = QString::fromStdString(
-                            my_sdk::FileSystem::UnescapeJsonString(
-                                fileObject["displayName"].toString().toStdString()
-                            )
-                        );
-                        nodeInfo.iconPath = QString::fromStdString(
-                            my_sdk::FileSystem::UnescapeJsonString(
-                                fileObject["iconPath"].toString().toStdString()
-                            )
-                        );
+                        nodeInfo.displayName = fileObject["displayName"].toString();
+                        nodeInfo.iconPath = fileObject["iconPath"].toString();
 
                         // 添加到列表
                         ui->audioFileList->InsertFileItem(ui->audioFileList->GetItemCount(), nodeInfo);

@@ -14,6 +14,7 @@
 #include "PlayerAudioModuleWidget.h"
 #include "CoreWidget/CustomToolBar.h"
 #include "FileSystem/FileSystem.h"
+#include "AudioFileSystem.h"
 
 AudioMainWidget::AudioMainWidget(QWidget* parent)
     : QMainWindow(parent)
@@ -94,7 +95,7 @@ void AudioMainWidget::ConnectSignals()
 void AudioMainWidget::SlotOpenAudioFile()
 {
     QString dir = QDir::currentPath();
-    QString filter = QString::fromStdString(my_sdk::FileSystem::GetAudioFileFilter());
+    QString filter = QString::fromStdString(audio_player::AudioFileSystem::GetAudioFileFilter());
     QStringList files = QFileDialog::getOpenFileNames(this, tr("打开音频文件"), dir, filter);
 
     if (!files.isEmpty())
@@ -116,8 +117,8 @@ void AudioMainWidget::SlotOpenAudioFolder()
 
     if (!dir.isEmpty())
     {
-        std::vector<std::string> audioFiles = my_sdk::FileSystem::GetAudioFiles(
-                                                                                my_sdk::FileSystem::QtPathToStdPath(dir.toStdString()), false);
+        std::vector<std::string> audioFiles = audio_player::AudioFileSystem::GetAudioFiles(
+                                                                                           my_sdk::FileSystem::QtPathToStdPath(dir.toStdString()), false);
 
         QStringList filePaths;
         for (const auto& file : audioFiles)
