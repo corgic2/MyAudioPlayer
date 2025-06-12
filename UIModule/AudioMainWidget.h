@@ -44,19 +44,14 @@ protected slots:
     void SlotOpenAudioFolder();
 
     /// <summary>
-    /// 保存音频文件槽函数
-    /// </summary>
-    void SlotSaveAudioFile();
-
-    /// <summary>
-    /// 另存为音频文件槽函数
-    /// </summary>
-    void SlotSaveAsAudioFile();
-
-    /// <summary>
     /// 清空文件列表槽函数
     /// </summary>
     void SlotClearFileList();
+
+    /// <summary>
+    /// 保存UI数据槽函数
+    /// </summary>
+    void SlotSaveUIData();
 
     /// <summary>
     /// 从列表移除文件槽函数
@@ -78,6 +73,11 @@ private:
     /// 连接信号槽
     /// </summary>
     void ConnectSignals();
+    /// <summary>
+    /// 保存UI数据槽函数
+    /// </summary>
+    /// <returns></returns>
+    bool SaveUIDataToFile();
 
 private:
     Ui::AudioMainWidgetClass* ui;

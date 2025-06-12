@@ -120,3 +120,6 @@ foreach(lib ${LIBRARIES})
         target_link_libraries(${TARGET_NAME} PUBLIC ${lib})
     endif()
 endforeach()
+
+
+target_link_libraries(${TARGET_NAME} PUBLIC "${PublishDir}/SDK.lib")

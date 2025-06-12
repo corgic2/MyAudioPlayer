@@ -10,6 +10,7 @@
 #include "CoreWidget/CustomToolButton.h"
 #include "CoreWidget/CustomLabel.h"
 #include "CoreWidget/CustomComboBox.h"
+#include "FileSystem/FileSystem.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class PlayerAudioModuleWidgetClass; };
@@ -50,6 +51,17 @@ public:
     /// </summary>
     void ClearAudioFiles();
 
+    /// <summary>
+    /// 获取指定索引的文件信息
+    /// </summary>
+    /// <param name="index">文件索引</param>
+    /// <returns>文件信息</returns>
+    FilePathIconListWidgetItem::ST_NodeInfo GetFileInfo(int index) const;
+
+    /// <summary>
+    /// 保存文件列表到JSON文件
+    /// </summary>
+    void SaveFileListToJson();
 signals:
     /// <summary>
     /// 音频文件被选中信号
@@ -103,7 +115,25 @@ protected slots:
     /// </summary>
     void SlotAudioFileDoubleClicked(const QString& filePath);
 
+    /// <summary>
+    /// 自动保存槽函数
+    /// </summary>
+    void SlotAutoSave();
+
+protected:
+    /// <summary>
+    /// 窗口关闭事件
+    /// </summary>
+    /// <param name="event">关闭事件指针</param>
+    void closeEvent(QCloseEvent* event) override;
+
 private:
+    /// <summary>
+    /// 获取文件列表中的文件数量
+    /// </summary>
+    /// <returns>文件数量</returns>
+    int GetFileCount() const;
+
     /// <summary>
     /// 连接信号槽
     /// </summary>
@@ -144,6 +174,23 @@ private:
     /// <returns>文件在列表中的索引，如果不存在则返回-1</returns>
     int GetFileIndex(const QString& filePath) const;
 
+
+    /// <summary>
+    /// 从JSON文件加载文件列表
+    /// </summary>
+    void LoadFileListFromJson();
+
+    /// <summary>
+    /// 获取JSON文件路径
+    /// </summary>
+    /// <returns>JSON文件的完整路径</returns>
+    QString GetJsonFilePath() const;
+
+    /// <summary>
+    /// 初始化自动保存定时器
+    /// </summary>
+    void InitializeAutoSaveTimer();
+
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;
     FFmpegUtils m_ffmpeg;
@@ -152,4 +199,7 @@ private:
     bool m_isPlaying;           /// 是否正在播放
     bool m_isPaused; /// 是否已暂停
     QTimer* m_playTimer;        /// 播放定时器
+    QString m_jsonFileName;     /// JSON文件名
+    QTimer* m_autoSaveTimer; /// 自动保存定时器
+    static const int AUTO_SAVE_INTERVAL = 1800000; // 30分钟 = 30 * 60 * 1000毫秒
 };

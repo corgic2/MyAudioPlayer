@@ -1,10 +1,11 @@
 @ECHO OFF
 set CURDIR=%~dp0
 
-
 set "FFMPEGDIR=D:\WorkSpace\ffmpeg-7.1.1-full_build-shared"
 set "SDLDIR=D:\WorkSpace\SDL3-3.2.14\x86_64-w64-mingw32"
-set "CustomUIDir=D:\Program Files\Projects\MyCustomUIWidget"
+set "CustomUIDir=D:\WorkSpace\MyCustomUIWidget"
+set "SDKDIR=D:\WorkSpace\MySdk"
+
 if not exist "%~dp0include\" mkdir "%~dp0include"
 if not exist "%~dp0x64\Debug\" mkdir "%~dp0x64\Debug"
 
@@ -12,12 +13,13 @@ xcopy "%FFMPEGDIR%\include\*" "%~dp0include\" /E /I /Y
 xcopy "%SDLDIR%\include\*" "%~dp0include\" /E /I /Y
 xcopy "%CustomUIDir%\MuCustomUiWidget\*.h" "%~dp0include\" /E /I /Y
 xcopy "%CustomUIDir%\MuCustomUiWidget\*.ui" "%~dp0include\" /E /I /Y
+xcopy "%SDKDIR%\include\*.h" "%~dp0include\" /E /I /Y
+xcopy "%SDKDIR%\x64\Debug\*" "%~dp0x64\Debug\" /E /I /Y
 
 xcopy "%FFMPEGDIR%\lib\*" "%~dp0x64\Debug\" /E /I /Y
 xcopy "%FFMPEGDIR%\bin\*" "%~dp0x64\Debug\" /E /I /Y
-xcopy "%CustomUIDir%\x64\Debug\MuCustomUiWidget.dll" "%~dp0x64\Debug\" /Y
-xcopy "%CustomUIDir%\x64\Debug\MuCustomUiWidget.lib" "%~dp0x64\Debug\" /Y
-
+xcopy "%CustomUIDir%\x64\Debug\MuCustomUiWidget.dll" "%~dp0x64\Debug\" /E /I /Y
+xcopy "%CustomUIDir%\x64\Debug\MuCustomUiWidget.lib" "%~dp0x64\Debug\" /E /I /Y
 echo Operation completed.
 
 md build
@@ -34,4 +36,4 @@ if defined QT_DIR (
 
 cd %CURDIR%
 
-pause
+pause 

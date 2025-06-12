@@ -3,6 +3,9 @@
 #include <QApplication>
 #include <QDir>
 #include <QFileDialog>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -10,6 +13,7 @@
 #include <QToolBar>
 #include "PlayerAudioModuleWidget.h"
 #include "CoreWidget/CustomToolBar.h"
+#include "FileSystem/FileSystem.h"
 
 AudioMainWidget::AudioMainWidget(QWidget* parent)
     : QMainWindow(parent)
@@ -50,13 +54,7 @@ void AudioMainWidget::InitializeMenuBar()
     saveAction->setShortcut(QKeySequence::Save);
     saveAction->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
     fileMenu->addAction(saveAction);
-    connect(saveAction, &QAction::triggered, this, &AudioMainWidget::SlotSaveAudioFile);
-
-    auto saveAsAction = new QAction(tr("另存为..."), this);
-    saveAsAction->setShortcut(QKeySequence::SaveAs);
-    saveAsAction->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
-    fileMenu->addAction(saveAsAction);
-    connect(saveAsAction, &QAction::triggered, this, &AudioMainWidget::SlotSaveAsAudioFile);
+    connect(saveAction, &QAction::triggered, this, &AudioMainWidget::SlotSaveUIData);
 
     // 编辑菜单
     QMenu* editMenu = menuBar()->addMenu(tr("编辑"));
@@ -95,7 +93,9 @@ void AudioMainWidget::ConnectSignals()
 
 void AudioMainWidget::SlotOpenAudioFile()
 {
-    QStringList files = QFileDialog::getOpenFileNames(this, tr("打开音频文件"), QDir::currentPath(), tr("音频文件 (*.mp3 *.wav *.flac *.m4a);;所有文件 (*.*)"));
+    QString dir = QDir::currentPath();
+    QString filter = QString::fromStdString(my_sdk::FileSystem::GetAudioFileFilter());
+    QStringList files = QFileDialog::getOpenFileNames(this, tr("打开音频文件"), dir, filter);
 
     if (!files.isEmpty())
     {
@@ -111,70 +111,46 @@ void AudioMainWidget::SlotOpenAudioFile()
 
 void AudioMainWidget::SlotOpenAudioFolder()
 {
-    QString dir = QFileDialog::getExistingDirectory(this, tr("选择音频文件夹"), QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    QString dir = QFileDialog::getExistingDirectory(this, tr("选择音频文件夹"),
+                                                    QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
     if (!dir.isEmpty())
     {
-        QDir folder(dir);
-        QStringList filters;
-        filters << "*.mp3" << "*.wav" << "*.flac" << "*.m4a";
-        QStringList files = folder.entryList(filters, QDir::Files);
+        std::vector<std::string> audioFiles = my_sdk::FileSystem::GetAudioFiles(
+                                                                                my_sdk::FileSystem::QtPathToStdPath(dir.toStdString()), false);
 
-        QStringList fullPaths;
-        for (const QString& file : files)
+        QStringList filePaths;
+        for (const auto& file : audioFiles)
         {
-            fullPaths << folder.filePath(file);
+            filePaths << QString::fromStdString(my_sdk::FileSystem::StdPathToQtPath(file));
         }
 
-        if (!fullPaths.isEmpty())
+        if (!filePaths.isEmpty())
         {
-            ui->widget->AddAudioFiles(fullPaths);
+            ui->widget->AddAudioFiles(filePaths);
             // 选中第一个文件
-            m_currentAudioFile = fullPaths.first();
+            m_currentAudioFile = filePaths.first();
             emit ui->widget->SigAudioFileSelected(m_currentAudioFile);
         }
     }
 }
 
-void AudioMainWidget::SlotSaveAudioFile()
+void AudioMainWidget::SlotSaveUIData()
 {
-    if (m_currentAudioFile.isEmpty())
+    if (SaveUIDataToFile())
     {
-        SlotSaveAsAudioFile();
-        return;
-    }
-
-    // 这里可以添加保存当前音频文件的逻辑
-    if (QFile::exists(m_currentAudioFile))
-    {
-        // 实现保存逻辑
-        QMessageBox::information(this, tr("保存"), tr("文件已保存"));
+        QMessageBox::information(this, tr("保存"), tr("UI数据已保存"));
     }
     else
     {
-        QMessageBox::warning(this, tr("错误"), tr("文件不存在"));
+        QMessageBox::warning(this, tr("错误"), tr("保存UI数据失败"));
     }
 }
 
-void AudioMainWidget::SlotSaveAsAudioFile()
+bool AudioMainWidget::SaveUIDataToFile()
 {
-    QString filePath = QFileDialog::getSaveFileName(this, tr("另存为"), m_currentAudioFile.isEmpty() ? QDir::currentPath() : m_currentAudioFile, tr("Wave文件 (*.wav);;MP3文件 (*.mp3);;所有文件 (*.*)"));
-
-    if (!filePath.isEmpty())
-    {
-        // 如果文件已存在，询问是否覆盖
-        if (QFile::exists(filePath))
-        {
-            if (QMessageBox::question(this, tr("文件已存在"), tr("文件已存在，是否覆盖？"), QMessageBox::Yes | QMessageBox::No) == QMessageBox::No)
-            {
-                return;
-            }
-        }
-
-        m_currentAudioFile = filePath;
-        // 实现另存为逻辑
-        QMessageBox::information(this, tr("另存为"), tr("文件已保存"));
-    }
+    ui->widget->SaveFileListToJson();
+    return true;
 }
 
 void AudioMainWidget::SlotClearFileList()

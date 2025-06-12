@@ -5,12 +5,18 @@
 #include <QDir>
 #include <QTimer>
 #include <QApplication>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QStandardPaths>
+#include <QCloseEvent>
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "DomainWidget/FilePathIconListWidgetItem.h"
 #include "CoreWidget/CustomLabel.h"
 #include "CoreWidget/CustomToolButton.h"
 #include "CoreWidget/CustomComboBox.h"
 #include "UtilsWidget/CustomToolTips.h"
+#include <QDebug>
 
 PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
     : QWidget(parent)
@@ -19,11 +25,15 @@ PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
     , m_isPlaying(false)
     , m_playTimer(nullptr)
     , m_isPaused(false)
+    , m_jsonFileName("audiofiles.json")
+    , m_autoSaveTimer(nullptr)
 {
     ui->setupUi(this);
     InitializeWidget();
     ConnectSignals();
     InitAudioDevices();
+    LoadFileListFromJson(); // 加载保存的文件列表
+    InitializeAutoSaveTimer();
 }
 
 void PlayerAudioModuleWidget::InitializeWidget()
@@ -136,14 +146,25 @@ void PlayerAudioModuleWidget::ConnectSignals()
 
 PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
 {
-    //     if (m_isRecording)
-    //     {
-    //         m_ffmpeg.StopAudioRecording();
-    //     }
-    //     if (m_isPlaying)
-    //     {
-    //         m_ffmpeg.StopAudioPlayback();
-    //     }
+    // 析构时保存一次
+    SaveFileListToJson();
+    
+    if (m_isRecording)
+    {
+        m_ffmpeg.StopAudioRecording();
+    }
+    if (m_isPlaying)
+    {
+        m_ffmpeg.StopAudioPlayback();
+    }
+
+    if (m_autoSaveTimer)
+    {
+        m_autoSaveTimer->stop();
+        delete m_autoSaveTimer;
+        m_autoSaveTimer = nullptr;
+    }
+    
     delete ui;
 }
 
@@ -151,10 +172,7 @@ void PlayerAudioModuleWidget::SlotBtnRecordClicked()
 {
     if (!m_isRecording)
     {
-        QString filePath = QFileDialog::getSaveFileName(this,
-                                                        tr("保存录音文件"),
-                                                        QDir::currentPath(),
-                                                        tr("Wave Files (*.wav)"));
+        QString filePath = QFileDialog::getSaveFileName(this, tr("保存录音文件"), QDir::currentPath(), tr("Wave Files (*.wav)"));
 
         if (!filePath.isEmpty())
         {
@@ -341,12 +359,19 @@ void PlayerAudioModuleWidget::AddAudioFiles(const QStringList& filePaths)
 {
     for (const QString& filePath : filePaths)
     {
+        std::string stdPath = my_sdk::FileSystem::QtPathToStdPath(filePath.toStdString());
+        if (!my_sdk::FileSystem::IsAudioFile(stdPath))
+        {
+            continue;
+        }
+
         if (!IsFileExists(filePath))
         {
+            my_sdk::ST_AudioFileInfo audioInfo = my_sdk::FileSystem::GetAudioFileInfo(stdPath);
             FilePathIconListWidgetItem::ST_NodeInfo nodeInfo;
             nodeInfo.filePath = filePath;
-            nodeInfo.displayName = QFileInfo(filePath).fileName();
-            nodeInfo.iconPath = ":/icons/audio.png";
+            nodeInfo.displayName = QString::fromStdString(audioInfo.m_displayName);
+            nodeInfo.iconPath = QString::fromStdString(audioInfo.m_iconPath);
 
             // 在列表顶部插入新项
             ui->audioFileList->InsertFileItem(0, nodeInfo);
@@ -422,4 +447,150 @@ int PlayerAudioModuleWidget::GetFileIndex(const QString& filePath) const
         }
     }
     return -1;
+}
+
+void PlayerAudioModuleWidget::closeEvent(QCloseEvent* event)
+{
+    // 关闭窗口时保存
+    SaveFileListToJson();
+    event->accept();
+}
+
+QString PlayerAudioModuleWidget::GetJsonFilePath() const
+{
+    return QApplication::applicationDirPath() + "/" + m_jsonFileName;
+}
+
+void PlayerAudioModuleWidget::SaveFileListToJson()
+{
+    // 构建JSON对象字符串
+    std::string jsonStr = "{";
+    bool first = true;
+
+    for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
+    {
+        FilePathIconListWidgetItem* item = ui->audioFileList->GetItem(i);
+        if (item)
+        {
+            if (!first)
+            {
+                jsonStr += ",";
+            }
+            first = false;
+
+            // 转义路径和名称
+            std::string filePath = my_sdk::FileSystem::EscapeJsonString(
+                my_sdk::FileSystem::QtPathToStdPath(item->GetNodeInfo().filePath.toStdString())
+            );
+            std::string displayName = my_sdk::FileSystem::EscapeJsonString(
+                item->GetNodeInfo().displayName.toStdString()
+            );
+            std::string iconPath = my_sdk::FileSystem::EscapeJsonString(
+                item->GetNodeInfo().iconPath.toStdString()
+            );
+
+            // 构建JSON对象字符串，使用空字符串作为键
+            jsonStr += "\"\":{";
+            jsonStr += "\"filePath\":\"" + filePath + "\",";
+            jsonStr += "\"displayName\":\"" + displayName + "\",";
+            jsonStr += "\"iconPath\":\"" + iconPath + "\"";
+            jsonStr += "}";
+        }
+    }
+    jsonStr += "}";
+
+    // 使用FileSystem API保存JSON
+    my_sdk::EM_JsonOperationResult result = my_sdk::FileSystem::WriteJsonToFile(GetJsonFilePath().toStdString(), jsonStr, true);
+
+    if (result != my_sdk::EM_JsonOperationResult::Success)
+    {
+        qDebug() << "Failed to save file list to JSON, error code:" << static_cast<int>(result);
+    }
+}
+
+void PlayerAudioModuleWidget::LoadFileListFromJson()
+{
+    std::string jsonStr;
+    my_sdk::EM_JsonOperationResult result = my_sdk::FileSystem::ReadJsonFromFile(GetJsonFilePath().toStdString(), jsonStr);
+
+    if (result == my_sdk::EM_JsonOperationResult::Success && my_sdk::FileSystem::ValidateJsonString(jsonStr))
+    {
+        // 使用Qt的JSON解析功能解析数据
+        QJsonDocument document = QJsonDocument::fromJson(QString::fromStdString(jsonStr).toUtf8());
+        if (document.isObject())  // 注意这里改为isObject
+        {
+            QJsonObject rootObject = document.object();
+            // 遍历根对象的所有子对象
+            for (auto it = rootObject.begin(); it != rootObject.end(); ++it)
+            {
+                QJsonObject fileObject = it.value().toObject();
+                if (!fileObject.isEmpty())
+                {
+                    // 反转义路径和名称
+                    std::string filePath = my_sdk::FileSystem::UnescapeJsonString(
+                        fileObject["filePath"].toString().toStdString()
+                    );
+                    QString qtFilePath = QString::fromStdString(
+                        my_sdk::FileSystem::StdPathToQtPath(filePath)
+                    );
+
+                    // 使用FileSystem API检查文件是否存在
+                    if (my_sdk::FileSystem::Exists(filePath))
+                    {
+                        FilePathIconListWidgetItem::ST_NodeInfo nodeInfo;
+                        nodeInfo.filePath = qtFilePath;
+                        nodeInfo.displayName = QString::fromStdString(
+                            my_sdk::FileSystem::UnescapeJsonString(
+                                fileObject["displayName"].toString().toStdString()
+                            )
+                        );
+                        nodeInfo.iconPath = QString::fromStdString(
+                            my_sdk::FileSystem::UnescapeJsonString(
+                                fileObject["iconPath"].toString().toStdString()
+                            )
+                        );
+
+                        // 添加到列表
+                        ui->audioFileList->InsertFileItem(ui->audioFileList->GetItemCount(), nodeInfo);
+                    }
+                }
+            }
+        }
+    }
+    else if (result != my_sdk::EM_JsonOperationResult::FileNotFound)
+    {
+        qDebug() << "Failed to load file list from JSON, error code:" << static_cast<int>(result);
+    }
+}
+
+void PlayerAudioModuleWidget::InitializeAutoSaveTimer()
+{
+    if (!m_autoSaveTimer)
+    {
+        m_autoSaveTimer = new QTimer(this);
+        m_autoSaveTimer->setInterval(AUTO_SAVE_INTERVAL);
+        connect(m_autoSaveTimer, &QTimer::timeout, this, &PlayerAudioModuleWidget::SlotAutoSave);
+        m_autoSaveTimer->start();
+    }
+}
+
+void PlayerAudioModuleWidget::SlotAutoSave()
+{
+    SaveFileListToJson();
+    qDebug() << "Auto saved file list to JSON";
+}
+
+int PlayerAudioModuleWidget::GetFileCount() const
+{
+    return ui->audioFileList->GetItemCount();
+}
+
+FilePathIconListWidgetItem::ST_NodeInfo PlayerAudioModuleWidget::GetFileInfo(int index) const
+{
+    FilePathIconListWidgetItem* item = ui->audioFileList->GetItem(index);
+    if (item)
+    {
+        return item->GetNodeInfo();
+    }
+    return FilePathIconListWidgetItem::ST_NodeInfo();
 }
