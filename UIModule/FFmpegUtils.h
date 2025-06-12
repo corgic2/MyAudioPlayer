@@ -3,28 +3,44 @@
 #include <QDebug>
 #include <QObject>
 #include <QString>
-#include "FFmpegAudioDataDefine.h"
-#include "SDL3/SDL_stdinc.h"
+#include <QStringList>
+#include <memory>
+#include "../DataDefine/FFmpegAudioDataDefine.h"
 
 extern "C" {
-#include "libavformat/avformat.h"
-#include "libavdevice/avdevice.h"
-#include "libswresample/swresample.h"
-#include "libavutil/channel_layout.h"
-#include "libavutil/samplefmt.h"
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavdevice/avdevice.h>
+#include <libswresample/swresample.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/samplefmt.h>
+#include <libavutil/opt.h>
 }
 
+/// <summary>
+/// FFmpeg音频工具类
+/// </summary>
 class FFmpegUtils : public QObject
 {
     Q_OBJECT
 
 public:
-    FFmpegUtils(QObject* parent = Q_NULLPTR);
+    /// <summary>
+    /// 构造函数
+    /// </summary>
+    /// <param name="parent">父对象</param>
+    explicit FFmpegUtils(QObject* parent = nullptr);
+
+    /// <summary>
+    /// 析构函数
+    /// </summary>
     ~FFmpegUtils() override;
-    // 注册设备
+
+    /// <summary>
+    /// 注册设备
+    /// </summary>
     static void ResigsterDevice();
 
-public:
     /// <summary>
     /// 开始录音
     /// </summary>
@@ -72,27 +88,28 @@ public:
     void SeekAudioBackward(int seconds);
 
     /// <summary>
-    /// 获取所有可用的音频输入设备（FFmpeg设备）
+    /// 获取所有可用的音频输入设备
     /// </summary>
-    /// <returns>返回设备名称列表</returns>
+    /// <returns>设备名称列表</returns>
     QStringList GetInputAudioDevices();
 
     /// <summary>
-    /// 设置当前使用的输入设备（FFmpeg设备）
+    /// 设置当前使用的输入设备
     /// </summary>
+    /// <param name="deviceName">设备名称</param>
     void SetInputDevice(const QString& deviceName);
 
     /// <summary>
     /// 获取当前播放状态
     /// </summary>
     /// <returns>true表示正在播放，false表示已停止</returns>
-    bool IsPlaying() const { return m_playState.m_isPlaying; }
+    bool IsPlaying() const { return m_playState.IsPlaying(); }
 
     /// <summary>
     /// 获取当前暂停状态
     /// </summary>
     /// <returns>true表示已暂停，false表示未暂停</returns>
-    bool IsPaused() const { return m_playState.m_isPaused; }
+    bool IsPaused() const { return m_playState.IsPaused(); }
 
 signals:
     /// <summary>
@@ -110,41 +127,52 @@ signals:
 
 private:
     /// <summary>
-    /// 编码或解码 ffmpeg
+    /// 编码或解码
     /// </summary>
-    /// <param name="inputFilePath">inputFilePath 表示需要修改的文件路径</param>
-    /// <param name="outputFilePath">outputFilePath 表示输出的文件路径</param>
-    /// <param name="bEncoder">bEncoder 表示是否编码 true表示编码，false表示解码</param>
-    /// <param name="args">args 表示ffmpeg的参数</param>
-    void EncoderOrDecoder(const QString& inputFilePath, const QString& outputFilePath, bool bEncoder, const QStringList& args = QStringList());
+    /// <param name="inputFilePath">输入文件路径</param>
+    /// <param name="outputFilePath">输出文件路径</param>
+    /// <param name="bEncoder">是否编码</param>
+    /// <param name="args">FFmpeg参数</param>
+    void EncoderOrDecoder(const QString& inputFilePath, const QString& outputFilePath, 
+                         bool bEncoder, const QStringList& args = QStringList());
+
     /// <summary>
-    /// 查看音视频的参数信息 ffprobe
+    /// 获取文件信息
     /// </summary>
-    /// <param name="inputFilePath">inputFilePath 表示需要查看的文件路径</param>
-    /// <param name="args">args 表示ffprobe的参数</param>
-    /// <returns></returns>
+    /// <param name="inputFilePath">输入文件路径</param>
+    /// <param name="args">FFprobe参数</param>
+    /// <returns>文件信息字符串</returns>
     QString GetFileInfomation(const QString& inputFilePath, const QStringList& args = QStringList());
+
     /// <summary>
     /// 打开设备
     /// </summary>
-    /// <param name="devieceFormat"></param>
-    /// <param name="deviceName"></param>
-    /// <returns></returns>
-    std::unique_ptr<ST_OpenAudioDevice> OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio = true);
+    /// <param name="devieceFormat">设备格式</param>
+    /// <param name="deviceName">设备名称</param>
+    /// <param name="bAudio">是否为音频设备</param>
+    /// <returns>设备对象指针</returns>
+    std::unique_ptr<ST_OpenAudioDevice> OpenDevice(const QString& devieceFormat, 
+                                                 const QString& deviceName, bool bAudio = true);
+
     /// <summary>
-    /// 显示录音设备的参数S
+    /// 显示录音设备参数
     /// </summary>
-    /// <param name="ctx"></param>
+    /// <param name="ctx">格式上下文</param>
     void ShowSpec(AVFormatContext* ctx);
+
     /// <summary>
     /// 音频重采样
     /// </summary>
-    void ResampleAudio(const uint8_t* input, size_t input_size, ST_ResampleResult& output, const ST_ResampleParams& params);
+    /// <param name="input">输入数据</param>
+    /// <param name="input_size">输入数据大小</param>
+    /// <param name="output">输出结果</param>
+    /// <param name="params">重采样参数</param>
+    void ResampleAudio(const uint8_t* input, size_t input_size, 
+                      ST_ResampleResult& output, const ST_ResampleParams& params);
 
 private:
-    QString m_currentInputDevice;  // 当前选择的FFmpeg输入设备
-    SDL_AudioDeviceID m_currentOutputDevice; // 当前选择的SDL输出设备
-    ST_AudioPlayState m_playState;  /// 播放状态
-    std::unique_ptr<ST_AudioPlayInfo> m_playInfo; // 播放信息
-    std::unique_ptr<ST_OpenAudioDevice> m_recordDevice; // 录制设备
+    QString m_currentInputDevice;                      /// 当前选择的FFmpeg输入设备
+    std::unique_ptr<ST_OpenAudioDevice> m_recordDevice; /// 录制设备
+    std::unique_ptr<ST_AudioPlayInfo> m_playInfo;     /// 播放信息
+    ST_AudioPlayState m_playState;                    /// 播放状态
 };

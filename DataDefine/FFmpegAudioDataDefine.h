@@ -1,114 +1,122 @@
 ﻿#pragma once
 #include "FFmpegAudioBaseStrcutDefine.h"
+#include <memory>
+#include <QObject>
+#include <QString>
+#include <QDebug>
 
 extern "C" {
-#include "libavformat/avformat.h"
+#include <libavformat/avformat.h>
+#include <libavdevice/avdevice.h>
+#include <libswresample/swresample.h>
+#include <libavutil/channel_layout.h>
+#include <libavutil/samplefmt.h>
 }
 
-#include "SDL3/SDL.h"
-#include "SDL3/SDL_audio.h"
-#include "SDL3/SDL_timer.h"
-struct ST_OpenAudioDevice
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_audio.h>
+#include <SDL3/SDL_timer.h>
+
+/// <summary>
+/// 音频设备打开封装类
+/// </summary>
+class ST_OpenAudioDevice
 {
-    ST_AVInputFormat m_pInputFormatCtx; // 输入设备格式
-    ST_AVFormatContext m_pFormatCtx; // 输入格式上下文
+public:
     ST_OpenAudioDevice() = default;
+    ~ST_OpenAudioDevice() = default;
 
-    ~ST_OpenAudioDevice()
-    {
-        qDebug() << "~ST_OpenAudioDevice()";
-    }
-
+    // 禁用拷贝操作
     ST_OpenAudioDevice(ST_OpenAudioDevice&) = delete;
     ST_OpenAudioDevice(const ST_OpenAudioDevice&) = delete;
     ST_OpenAudioDevice& operator=(ST_OpenAudioDevice&) = delete;
     ST_OpenAudioDevice& operator=(const ST_OpenAudioDevice&) = delete;
 
-    // 移动构造函数
-    ST_OpenAudioDevice(ST_OpenAudioDevice&& obj) noexcept
-    {
-        m_pInputFormatCtx = std::move(obj.m_pInputFormatCtx);
-        m_pFormatCtx = std::move(obj.m_pFormatCtx);
-        //其本身的移动语义已经置空，不再额外操作
-        //obj.m_pInputFormatCtx.m_pInputFormatCtx = nullptr;
-        //obj.m_pFormatCtx.m_pFormatCtx = nullptr;
-    }
+    // 移动操作
+    ST_OpenAudioDevice(ST_OpenAudioDevice&& other) noexcept;
+    ST_OpenAudioDevice& operator=(ST_OpenAudioDevice&& other) noexcept;
 
-    // 移动赋值运算符
-    ST_OpenAudioDevice& operator=(ST_OpenAudioDevice&& obj)
-    {
-        if (this != &obj)
-        {
-            m_pInputFormatCtx = std::move(obj.m_pInputFormatCtx);
-            m_pFormatCtx = std::move(obj.m_pFormatCtx);
-            // 其本身的移动语义已经置空，不再额外操作
-            //obj.m_pInputFormatCtx.m_pInputFormatCtx = nullptr;
-            //obj.m_pFormatCtx.m_pFormatCtx = nullptr;
-        }
-        return *this;
-    }
+    /// <summary>
+    /// 获取输入格式
+    /// </summary>
+    ST_AVInputFormat& GetInputFormat() { return m_pInputFormatCtx; }
+
+    /// <summary>
+    /// 获取格式上下文
+    /// </summary>
+    ST_AVFormatContext& GetFormatContext() { return m_pFormatCtx; }
+
+private:
+    ST_AVInputFormat m_pInputFormatCtx;    /// 输入设备格式
+    ST_AVFormatContext m_pFormatCtx;       /// 输入格式上下文
 };
 
-
+/// <summary>
+/// 音频播放信息封装类
+/// </summary>
 class ST_AudioPlayInfo
 {
 public:
     ST_AudioPlayInfo() = default;
     ~ST_AudioPlayInfo();
+
     /// <summary>
-    /// 获取流
+    /// 获取音频流
     /// </summary>
-    /// <returns></returns>
     ST_SDLAudioStream& GetAudioStream();
+
     /// <summary>
-    /// 获取输入输出格式
+    /// 获取音频规格
     /// </summary>
-    /// <param name="bsrc"></param>
-    /// <returns></returns>
+    /// <param name="bsrc">true表示获取源规格，false表示获取目标规格</param>
     SDL_AudioSpec& GetAudioSpec(bool bsrc);
+
     /// <summary>
-    /// 获取设备
+    /// 获取音频设备ID
     /// </summary>
-    /// <returns></returns>
     ST_SDLAudioDeviceID& GetDeviceId();
+
     /// <summary>
-    /// 初始化输入输出格式
+    /// 初始化音频规格
     /// </summary>
-    /// <param name="bsrc"></param>
-    /// <param name="sampleRate"></param>
-    /// <param name="format"></param>
-    /// <param name="channels"></param>
+    /// <param name="bsrc">true表示初始化源规格，false表示初始化目标规格</param>
+    /// <param name="sampleRate">采样率</param>
+    /// <param name="format">音频格式</param>
+    /// <param name="channels">声道数</param>
     void InitAudioSpec(bool bsrc, int sampleRate, SDL_AudioFormat format, int channels);
+
     /// <summary>
-    /// 初始化流，必须在initSpec后
+    /// 初始化音频流
     /// </summary>
     void InitAudioStream();
+
     /// <summary>
-    /// 初始化设备
+    /// 初始化音频设备
     /// </summary>
-    /// <param name="devid"></param>
-    void InitAudioDevice(SDL_AudioDeviceID devid);
+    void InitAudioDevice(SDL_AudioDeviceID deviceId);
+
     /// <summary>
-    /// 绑定流与设备
+    /// 绑定音频流和设备
     /// </summary>
     void BindStreamAndDevice();
+
     /// <summary>
-    /// 开始播放
+    /// 开始播放音频
     /// </summary>
     void BeginPlayAudio();
+
     /// <summary>
-    /// 输入数据
+    /// 向音频流写入数据
     /// </summary>
-    /// <param name="buf"></param>
-    /// <param name="len"></param>
     void PutDataToStream(const void* buf, int len);
+
     /// <summary>
-    /// 判断是否终止
+    /// 检查数据是否已结束
     /// </summary>
-    /// <returns></returns>
     bool GetDataIsEnd();
+
     /// <summary>
-    /// 等待一段时间
+    /// 延时指定毫秒数
     /// </summary>
     void Delay(Uint32 ms);
 
@@ -154,48 +162,79 @@ public:
     int GetAudioStreamAvailable() const;
 
 private:
-    ST_SDLAudioStream m_audioStream;
-    ST_SDLAudioDeviceID m_audioDeviceId;
-    SDL_AudioSpec m_srcSpec;
-    SDL_AudioSpec m_dstSpec;
-    double m_duration;          /// 音频总时长（秒）
-    double m_currentPosition;   /// 当前播放位置（秒）
-    int64_t m_startTime;       /// 开始播放的时间戳
-};
-struct ST_ResampleSimpleData
-{
-    int m_sampleRate;
-    int m_channels;
-    ST_AVSampleFormat m_sampleFmt;
-    ST_AVChannelLayout m_channelLayout; // 0表示自动推导
-};
-// 重采样参数结构体
-struct ST_ResampleParams
-{
-    // 输入参数
-    ST_ResampleSimpleData input;
-    // 输出参数
-    ST_ResampleSimpleData output;
-
-    // 自动填充默认值
-    ST_ResampleParams()
-    {
-        input.m_sampleRate = 48000;
-        input.m_channels = 2;
-        input.m_sampleFmt.sampleFormat = AV_SAMPLE_FMT_FLTP;
-
-        output.m_sampleRate = 44100;
-        output.m_channels = 2;
-        output.m_sampleFmt.sampleFormat = AV_SAMPLE_FMT_S16;
-    }
+    ST_SDLAudioStream m_audioStream;       /// 音频流
+    ST_SDLAudioDeviceID m_audioDeviceId;   /// 音频设备ID
+    SDL_AudioSpec m_srcSpec;               /// 源音频规格
+    SDL_AudioSpec m_dstSpec;               /// 目标音频规格
+    double m_duration;                     /// 音频总时长（秒）
+    double m_currentPosition;              /// 当前播放位置（秒）
+    int64_t m_startTime;                  /// 开始播放的时间戳
 };
 
-// 重采样结果结构体
-struct ST_ResampleResult
+/// <summary>
+/// 重采样简单数据封装类
+/// </summary>
+class ST_ResampleSimpleData
 {
-    std::vector<uint8_t> data; // 重采样后的数据
-    int m_samples;               // 实际采样点数
-    int m_channels;              // 输出声道数
-    int m_sampleRate;           // 输出采样率
-    ST_AVSampleFormat m_sampleFmt; // 输出格式
+public:
+    int GetSampleRate() const { return m_sampleRate; }
+    int GetChannels() const { return m_channels; }
+    const ST_AVSampleFormat& GetSampleFormat() const { return m_sampleFmt; }
+    const ST_AVChannelLayout& GetChannelLayout() const { return m_channelLayout; }
+
+    void SetSampleRate(int rate) { m_sampleRate = rate; }
+    void SetChannels(int channels) { m_channels = channels; }
+    void SetSampleFormat(const ST_AVSampleFormat& fmt) { m_sampleFmt = fmt; }
+    void SetChannelLayout(const ST_AVChannelLayout& layout) { m_channelLayout = layout; }
+
+private:
+    int m_sampleRate = 0;                  /// 采样率
+    int m_channels = 0;                    /// 声道数
+    ST_AVSampleFormat m_sampleFmt;         /// 采样格式
+    ST_AVChannelLayout m_channelLayout;    /// 通道布局
 };
+
+/// <summary>
+/// 重采样参数封装类
+/// </summary>
+class ST_ResampleParams
+{
+public:
+    ST_ResampleParams();
+
+    const ST_ResampleSimpleData& GetInput() const { return input; }
+    const ST_ResampleSimpleData& GetOutput() const { return output; }
+    void SetInput(const ST_ResampleSimpleData& in) { input = in; }
+    void SetOutput(const ST_ResampleSimpleData& out) { output = out; }
+
+private:
+    ST_ResampleSimpleData input;           /// 输入参数
+    ST_ResampleSimpleData output;          /// 输出参数
+};
+
+/// <summary>
+/// 重采样结果封装类
+/// </summary>
+class ST_ResampleResult
+{
+public:
+    const std::vector<uint8_t>& GetData() const { return data; }
+    int GetSamples() const { return m_samples; }
+    int GetChannels() const { return m_channels; }
+    int GetSampleRate() const { return m_sampleRate; }
+    const ST_AVSampleFormat& GetSampleFormat() const { return m_sampleFmt; }
+
+    void SetData(const std::vector<uint8_t>& newData) { data = newData; }
+    void SetSamples(int samples) { m_samples = samples; }
+    void SetChannels(int channels) { m_channels = channels; }
+    void SetSampleRate(int rate) { m_sampleRate = rate; }
+    void SetSampleFormat(const ST_AVSampleFormat& fmt) { m_sampleFmt = fmt; }
+
+private:
+    std::vector<uint8_t> data;            /// 重采样后的数据
+    int m_samples = 0;                    /// 实际采样点数
+    int m_channels = 0;                   /// 输出声道数
+    int m_sampleRate = 0;                 /// 输出采样率
+    ST_AVSampleFormat m_sampleFmt;        /// 输出格式
+};
+
