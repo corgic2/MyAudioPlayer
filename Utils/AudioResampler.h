@@ -35,14 +35,35 @@ public:
     /// <param name="inputSamples">输入样本数</param>
     /// <param name="output">输出结果</param>
     /// <param name="params">重采样参数</param>
-    void Resample(const uint8_t** inputData, int inputSamples, ST_ResampleResult& output, const ST_ResampleParams& params);
+    void Resample(const uint8_t** inputData, int inputSamples, ST_ResampleResult& output, ST_ResampleParams& params);
 
     /// <summary>
     /// 刷新重采样器（获取剩余数据）
     /// </summary>
     /// <param name="output">输出结果</param>
     /// <param name="params">重采样参数</param>
-    void Flush(ST_ResampleResult& output, const ST_ResampleParams& params);
+    void Flush(ST_ResampleResult& output, ST_ResampleParams& params);
+
+    /// <summary>
+    /// 根据音频格式获取重采样参数
+    /// </summary>
+    /// <param name="format">音频格式</param>
+    /// <returns>重采样参数</returns>
+    ST_ResampleParams GetResampleParams(const QString& format);
+
+    /// <summary>
+    /// 获取默认输出参数
+    /// </summary>
+    /// <returns>默认输出参数</returns>
+    ST_ResampleSimpleData GetDefaultOutputParams() const;
+
+private:
+    /// <summary>
+    /// 初始化重采样上下文
+    /// </summary>
+    /// <param name="params">重采样参数</param>
+    /// <returns>是否成功</returns>
+    bool InitializeResampler(ST_ResampleParams& params);
 
 private:
     ST_SwrContext m_swrCtx;               /// 重采样上下文

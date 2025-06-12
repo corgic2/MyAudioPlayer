@@ -233,19 +233,3 @@ int ST_AudioPlayInfo::GetAudioStreamAvailable() const
     return m_audioStream.GetRawStream() ? SDL_GetAudioStreamAvailable(m_audioStream.GetRawStream()) : 0;
 }
 
-// ST_ResampleParams implementation
-ST_ResampleParams::ST_ResampleParams()
-{
-    ST_ResampleSimpleData input;
-    input.SetSampleRate(48000);
-    input.SetChannels(2);
-    input.SetSampleFormat(ST_AVSampleFormat{AV_SAMPLE_FMT_FLTP});
-
-    ST_ResampleSimpleData output;
-    output.SetSampleRate(44100);
-    output.SetChannels(2);
-    output.SetSampleFormat(ST_AVSampleFormat{AV_SAMPLE_FMT_S16});
-
-    SetInput(input);
-    SetOutput(output);
-}

@@ -3,6 +3,7 @@
 #include "../include/SDL3/SDL.h"
 #include "AudioResampler.h"
 #include "FFmpegPublicUtils.h"
+#include "FileSystem/FileSystem.h"
 #define FMT_NAME "dshow"
 #pragma execution_character_set("utf-8")
 //根据不同设备进行修改，此电脑为USB音频设备
@@ -158,7 +159,6 @@ void FFmpegUtils::StopAudioRecording()
 
 void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QStringList& args)
 {
-    
     // 先停止当前播放并等待资源释放
     if (m_playState.IsPlaying())
     {
@@ -227,14 +227,19 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
         return;
     }
 
-    // 初始化音频规格
-    SDL_AudioSpec wantedSpec = {};
-    wantedSpec.freq = codecParams.GetRawParameters()->sample_rate;
-    wantedSpec.format = FFmpegPublicUtils::FFmpegToSDLFormat(codecParams.GetSampleFormat());
-    wantedSpec.channels = codecParams.GetRawParameters()->ch_layout.nb_channels;
+    // 创建重采样器
+    AudioResampler resampler;
+    QString format = QString::fromStdString(my_sdk::FileSystem::GetExtension(inputFilePath.toStdString()));
+    ST_ResampleParams resampleParams = resampler.GetResampleParams(format);
+
+    // 初始化音频规格与播放文件音频规格相同
+    SDL_AudioSpec wantedSpec;
+    wantedSpec.freq = resampleParams.GetOutput().GetSampleRate();
+    wantedSpec.format = FFmpegPublicUtils::FFmpegToSDLFormat(resampleParams.GetOutput().GetSampleFormat().sampleFormat);
+    wantedSpec.channels = resampleParams.GetOutput().GetChannels();
 
     m_playInfo->InitAudioSpec(true, wantedSpec.freq, wantedSpec.format, wantedSpec.channels);
-    m_playInfo->InitAudioSpec(false, wantedSpec.freq, SDL_AUDIO_S16, wantedSpec.channels);
+    m_playInfo->InitAudioSpec(false, wantedSpec.freq, wantedSpec.format, wantedSpec.channels);
     m_playInfo->InitAudioStream();
 
     // 打开音频设备
@@ -248,28 +253,34 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
 
     m_playInfo->InitAudioDevice(deviceId);
     m_playInfo->BindStreamAndDevice();
-    m_playInfo->BeginPlayAudio();
 
+    m_playInfo->BeginPlayAudio();
     m_playState.SetPlaying(true);
     m_playState.SetPaused(false);
     m_playState.SetStartTime(SDL_GetTicks());
     m_playState.SetCurrentPosition(0.0);
+
     ST_AVPacket pkt;
     while (pkt.ReadPacket(formatCtx.GetRawContext()) >= 0)
     {
         if (pkt.GetRawPacket()->stream_index == audioStreamIdx)
         {
-            // 解码音频数据包
+            // 解码音频数据包 处理平面格式与交错格式
             ST_AudioDecodeResult decodeResult = FFmpegPublicUtils::DecodeAudioPacket(pkt.GetRawPacket(), codeCtx.GetRawContext());
-            
-            // 如果解码成功且有数据，则播放
-            if (!decodeResult.audioData.empty())
-            {
-                m_playInfo->PutDataToStream(decodeResult.audioData.data(), decodeResult.audioData.size());
-            }
+            m_playInfo->PutDataToStream(decodeResult.audioData.data(), decodeResult.audioData.size());
         }
+
         pkt.UnrefPacket();
     }
+
+    // 刷新重采样器中的剩余数据
+    ST_ResampleResult flushResult;
+    resampler.Flush(flushResult, resampleParams);
+    if (!flushResult.GetData().empty())
+    {
+        m_playInfo->PutDataToStream(flushResult.GetData().data(), flushResult.GetData().size());
+    }
+
     // 等待音频播放完成
     while (m_playInfo->GetDataIsEnd() > 0)
     {

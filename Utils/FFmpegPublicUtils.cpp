@@ -52,15 +52,19 @@ SDL_AudioFormat FFmpegPublicUtils::FFmpegToSDLFormat(AVSampleFormat fmt)
         case AV_SAMPLE_FMT_U8:
             return SDL_AUDIO_U8;
         case AV_SAMPLE_FMT_S16:
+        case AV_SAMPLE_FMT_S16P:
             return SDL_AUDIO_S16;
         case AV_SAMPLE_FMT_S32:
+        case AV_SAMPLE_FMT_S32P:
             return SDL_AUDIO_S32;
         case AV_SAMPLE_FMT_FLT:
+        case AV_SAMPLE_FMT_FLTP:
             return SDL_AUDIO_F32;
         case AV_SAMPLE_FMT_DBL:
-            return SDL_AUDIO_S32LE;
+        case AV_SAMPLE_FMT_DBLP:
+            return SDL_AUDIO_F32; // 转换为float32，避免精度损失
         default:
-            return SDL_AUDIO_S16; // 默认兼容格式
+            return SDL_AUDIO_S16; // 默认使用S16格式，确保最大兼容性
     }
 }
 
@@ -131,9 +135,10 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
         result.sampleRate = frame->sample_rate;
         result.format = static_cast<AVSampleFormat>(frame->format);
 
-        // 将音频数据复制到结果中
+        // 分配对齐的缓冲区
         size_t currentSize = result.audioData.size();
-        result.audioData.resize(currentSize + frameSize);
+        size_t newSize = currentSize + frameSize;
+        result.audioData.resize(newSize + AV_INPUT_BUFFER_PADDING_SIZE);
 
         // 对于平面格式（FLTP等），需要交错复制数据
         if (av_sample_fmt_is_planar(result.format))
@@ -141,11 +146,13 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
             int bytesPerSample = av_get_bytes_per_sample(result.format);
             uint8_t* dst = result.audioData.data() + currentSize;
 
+            // 优化的平面格式到交错格式的转换
             for (int s = 0; s < frame->nb_samples; s++)
             {
                 for (int ch = 0; ch < result.channels; ch++)
                 {
-                    memcpy(dst, frame->data[ch] + s * bytesPerSample, bytesPerSample);
+                    const uint8_t* src = frame->data[ch] + s * bytesPerSample;
+                    memcpy(dst, src, bytesPerSample);
                     dst += bytesPerSample;
                 }
             }
@@ -155,6 +162,9 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
             // 对于已经交错的格式，直接复制
             memcpy(result.audioData.data() + currentSize, frame->data[0], frameSize);
         }
+
+        // 清零padding区域
+        memset(result.audioData.data() + newSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
     }
 
     // 释放资源

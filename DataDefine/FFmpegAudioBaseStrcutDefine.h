@@ -313,6 +313,21 @@ private:
 class ST_AVSampleFormat
 {
 public:
+    ST_AVSampleFormat() = default;
+
+    ST_AVSampleFormat(int format)
+    {
+        sampleFormat = AVSampleFormat(format);
+    }
+
+    ST_AVSampleFormat& operator=(const ST_AVSampleFormat& obj)
+    {
+        if (this != &obj)
+        {
+            sampleFormat = obj.sampleFormat;
+        }
+        return *this;
+    }
     AVSampleFormat sampleFormat = AV_SAMPLE_FMT_NONE;
 };
 
@@ -330,6 +345,10 @@ public:
     /// </summary>
     int SwrContextInit();
 
+    void SetRawContext(SwrContext* p)
+    {
+        m_swrCtx = p;
+    }
     /// <summary>
     /// 获取原始重采样上下文指针
     /// </summary>
@@ -346,6 +365,25 @@ class ST_AVChannelLayout
 {
 public:
     ST_AVChannelLayout() = default;
+
+    ST_AVChannelLayout& operator=(const ST_AVChannelLayout& obj)
+    {
+        if (this != &obj)
+        {
+            if (channel)
+            {
+                av_channel_layout_uninit(channel);
+                av_free(channel);
+            }
+            channel = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
+            if (channel)
+            {
+                *channel = *obj.channel; // 复制布局
+            }
+        }
+        return *this;
+    }
+
     explicit ST_AVChannelLayout(AVChannelLayout* ptr);
     ~ST_AVChannelLayout() = default;
 
