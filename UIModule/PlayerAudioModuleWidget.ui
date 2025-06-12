@@ -127,7 +127,7 @@
              <string>录制</string>
             </property>
             <property name="toolTipsText" stdset="0">
-             <string>开始/停止录制音频</string>
+             <string/>
             </property>
            </widget>
           </item>
@@ -143,7 +143,7 @@
              <string>上一个</string>
             </property>
             <property name="toolTipsText" stdset="0">
-             <string>播放上一个音频文件</string>
+             <string/>
             </property>
            </widget>
           </item>
@@ -159,7 +159,7 @@
              <string>后退15秒</string>
             </property>
             <property name="toolTipsText" stdset="0">
-             <string>快退15秒</string>
+             <string/>
             </property>
            </widget>
           </item>
@@ -175,7 +175,7 @@
              <string>播放</string>
             </property>
             <property name="toolTipsText" stdset="0">
-             <string>开始播放</string>
+             <string/>
             </property>
            </widget>
           </item>
@@ -191,7 +191,7 @@
              <string>前进15秒</string>
             </property>
             <property name="toolTipsText" stdset="0">
-             <string>快进15秒</string>
+             <string/>
             </property>
            </widget>
           </item>
@@ -207,7 +207,7 @@
              <string>下一个</string>
             </property>
             <property name="toolTipsText" stdset="0">
-             <string>播放下一个音频文件</string>
+             <string/>
             </property>
            </widget>
           </item>

@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "CoreServerGlobal.h"
 #include "FFmpegUtils.h"
 #include "ui_PlayerAudioModuleWidget.h"
 #include "CoreWidget/CustomLabel.h"

@@ -19,6 +19,7 @@
 #include "CoreWidget/CustomComboBox.h"
 #include "UtilsWidget/CustomToolTips.h"
 #include "AudioFileSystem.h"
+#include "CoreServerGlobal.h"
 
 PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
     : QWidget(parent)
@@ -181,7 +182,12 @@ void PlayerAudioModuleWidget::SlotBtnRecordClicked()
             m_isRecording = true;
             ui->btnRecord->setText(tr("停止录制"));
             ui->btnRecord->SetBackgroundColor(UIColorDefine::theme_color::Error);
-            m_ffmpeg.StartAudioRecording(filePath, "wav");
+
+            // 使用线程池启动录制任务
+            CoreServerGlobal::Instance().GetThreadPool().Submit([this, filePath]()
+            {
+                m_ffmpeg.StartAudioRecording(filePath, "wav");
+            }, EM_TaskPriority::Normal);
         }
     }
     else
@@ -202,7 +208,12 @@ void PlayerAudioModuleWidget::SlotBtnPlayClicked()
             m_isPlaying = true;
             m_isPaused = false;
             UpdatePlayState(true);
-            m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
+
+            // 使用线程池启动播放任务
+            CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
+            {
+                m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
+            }, EM_TaskPriority::Normal);
         }
         else
         {
@@ -222,7 +233,10 @@ void PlayerAudioModuleWidget::SlotBtnForwardClicked()
 {
     if (m_isPlaying)
     {
-        m_ffmpeg.SeekAudioForward(15); // 前进15秒
+        CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
+        {
+            m_ffmpeg.SeekAudioForward(15); // 前进15秒
+        }, EM_TaskPriority::High);
     }
 }
 
@@ -230,7 +244,10 @@ void PlayerAudioModuleWidget::SlotBtnBackwardClicked()
 {
     if (m_isPlaying)
     {
-        m_ffmpeg.SeekAudioBackward(15); // 后退15秒
+        CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
+        {
+            m_ffmpeg.SeekAudioBackward(15); // 后退15秒
+        }, EM_TaskPriority::High);
     }
 }
 
@@ -260,7 +277,10 @@ void PlayerAudioModuleWidget::SlotBtnNextClicked()
                 if (m_isPlaying)
                 {
                     m_ffmpeg.StopAudioPlayback();
-                    m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
+                    CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
+                    {
+                        m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
+                    }, EM_TaskPriority::Normal);
                 }
                 ui->audioFileList->MoveItemToTop(nextItem);
             }
@@ -294,7 +314,10 @@ void PlayerAudioModuleWidget::SlotBtnPreviousClicked()
                 if (m_isPlaying)
                 {
                     m_ffmpeg.StopAudioPlayback();
-                    m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
+                    CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
+                    {
+                        m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
+                    }, EM_TaskPriority::Normal);
                 }
                 ui->audioFileList->MoveItemToTop(prevItem);
             }

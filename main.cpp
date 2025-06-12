@@ -1,6 +1,7 @@
 ﻿#include <QApplication>
 #include <QDebug>
 #include <QTextCodec>
+#include "CoreServerGlobal.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 #include "UIModule/AudioMainWidget.h"
 #include "Utils/FFmpegUtils.h"

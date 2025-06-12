@@ -29,8 +29,8 @@ set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /DEBUG /OP
 set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
 
 # 启用C++11
-add_compile_options(-std=c++17)
-
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 解决节数超过对象文件格式限制
 add_compile_options(-bigobj)
 
@@ -106,6 +106,7 @@ target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/UIModule")
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/DataDefine")
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/Utils")
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/AudioFileSystem")
+target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/CoreServer")
 
 # 添加lib信息
 set(ffmpegLibFile "${CMAKE_SOURCE_DIR}/ffmpegLib.txt")
