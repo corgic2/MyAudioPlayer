@@ -18,15 +18,6 @@ FFmpegUtils::~FFmpegUtils()
     StopAudioRecording();
 }
 
-void FFmpegUtils::EncoderOrDecoder(const QString& inputFilePath, const QString& outputFilePath, bool bEncoder, const QStringList& args)
-{
-}
-
-QString FFmpegUtils::GetFileInfomation(const QString& inputFilePath, const QStringList& args)
-{
-    return QString();
-}
-
 void FFmpegUtils::ResigsterDevice()
 {
     avdevice_register_all();
@@ -380,39 +371,6 @@ void FFmpegUtils::ShowSpec(AVFormatContext* ctx)
     qDebug() << "Bytes per Sample:" << params.GetSamplePerRate();
     qDebug() << "Codec ID:" << params.GetRawParameters()->codec_id;
     qDebug() << "Bits per Sample:" << params.GetBitPerSample();
-}
-
-void FFmpegUtils::ResampleAudio(const uint8_t* input, size_t inputSize, ST_ResampleResult& output, const ST_ResampleParams& params)
-{
-    AudioResampler resampler;
-    ST_ResampleResult tmp;
-
-    // 计算输入样本数
-    int inChannels = params.GetInput().GetChannels();
-    if (params.GetInput().GetChannelLayout().GetRawLayout())
-    {
-        inChannels = params.GetInput().GetChannels();
-    }
-
-    // 获取单个格式字节数
-    int bytesPerSample = av_get_bytes_per_sample(params.GetInput().GetSampleFormat().sampleFormat);
-    int inputSamples = inputSize / (inChannels * bytesPerSample);
-
-    // 准备输入指针数组
-    const uint8_t* in_data[AV_NUM_DATA_POINTERS] = {input};
-
-    // 执行重采样
-    resampler.Resample(in_data, inputSamples, output, params);
-
-    // 刷新剩余数据
-    resampler.Flush(tmp, params);
-    if (!tmp.GetData().empty())
-    {
-        std::vector<uint8_t> newData = output.GetData();
-        newData.insert(newData.end(), tmp.GetData().begin(), tmp.GetData().end());
-        output.SetData(std::move(newData));
-        output.SetSamples(output.GetSamples() + tmp.GetSamples());
-    }
 }
 
 QStringList FFmpegUtils::GetInputAudioDevices()

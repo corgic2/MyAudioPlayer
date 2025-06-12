@@ -127,24 +127,6 @@ signals:
 
 private:
     /// <summary>
-    /// 编码或解码
-    /// </summary>
-    /// <param name="inputFilePath">输入文件路径</param>
-    /// <param name="outputFilePath">输出文件路径</param>
-    /// <param name="bEncoder">是否编码</param>
-    /// <param name="args">FFmpeg参数</param>
-    void EncoderOrDecoder(const QString& inputFilePath, const QString& outputFilePath, 
-                         bool bEncoder, const QStringList& args = QStringList());
-
-    /// <summary>
-    /// 获取文件信息
-    /// </summary>
-    /// <param name="inputFilePath">输入文件路径</param>
-    /// <param name="args">FFprobe参数</param>
-    /// <returns>文件信息字符串</returns>
-    QString GetFileInfomation(const QString& inputFilePath, const QStringList& args = QStringList());
-
-    /// <summary>
     /// 打开设备
     /// </summary>
     /// <param name="devieceFormat">设备格式</param>
@@ -159,16 +141,6 @@ private:
     /// </summary>
     /// <param name="ctx">格式上下文</param>
     void ShowSpec(AVFormatContext* ctx);
-
-    /// <summary>
-    /// 音频重采样
-    /// </summary>
-    /// <param name="input">输入数据</param>
-    /// <param name="input_size">输入数据大小</param>
-    /// <param name="output">输出结果</param>
-    /// <param name="params">重采样参数</param>
-    void ResampleAudio(const uint8_t* input, size_t input_size, 
-                      ST_ResampleResult& output, const ST_ResampleParams& params);
 
 private:
     QString m_currentInputDevice;                      /// 当前选择的FFmpeg输入设备
