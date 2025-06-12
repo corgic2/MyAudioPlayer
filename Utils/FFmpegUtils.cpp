@@ -1,8 +1,8 @@
 ﻿#include "FFmpegUtils.h"
 #include <QFile>
 #include "../include/SDL3/SDL.h"
-#include "../Utils/AudioResampler.h"
-#include "../Utils/FFmpegPublicUtils.h"
+#include "AudioResampler.h"
+#include "FFmpegPublicUtils.h"
 #define FMT_NAME "dshow"
 #pragma execution_character_set("utf-8")
 //根据不同设备进行修改，此电脑为USB音频设备

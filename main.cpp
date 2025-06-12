@@ -3,7 +3,7 @@
 #include <QTextCodec>
 #include "SDKCommonDefine/SDKCommonDefine.h"
 #include "UIModule/AudioMainWidget.h"
-#include "UIModule/FFmpegUtils.h"
+#include "Utils/FFmpegUtils.h"
 #include "Utils/FFmpegPublicUtils.h"
 void custom_log(void* ptr, int level, const char* fmt, va_list vl)
 {
