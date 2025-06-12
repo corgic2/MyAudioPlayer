@@ -1,14 +1,19 @@
 ﻿#pragma once
 
 #include <cstdint>
+#include <memory>
+#include <vector>
 
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavcodec/codec.h>
 #include <libavcodec/codec_par.h>
+#include <libavutil/frame.h>
+#include <libavutil/mem.h>
 }
 
 #include <SDL3/SDL_audio.h>
+#include "../DataDefine/FFmpegAudioBaseStrcutDefine.h"
 
 /// <summary>
 /// FFmpeg公共工具类
@@ -39,4 +44,19 @@ public:
     /// <param name="fmt">FFmpeg采样格式</param>
     /// <returns>SDL音频格式</returns>
     static SDL_AudioFormat FFmpegToSDLFormat(AVSampleFormat fmt);
+
+    /// <summary>
+    /// 解码音频数据包
+    /// </summary>
+    /// <param name="packet">音频数据包</param>
+    /// <param name="codecCtx">解码器上下文</param>
+    /// <returns>解码结果</returns>
+    static ST_AudioDecodeResult DecodeAudioPacket(const AVPacket* packet, AVCodecContext* codecCtx);
+
+    /// <summary>
+    /// 获取音频帧大小
+    /// </summary>
+    /// <param name="frame">音频帧</param>
+    /// <returns>音频帧大小（字节）</returns>
+    static int GetAudioFrameSize(const AVFrame* frame);
 };

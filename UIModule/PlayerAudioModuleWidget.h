@@ -1,16 +1,10 @@
 ﻿#pragma once
 
-#include <QtWidgets/QWidget>
-#include <QtCore/QTimer>
 #include "FFmpegUtils.h"
 #include "ui_PlayerAudioModuleWidget.h"
-#include "CommonDefine/UIWidgetGlobal.h"
-#include "DomainWidget/FilePathIconListWidget.h"
-#include "DomainWidget/FilePathIconListWidgetItem.h"
-#include "CoreWidget/CustomToolButton.h"
 #include "CoreWidget/CustomLabel.h"
-#include "CoreWidget/CustomComboBox.h"
-#include "FileSystem/FileSystem.h"
+#include "DomainWidget/FilePathIconListWidgetItem.h"
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class PlayerAudioModuleWidgetClass; };

@@ -167,6 +167,7 @@ void FFmpegUtils::StopAudioRecording()
 
 void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QStringList& args)
 {
+    
     // 先停止当前播放并等待资源释放
     if (m_playState.IsPlaying())
     {
@@ -191,6 +192,13 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     {
         qWarning() << "Failed to open input file";
         m_playInfo.reset();
+        return;
+    }
+
+    ret = avformat_find_stream_info(formatCtx.GetRawContext(), nullptr);
+    if (ret < 0)
+    {
+        qWarning() << "Find stream info failed";
         return;
     }
 
@@ -260,9 +268,14 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     {
         if (pkt.GetRawPacket()->stream_index == audioStreamIdx)
         {
-            pkt.SendPacket(codeCtx.GetRawContext());
-            // 播放音频数据
-            m_playInfo->PutDataToStream(pkt.GetRawPacket()->data, pkt.GetRawPacket()->size);
+            // 解码音频数据包
+            ST_AudioDecodeResult decodeResult = FFmpegPublicUtils::DecodeAudioPacket(pkt.GetRawPacket(), codeCtx.GetRawContext());
+            
+            // 如果解码成功且有数据，则播放
+            if (!decodeResult.audioData.empty())
+            {
+                m_playInfo->PutDataToStream(decodeResult.audioData.data(), decodeResult.audioData.size());
+            }
         }
         pkt.UnrefPacket();
     }

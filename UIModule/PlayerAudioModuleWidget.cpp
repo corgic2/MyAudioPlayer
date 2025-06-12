@@ -11,6 +11,7 @@
 #include <QStandardPaths>
 #include <QCloseEvent>
 #include <QDebug>
+
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "DomainWidget/FilePathIconListWidgetItem.h"
 #include "CoreWidget/CustomLabel.h"
