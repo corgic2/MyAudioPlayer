@@ -6,8 +6,8 @@
 #include "LogSystem/LogSystem.h"
 
 #ifdef _WIN32
-#include <dbghelp.h>
 #include <windows.h>
+#include <dbghelp.h>
 #pragma comment(lib, "dbghelp.lib")
 #else
 #include <execinfo.h>
