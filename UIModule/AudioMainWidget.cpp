@@ -11,15 +11,13 @@
 #include <QMessageBox>
 #include <QStyle>
 #include <QToolBar>
+#include "AudioFileSystem.h"
 #include "PlayerAudioModuleWidget.h"
 #include "CoreWidget/CustomToolBar.h"
 #include "FileSystem/FileSystem.h"
-#include "AudioFileSystem.h"
 
 AudioMainWidget::AudioMainWidget(QWidget* parent)
-    : QMainWindow(parent)
-    , ui(new Ui::AudioMainWidgetClass())
-    , m_currentAudioFile("")
+    : QMainWindow(parent), ui(new Ui::AudioMainWidgetClass()), m_currentAudioFile("")
 {
     ui->setupUi(this);
     InitializeMenuBar();
@@ -85,11 +83,10 @@ void AudioMainWidget::InitializeToolBar()
 void AudioMainWidget::ConnectSignals()
 {
     // 连接PlayerAudioModuleWidget的信号
-    connect(ui->widget, &PlayerAudioModuleWidget::SigAudioFileSelected,
-            [this](const QString& filePath)
-            {
-                m_currentAudioFile = filePath;
-            });
+    connect(ui->widget, &PlayerAudioModuleWidget::SigAudioFileSelected, [this](const QString& filePath)
+    {
+        m_currentAudioFile = filePath;
+    });
 }
 
 void AudioMainWidget::SlotOpenAudioFile()
@@ -112,13 +109,11 @@ void AudioMainWidget::SlotOpenAudioFile()
 
 void AudioMainWidget::SlotOpenAudioFolder()
 {
-    QString dir = QFileDialog::getExistingDirectory(this, tr("选择音频文件夹"),
-                                                    QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    QString dir = QFileDialog::getExistingDirectory(this, tr("选择音频文件夹"), QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
     if (!dir.isEmpty())
     {
-        std::vector<std::string> audioFiles = audio_player::AudioFileSystem::GetAudioFiles(
-                                                                                           my_sdk::FileSystem::QtPathToStdPath(dir.toStdString()), false);
+        std::vector<std::string> audioFiles = audio_player::AudioFileSystem::GetAudioFiles(my_sdk::FileSystem::QtPathToStdPath(dir.toStdString()), false);
 
         QStringList filePaths;
         for (const auto& file : audioFiles)

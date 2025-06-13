@@ -6,8 +6,8 @@
 #include "LogSystem/LogSystem.h"
 
 #ifdef _WIN32
-#include <windows.h>
 #include <dbghelp.h>
+#include <windows.h>
 #pragma comment(lib, "dbghelp.lib")
 #else
 #include <execinfo.h>
@@ -25,10 +25,10 @@ void CrashHandler::Initialize(const std::string& crashLogPath)
     }
 
     // 注册信号处理器
-    signal(SIGSEGV, SignalHandler);  // 段错误
-    signal(SIGABRT, SignalHandler);  // 异常终止
-    signal(SIGFPE, SignalHandler);   // 浮点异常
-    signal(SIGILL, SignalHandler);   // 非法指令
+    signal(SIGSEGV, SignalHandler); // 段错误
+    signal(SIGABRT, SignalHandler); // 异常终止
+    signal(SIGFPE, SignalHandler);  // 浮点异常
+    signal(SIGILL, SignalHandler);  // 非法指令
 
 #ifdef _WIN32
     SetUnhandledExceptionFilter((LPTOP_LEVEL_EXCEPTION_FILTER)SignalHandler);
@@ -75,7 +75,7 @@ void CrashHandler::WriteCrashLog(int signal)
 
         void* stack[100];
         unsigned short frames = CaptureStackBackTrace(0, 100, stack, NULL);
-        SYMBOL_INFO* symbol = (SYMBOL_INFO*)calloc(sizeof(SYMBOL_INFO) + 256 * sizeof(char), 1);
+        auto symbol = (SYMBOL_INFO*)calloc(sizeof(SYMBOL_INFO) + 256 * sizeof(char), 1);
         symbol->MaxNameLen = 255;
         symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
 
@@ -115,9 +115,8 @@ void CrashHandler::WriteCrashLog(int signal)
 
         // 记录到日志系统
         LOG_ERROR("Application crashed with signal %d", signal);
-    }
-    catch (...)
+    } catch (...)
     {
         // 防止在崩溃处理时发生异常
     }
-} 
+}

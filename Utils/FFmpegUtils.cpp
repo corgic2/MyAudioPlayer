@@ -1,9 +1,10 @@
 ﻿#include "FFmpegUtils.h"
 #include <QFile>
-#include "../include/SDL3/SDL.h"
 #include "AudioResampler.h"
 #include "FFmpegPublicUtils.h"
+#include "../include/SDL3/SDL.h"
 #include "FileSystem/FileSystem.h"
+#include "LogSystem/LogSystem.h"
 #define FMT_NAME "dshow"
 #pragma execution_character_set("utf-8")
 //根据不同设备进行修改，此电脑为USB音频设备
@@ -24,7 +25,7 @@ void FFmpegUtils::ResigsterDevice()
     avdevice_register_all();
     if (SDL_Init(SDL_INIT_AUDIO))
     {
-        qDebug() << "SDL_Init failed:" << SDL_GetError();
+        LOG_WARN("SDL_Init failed:" + std::string(SDL_GetError()));
     }
 }
 
@@ -40,14 +41,12 @@ std::unique_ptr<ST_OpenAudioDevice> FFmpegUtils::OpenDevice(const QString& devie
 
     QString type = bAudio ? "audio=" : "video=";
     QByteArray utf8DeviceName = type.toUtf8() + deviceName.toUtf8();
-    int ret = openDeviceParam->GetFormatContext().OpenInputFilePath(utf8DeviceName.constData(),
-                                                                    openDeviceParam->GetInputFormat().GetRawFormat(),
-                                                                    nullptr);
+    int ret = openDeviceParam->GetFormatContext().OpenInputFilePath(utf8DeviceName.constData(), openDeviceParam->GetInputFormat().GetRawFormat(), nullptr);
     if (ret < 0)
     {
         char errbuf[1024] = {0};
         av_strerror(ret, errbuf, sizeof(errbuf));
-        qWarning() << "Failed to open device:" << errbuf;
+        LOG_WARN("Failed to open device:" + std::string(errbuf));
         return openDeviceParam;
     }
 
@@ -65,7 +64,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
     m_recordDevice = OpenDevice(FMT_NAME, m_currentInputDevice);
     if (!m_recordDevice || !m_recordDevice->GetFormatContext().GetRawContext())
     {
-        qWarning() << "Failed to open input device";
+        LOG_WARN("Failed to open input device");
         return;
     }
 
@@ -74,7 +73,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
     outputFormatCtx.OpenOutputFilePath(nullptr, encoderFormat.toStdString().c_str(), outputFilePath.toUtf8().constData());
     if (!outputFormatCtx.GetRawContext())
     {
-        qWarning() << "Failed to create output context";
+        LOG_WARN("Failed to create output context");
         return;
     }
 
@@ -82,7 +81,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
     AVStream* outStream = avformat_new_stream(outputFormatCtx.GetRawContext(), nullptr);
     if (!outStream)
     {
-        qWarning() << "Failed to create output stream";
+        LOG_WARN("Failed to create output stream");
         return;
     }
 
@@ -104,7 +103,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
         {
             char errbuf[1024];
             av_strerror(ret, errbuf, sizeof(errbuf));
-            qWarning() << "Could not open output file:" << errbuf;
+            LOG_WARN("Could not open output file:" + std::string(errbuf));
             return;
         }
     }
@@ -113,7 +112,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
     ret = outputFormatCtx.WriteFileHeader(nullptr);
     if (ret < 0)
     {
-        qWarning() << "Error writing header";
+        LOG_WARN("Error writing header");
         return;
     }
 
@@ -125,9 +124,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
         if (ret == 0)
         {
             // 直接复用原始数据包
-            av_packet_rescale_ts(pkt.GetRawPacket(),
-                                 m_recordDevice->GetFormatContext().GetRawContext()->streams[0]->time_base,
-                                 outStream->time_base);
+            av_packet_rescale_ts(pkt.GetRawPacket(), m_recordDevice->GetFormatContext().GetRawContext()->streams[0]->time_base, outStream->time_base);
             pkt.GetRawPacket()->stream_index = outStream->index;
             av_interleaved_write_frame(outputFormatCtx.GetRawContext(), pkt.GetRawPacket());
             pkt.UnrefPacket();
@@ -181,7 +178,7 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     int ret = formatCtx.OpenInputFilePath(inputFilePath.toUtf8().constData(), nullptr, nullptr);
     if (ret < 0)
     {
-        qWarning() << "Failed to open input file";
+        LOG_WARN("Failed to open input file");
         m_playInfo.reset();
         return;
     }
@@ -189,14 +186,14 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     ret = avformat_find_stream_info(formatCtx.GetRawContext(), nullptr);
     if (ret < 0)
     {
-        qWarning() << "Find stream info failed";
+        LOG_WARN("Find stream info failed");
         return;
     }
 
     int audioStreamIdx = formatCtx.FindBestStream(AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
     if (audioStreamIdx < 0)
     {
-        qWarning() << "No audio stream found";
+        LOG_WARN("No audio stream found");
         m_playInfo.reset();
         return;
     }
@@ -205,24 +202,24 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     ST_AVCodecParameters codecParams(formatCtx.GetRawContext()->streams[audioStreamIdx]->codecpar);
     ST_AVCodec codec(codecParams.GetCodecId());
     ST_AVCodecContext codeCtx(codec.GetRawCodec());
-    
+
     if (!codec.GetRawCodec())
     {
-        qWarning() << "Failed to find codec";
+        LOG_WARN("Failed to find codec");
         m_playInfo.reset();
         return;
     }
 
     if (codeCtx.BindParamToContext(codecParams.GetRawParameters()) < 0)
     {
-        qWarning() << "Failed to bind codec parameters";
+        LOG_WARN("Failed to bind codec parameters");
         m_playInfo.reset();
         return;
     }
 
     if (codeCtx.OpenCodec(codec.GetRawCodec(), nullptr) < 0)
     {
-        qWarning() << "Failed to open codec";
+        LOG_WARN("Failed to open codec");
         m_playInfo.reset();
         return;
     }
@@ -246,7 +243,7 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     SDL_AudioDeviceID deviceId = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &wantedSpec);
     if (deviceId == 0)
     {
-        qWarning() << "Failed to open audio device:" << SDL_GetError();
+        LOG_WARN("Failed to open audio device:" + std::string(SDL_GetError()));
         m_playInfo.reset();
         return;
     }
@@ -365,7 +362,7 @@ void FFmpegUtils::ShowSpec(AVFormatContext* ctx)
 {
     if (!ctx)
     {
-        qWarning() << "ShowSpec() : AVFormatContext is nullptr";
+        LOG_WARN("ShowSpec() : AVFormatContext is nullptr");
         return;
     }
 
@@ -390,7 +387,7 @@ QStringList FFmpegUtils::GetInputAudioDevices()
     const AVInputFormat* inputFormat = av_find_input_format(FMT_NAME);
     if (!inputFormat)
     {
-        qWarning() << "Failed to find input format:" << FMT_NAME;
+        LOG_WARN("Failed to find input format:" + std::string(FMT_NAME));
         return devices;
     }
 
@@ -400,7 +397,7 @@ QStringList FFmpegUtils::GetInputAudioDevices()
     {
         char errbuf[1024];
         av_strerror(ret, errbuf, sizeof(errbuf));
-        qWarning() << "Failed to get input devices:" << errbuf;
+        LOG_WARN("Failed to get input devices:" + std::string(errbuf));
         return devices;
     }
 

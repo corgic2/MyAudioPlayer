@@ -2,12 +2,13 @@
 #include <qDebug>
 #include <string>
 #include <unordered_map>
+#include "LogSystem/LogSystem.h"
 
 const AVCodec* FFmpegPublicUtils::FindEncoder(const char* formatName)
 {
     if (!formatName)
     {
-        qWarning() << "FindEncoder() : formatName is nullptr";
+        LOG_WARN("FindEncoder() : formatName is nullptr");
         return nullptr;
     }
     if (strcmp(formatName, "wav") == 0)
@@ -27,7 +28,7 @@ void FFmpegPublicUtils::ConfigureEncoderParams(AVCodecParameters* codecPar, AVCo
 {
     if (!codecPar || !encCtx)
     {
-        qWarning() << "ConfigureEncoderParams() :: codecPar is nullptr and encCtx is nullptr";
+        LOG_WARN("ConfigureEncoderParams() :: codecPar is nullptr and encCtx is nullptr");
         return;
     }
 
@@ -38,8 +39,8 @@ void FFmpegPublicUtils::ConfigureEncoderParams(AVCodecParameters* codecPar, AVCo
             codecPar->sample_rate = 44100;
             codecPar->bit_rate = 1411200; // 44100Hz * 16bit * 2channels
             break;
-        case AV_CODEC_ID_MP3: // MP3
-            encCtx->bit_rate = 192000; // 典型比特率
+        case AV_CODEC_ID_MP3:                        // MP3
+            encCtx->bit_rate = 192000;               // 典型比特率
             encCtx->sample_fmt = AV_SAMPLE_FMT_FLTP; // MP3编码器要求的输入格式
             break;
     }
@@ -72,7 +73,7 @@ int FFmpegPublicUtils::GetAudioFrameSize(const AVFrame* frame)
 {
     if (!frame)
     {
-        qWarning() << "GetAudioFrameSize() : frame is nullptr";
+        LOG_WARN("GetAudioFrameSize() : frame is nullptr");
         return 0;
     }
 
@@ -84,7 +85,7 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
     ST_AudioDecodeResult result;
     if (!packet || !codecCtx)
     {
-        qWarning() << "DecodeAudioPacket() : Invalid parameters";
+        LOG_WARN("DecodeAudioPacket() : Invalid parameters");
         return result;
     }
 
@@ -94,7 +95,7 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
     {
         char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
         av_strerror(ret, errbuf, sizeof(errbuf));
-        qWarning() << "Error sending packet to decoder:" << errbuf;
+        LOG_WARN("Error sending packet to decoder:" + std::string(errbuf));
         return result;
     }
 
@@ -102,7 +103,7 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
     AVFrame* frame = av_frame_alloc();
     if (!frame)
     {
-        qWarning() << "Failed to allocate frame";
+        LOG_WARN("Failed to allocate frame");
         return result;
     }
 
@@ -118,7 +119,7 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
         {
             char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
             av_strerror(ret, errbuf, sizeof(errbuf));
-            qWarning() << "Error receiving frame from decoder:" << errbuf;
+            LOG_WARN("Error receiving frame from decoder:" + std::string(errbuf));
             break;
         }
 

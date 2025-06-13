@@ -1,35 +1,28 @@
 ﻿#include "PlayerAudioModuleWidget.h"
-#include "AudioMainWidget.h"
-#include <QFileDialog>
-#include <QMessageBox>
-#include <QDir>
-#include <QTimer>
 #include <QApplication>
-#include <QJsonDocument>
-#include <QJsonArray>
-#include <QJsonObject>
-#include <QStandardPaths>
 #include <QCloseEvent>
 #include <QDebug>
+#include <QDir>
+#include <QFileDialog>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QMessageBox>
+#include <QStandardPaths>
+#include <QTimer>
+#include "AudioMainWidget.h"
 
-#include "CommonDefine/UIWidgetColorDefine.h"
-#include "DomainWidget/FilePathIconListWidgetItem.h"
-#include "CoreWidget/CustomLabel.h"
-#include "CoreWidget/CustomToolButton.h"
-#include "CoreWidget/CustomComboBox.h"
-#include "UtilsWidget/CustomToolTips.h"
 #include "AudioFileSystem.h"
 #include "CoreServerGlobal.h"
+#include "CommonDefine/UIWidgetColorDefine.h"
+#include "CoreWidget/CustomComboBox.h"
+#include "CoreWidget/CustomLabel.h"
+#include "CoreWidget/CustomToolButton.h"
+#include "DomainWidget/FilePathIconListWidgetItem.h"
+#include "UtilsWidget/CustomToolTips.h"
 
 PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
-    : QWidget(parent)
-    , ui(new Ui::PlayerAudioModuleWidgetClass())
-    , m_isRecording(false)
-    , m_isPlaying(false)
-    , m_playTimer(nullptr)
-    , m_isPaused(false)
-    , m_jsonFileName("audiofiles.json")
-    , m_autoSaveTimer(nullptr)
+    : QWidget(parent), ui(new Ui::PlayerAudioModuleWidgetClass()), m_isRecording(false), m_isPlaying(false), m_isPaused(false), m_playTimer(nullptr), m_jsonFileName("audiofiles.json"), m_autoSaveTimer(nullptr)
 {
     ui->setupUi(this);
     InitializeWidget();
@@ -51,7 +44,7 @@ void PlayerAudioModuleWidget::InitializeWidget()
     ui->labelFileList->SetFontColor(UIColorDefine::font_color::Primary);
     ui->labelFileList->SetBackgroundType(CustomLabel::BackgroundType_Transparent);
     ui->labelFileList->SetBackgroundColor(UIColorDefine::background_color::Transparent);
-    
+
     // 设置文件列表样式
     ui->audioFileList->SetBackgroundColor(UIColorDefine::background_color::White);
     ui->audioFileList->SetItemHoverColor(UIColorDefine::background_color::HoverBackground);
@@ -137,21 +130,18 @@ void PlayerAudioModuleWidget::ConnectSignals()
     connect(ui->btnPrevious, &CustomToolButton::clicked, this, &PlayerAudioModuleWidget::SlotBtnPreviousClicked);
 
     // 输入设备选择
-    connect(ui->comboBoxInput, QOverload<int>::of(&CustomComboBox::currentIndexChanged),
-            this, &PlayerAudioModuleWidget::SlotInputDeviceChanged);
+    connect(ui->comboBoxInput, QOverload<int>::of(&CustomComboBox::currentIndexChanged), this, &PlayerAudioModuleWidget::SlotInputDeviceChanged);
 
     // 文件列表信号
-    connect(ui->audioFileList, &FilePathIconListWidget::SigItemSelected,
-            this, &PlayerAudioModuleWidget::SlotAudioFileSelected);
-    connect(ui->audioFileList, &FilePathIconListWidget::SigItemDoubleClicked,
-            this, &PlayerAudioModuleWidget::SlotAudioFileDoubleClicked);
+    connect(ui->audioFileList, &FilePathIconListWidget::SigItemSelected, this, &PlayerAudioModuleWidget::SlotAudioFileSelected);
+    connect(ui->audioFileList, &FilePathIconListWidget::SigItemDoubleClicked, this, &PlayerAudioModuleWidget::SlotAudioFileDoubleClicked);
 }
 
 PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
 {
     // 析构时保存一次
     SaveFileListToJson();
-    
+
     if (m_isRecording)
     {
         m_ffmpeg.StopAudioRecording();
@@ -167,7 +157,7 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
         delete m_autoSaveTimer;
         m_autoSaveTimer = nullptr;
     }
-    
+
     delete ui;
 }
 
@@ -361,7 +351,7 @@ void PlayerAudioModuleWidget::SlotAudioFileDoubleClicked(const QString& filePath
 {
     m_currentAudioFile = filePath;
     MoveFileToTop(filePath); // 将双击的文件移动到顶部
-    SlotBtnPlayClicked(); // 自动开始播放
+    SlotBtnPlayClicked();    // 自动开始播放
 }
 
 void PlayerAudioModuleWidget::UpdatePlayState(bool isPlaying)
@@ -489,7 +479,7 @@ QString PlayerAudioModuleWidget::GetJsonFilePath() const
 void PlayerAudioModuleWidget::SaveFileListToJson()
 {
     QJsonObject rootObject;
-    
+
     for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
     {
         FilePathIconListWidgetItem* item = ui->audioFileList->GetItem(i);
@@ -509,7 +499,7 @@ void PlayerAudioModuleWidget::SaveFileListToJson()
     std::string jsonStr = jsonQStr.toUtf8().constData();
 
     qDebug() << "JsonStr : " << jsonQStr;
-    
+
     // 使用FileSystem API保存JSON
     my_sdk::EM_JsonOperationResult result = my_sdk::FileSystem::WriteJsonToFile(GetJsonFilePath().toStdString(), jsonStr, true);
 

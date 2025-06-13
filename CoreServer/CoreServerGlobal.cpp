@@ -7,6 +7,48 @@ CoreServerGlobal::~CoreServerGlobal()
     SAFE_DELETE_POINTER_VALUE(m_threadPool);
 }
 
+void CoreServerGlobal::Initialize()
+{
+    // 配置线程池
+    ST_ThreadPoolConfig config;
+    config.m_minThreads = 2;
+    config.m_maxThreads = 4;
+    config.m_maxQueueSize = 1000;
+    config.m_keepAliveTime = 60000; // 1分钟
+    m_threadPool = new ThreadPool(config);
+    // 创建日志目录
+    QString logDir = QApplication::applicationDirPath() + QString("logs");
+    if (!my_sdk::FileSystem::Exists(logDir.toStdString()))
+    {
+        my_sdk::FileSystem::CreateWindowsDirectory(logDir.toStdString());
+    }
+
+    // 配置日志系统
+    ST_LogConfig logConfig;
+    logConfig.m_logFilePath = logDir.toStdString() + "/app.log";
+    logConfig.m_logLevel = EM_LogLevel::Debug;
+    logConfig.m_maxFileSize = 10 * 1024 * 1024; // 10MB
+    logConfig.m_maxQueueSize = 10000;
+    logConfig.m_asyncEnabled = true;
+    logConfig.m_compressLevel = EM_CompressLevel::Fast;
+
+    GetLogSystem().Initialize(logConfig);
+
+    // 初始化崩溃处理器
+    GetCrashHandler().Initialize(logDir.toStdString() + "/crash.log");
+
+    // 设置崩溃回调
+    GetCrashHandler().SetCrashCallback([this]()
+    {
+        // 在崩溃时尝试保存一些重要的状态
+        GetLogSystem().Flush();   // 确保所有日志都被写入
+        m_threadPool->Shutdown(); // 安全关闭线程池
+    });
+
+    // 记录启动日志
+    LOG_INFO("Application started");
+}
+
 CoreServerGlobal::CoreServerGlobal()
 {
     Initialize();

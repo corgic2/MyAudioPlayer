@@ -5,6 +5,7 @@
 #include <libavutil/avutil.h>
 #include <libavutil/mathematics.h>
 #include <libavutil/opt.h>
+#include "LogSystem/LogSystem.h"
 
 AudioResampler::AudioResampler()
     : m_lastInLayout(nullptr), m_lastOutLayout(nullptr)
@@ -18,7 +19,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     // 验证输入
     if (!inputData || inputSamples <= 0)
     {
-        qWarning() << "Resample() : Invalid input parameters";
+        LOG_WARN("Resample() : Invalid input parameters");
         return;
     }
 
@@ -33,15 +34,13 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     if (outSamples < 0)
     {
         int64_t delay = swr_get_delay(m_swrCtx.GetRawContext(), params.GetInput().GetSampleRate());
-        outSamples = static_cast<int>(av_rescale_rnd(delay + inputSamples, params.GetOutput().GetSampleRate(),
-                                                     params.GetInput().GetSampleRate(),
-                                                     AV_ROUND_UP));
+        outSamples = static_cast<int>(av_rescale_rnd(delay + inputSamples, params.GetOutput().GetSampleRate(), params.GetInput().GetSampleRate(), AV_ROUND_UP));
     }
 
     // 验证输出样本数
     if (outSamples <= 0)
     {
-        qWarning() << "Resample() : Invalid output samples count";
+        LOG_WARN("Resample() : Invalid output samples count");
         return;
     }
 
@@ -49,7 +48,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     int outChannels = params.GetOutput().GetChannels();
     if (outChannels <= 0)
     {
-        qWarning() << "Resample() : Invalid channel count";
+        LOG_WARN("Resample() : Invalid channel count");
         return;
     }
 
@@ -57,7 +56,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     int bytesPerSample = av_get_bytes_per_sample(outFormat);
     if (bytesPerSample <= 0)
     {
-        qWarning() << "Resample() : Invalid sample format";
+        LOG_WARN("Resample() : Invalid sample format");
         return;
     }
 
@@ -66,7 +65,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     int bufSize = av_samples_get_buffer_size(&linesize, outChannels, outSamples, outFormat, 16);
     if (bufSize <= 0)
     {
-        qWarning() << "Resample() : Invalid buffer size calculated";
+        LOG_WARN("Resample() : Invalid buffer size calculated");
         return;
     }
 
@@ -74,7 +73,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     auto alignedBuffer = static_cast<uint8_t*>(av_malloc(bufSize + AV_INPUT_BUFFER_PADDING_SIZE));
     if (!alignedBuffer)
     {
-        qWarning() << "Resample() : Failed to allocate aligned buffer";
+        LOG_WARN("Resample() : Failed to allocate aligned buffer");
         return;
     }
 
@@ -85,7 +84,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     int realOutSamples = swr_convert(m_swrCtx.GetRawContext(), &alignedBuffer, outSamples, inputData, inputSamples);
     if (realOutSamples < 0)
     {
-        qWarning() << "Resample() : Resampling failed";
+        LOG_WARN("Resample() : Resampling failed");
         av_free(alignedBuffer);
         return;
     }
@@ -113,7 +112,7 @@ void AudioResampler::Flush(ST_ResampleResult& output, ST_ResampleParams& params)
 {
     if (!m_swrCtx.GetRawContext())
     {
-        qWarning() << "Flush() : No resampler context available";
+        LOG_WARN("Flush() : No resampler context available");
         return;
     }
 
@@ -136,7 +135,7 @@ void AudioResampler::Flush(ST_ResampleResult& output, ST_ResampleParams& params)
     int realOutSamples = swr_convert(m_swrCtx.GetRawContext(), &outBuf, delaySamples, nullptr, 0);
     if (realOutSamples < 0)
     {
-        qWarning() << "Flush() : Failed to flush resampler";
+        LOG_WARN("Flush() : Failed to flush resampler");
         return;
     }
 
@@ -163,7 +162,7 @@ ST_ResampleParams AudioResampler::GetResampleParams(const QString& format)
     // 根据不同格式设置输入参数
     if (format.toLower() == "mp3")
     {
-        params.GetInput().SetSampleRate(44100); // MP3标准采样率
+        params.GetInput().SetSampleRate(44100);                                   // MP3标准采样率
         params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_FLTP)); // MP3解码后的格式
 
         auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
@@ -172,11 +171,10 @@ ST_ResampleParams AudioResampler::GetResampleParams(const QString& format)
             av_channel_layout_default(inLayout, 2); // MP3通常是立体声
             params.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
         }
-        params.GetOutput() = params.GetInput();
     }
     else if (format.toLower() == "wav")
     {
-        params.GetInput().SetSampleRate(44100); // WAV标准采样率
+        params.GetInput().SetSampleRate(44100);                                  // WAV标准采样率
         params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S16)); // WAV通常使用16位整数格式
 
         auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
@@ -188,7 +186,7 @@ ST_ResampleParams AudioResampler::GetResampleParams(const QString& format)
     }
     else if (format.toLower() == "aac")
     {
-        params.GetInput().SetSampleRate(48000); // AAC通常使用48kHz
+        params.GetInput().SetSampleRate(48000);                                   // AAC通常使用48kHz
         params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_FLTP)); // AAC通常使用平面浮点格式
 
         auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
@@ -200,7 +198,7 @@ ST_ResampleParams AudioResampler::GetResampleParams(const QString& format)
     }
     else if (format.toLower() == "ogg")
     {
-        params.GetInput().SetSampleRate(44100); // OGG通常使用44.1kHz
+        params.GetInput().SetSampleRate(44100);                                   // OGG通常使用44.1kHz
         params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_FLTP)); // OGG通常使用平面浮点格式
 
         auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
@@ -212,7 +210,7 @@ ST_ResampleParams AudioResampler::GetResampleParams(const QString& format)
     }
     else if (format.toLower() == "flac")
     {
-        params.GetInput().SetSampleRate(96000); // FLAC支持高采样率
+        params.GetInput().SetSampleRate(96000);                                  // FLAC支持高采样率
         params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S32)); // FLAC通常使用32位整数格式
 
         auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
@@ -235,7 +233,7 @@ ST_ResampleParams AudioResampler::GetResampleParams(const QString& format)
             params.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
         }
     }
-
+    params.GetOutput() = params.GetInput();
     return params;
 }
 
@@ -244,7 +242,7 @@ ST_ResampleSimpleData AudioResampler::GetDefaultOutputParams() const
     ST_ResampleSimpleData params;
 
     // 设置标准高质量输出参数
-    params.SetSampleRate(48000); // 标准采样率
+    params.SetSampleRate(48000);                                  // 标准采样率
     params.SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S16)); // 使用S16格式，确保更好的兼容性和质量
 
     auto outLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
@@ -273,13 +271,7 @@ bool AudioResampler::InitializeResampler(ST_ResampleParams& params)
     }
 
     // 检查是否需要重新初始化
-    if (!m_swrCtx.GetRawContext() ||
-        inLayout != m_lastInLayout.GetRawLayout()->nb_channels ||
-        outLayout != m_lastOutLayout.GetRawLayout()->nb_channels ||
-        params.GetInput().GetSampleRate() != m_lastInRate ||
-        params.GetOutput().GetSampleRate() != m_lastOutRate ||
-        params.GetInput().GetSampleFormat().sampleFormat != m_lastInFmt.sampleFormat ||
-        params.GetOutput().GetSampleFormat().sampleFormat != m_lastOutFmt.sampleFormat)
+    if (!m_swrCtx.GetRawContext() || inLayout != m_lastInLayout.GetRawLayout()->nb_channels || outLayout != m_lastOutLayout.GetRawLayout()->nb_channels || params.GetInput().GetSampleRate() != m_lastInRate || params.GetOutput().GetSampleRate() != m_lastOutRate || params.GetInput().GetSampleFormat().sampleFormat != m_lastInFmt.sampleFormat || params.GetOutput().GetSampleFormat().sampleFormat != m_lastOutFmt.sampleFormat)
     {
         SwrContext* p = m_swrCtx.GetRawContext();
         // 释放旧上下文
@@ -290,18 +282,11 @@ bool AudioResampler::InitializeResampler(ST_ResampleParams& params)
 
         // 创建新上下文
         SwrContext** ctx = &p;
-        int ret = swr_alloc_set_opts2(ctx,
-                                      params.GetOutput().GetChannelLayout().GetRawLayout(),
-                                      params.GetOutput().GetSampleFormat().sampleFormat,
-                                      params.GetOutput().GetSampleRate(),
-                                      params.GetInput().GetChannelLayout().GetRawLayout(),
-                                      params.GetInput().GetSampleFormat().sampleFormat,
-                                      params.GetInput().GetSampleRate(),
-                                      0, nullptr);
+        int ret = swr_alloc_set_opts2(ctx, params.GetOutput().GetChannelLayout().GetRawLayout(), params.GetOutput().GetSampleFormat().sampleFormat, params.GetOutput().GetSampleRate(), params.GetInput().GetChannelLayout().GetRawLayout(), params.GetInput().GetSampleFormat().sampleFormat, params.GetInput().GetSampleRate(), 0, nullptr);
 
         if (ret < 0)
         {
-            qWarning() << "InitializeResampler() : Failed to allocate resampler context";
+            LOG_WARN("InitializeResampler() : Failed to allocate resampler context");
             return false;
         }
         m_swrCtx.SetRawContext(p);
@@ -309,7 +294,7 @@ bool AudioResampler::InitializeResampler(ST_ResampleParams& params)
         ret = m_swrCtx.SwrContextInit();
         if (ret < 0)
         {
-            qWarning() << "InitializeResampler() : Failed to initialize resampler context";
+            LOG_WARN("InitializeResampler() : Failed to initialize resampler context");
             return false;
         }
 

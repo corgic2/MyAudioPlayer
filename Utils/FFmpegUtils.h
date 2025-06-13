@@ -1,13 +1,14 @@
 ﻿#pragma once
 
+#include <memory>
 #include <QDebug>
 #include <QObject>
 #include <QString>
 #include <QStringList>
-#include <memory>
 #include "../DataDefine/FFmpegAudioDataDefine.h"
 
-extern "C" {
+extern "C"
+{
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavdevice/avdevice.h>
@@ -22,7 +23,7 @@ extern "C" {
 /// </summary>
 class FFmpegUtils : public QObject
 {
-    Q_OBJECT
+    Q_OBJECT;
 
 public:
     /// <summary>
@@ -103,13 +104,19 @@ public:
     /// 获取当前播放状态
     /// </summary>
     /// <returns>true表示正在播放，false表示已停止</returns>
-    bool IsPlaying() const { return m_playState.IsPlaying(); }
+    bool IsPlaying() const
+    {
+        return m_playState.IsPlaying();
+    }
 
     /// <summary>
     /// 获取当前暂停状态
     /// </summary>
     /// <returns>true表示已暂停，false表示未暂停</returns>
-    bool IsPaused() const { return m_playState.IsPaused(); }
+    bool IsPaused() const
+    {
+        return m_playState.IsPaused();
+    }
 
 signals:
     /// <summary>
@@ -133,8 +140,7 @@ private:
     /// <param name="deviceName">设备名称</param>
     /// <param name="bAudio">是否为音频设备</param>
     /// <returns>设备对象指针</returns>
-    std::unique_ptr<ST_OpenAudioDevice> OpenDevice(const QString& devieceFormat, 
-                                                 const QString& deviceName, bool bAudio = true);
+    std::unique_ptr<ST_OpenAudioDevice> OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio = true);
 
     /// <summary>
     /// 显示录音设备参数
@@ -143,8 +149,8 @@ private:
     void ShowSpec(AVFormatContext* ctx);
 
 private:
-    QString m_currentInputDevice;                      /// 当前选择的FFmpeg输入设备
+    QString m_currentInputDevice;                       /// 当前选择的FFmpeg输入设备
     std::unique_ptr<ST_OpenAudioDevice> m_recordDevice; /// 录制设备
-    std::unique_ptr<ST_AudioPlayInfo> m_playInfo;     /// 播放信息
-    ST_AudioPlayState m_playState;                    /// 播放状态
+    std::unique_ptr<ST_AudioPlayInfo> m_playInfo;       /// 播放信息
+    ST_AudioPlayState m_playState;                      /// 播放状态
 };

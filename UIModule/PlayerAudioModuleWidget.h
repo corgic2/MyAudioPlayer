@@ -7,8 +7,10 @@
 #include "DomainWidget/FilePathIconListWidgetItem.h"
 
 
-QT_BEGIN_NAMESPACE
-namespace Ui { class PlayerAudioModuleWidgetClass; };
+QT_BEGIN_NAMESPACE namespace Ui
+{
+    class PlayerAudioModuleWidgetClass;
+};
 QT_END_NAMESPACE
 
 /// <summary>
@@ -16,7 +18,7 @@ QT_END_NAMESPACE
 /// </summary>
 class PlayerAudioModuleWidget : public QWidget
 {
-    Q_OBJECT
+    Q_OBJECT;
 
 public:
     /// <summary>
@@ -27,7 +29,7 @@ public:
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~PlayerAudioModuleWidget();
+    ~PlayerAudioModuleWidget() override;
 
     /// <summary>
     /// 添加音频文件到列表
@@ -189,12 +191,12 @@ private:
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;
     FFmpegUtils m_ffmpeg;
-    QString m_currentAudioFile;  /// 当前播放的音频文件
-    bool m_isRecording;         /// 是否正在录制
-    bool m_isPlaying;           /// 是否正在播放
-    bool m_isPaused; /// 是否已暂停
-    QTimer* m_playTimer;        /// 播放定时器
-    QString m_jsonFileName;     /// JSON文件名
-    QTimer* m_autoSaveTimer; /// 自动保存定时器
+    QString m_currentAudioFile;                    /// 当前播放的音频文件
+    bool m_isRecording;                            /// 是否正在录制
+    bool m_isPlaying;                              /// 是否正在播放
+    bool m_isPaused;                               /// 是否已暂停
+    QTimer* m_playTimer;                           /// 播放定时器
+    QString m_jsonFileName;                        /// JSON文件名
+    QTimer* m_autoSaveTimer;                       /// 自动保存定时器
     static const int AUTO_SAVE_INTERVAL = 1800000; // 30分钟 = 30 * 60 * 1000毫秒
 };

@@ -6,12 +6,11 @@
 #include "ui_AudioMainWidget.h"
 #include "CoreWidget/CustomToolBar.h"
 
-QT_BEGIN_NAMESPACE
-
-namespace Ui
+QT_BEGIN_NAMESPACE namespace Ui
 {
     class AudioMainWidgetClass;
 };
+
 QT_END_NAMESPACE
 
 /// <summary>
@@ -19,7 +18,7 @@ QT_END_NAMESPACE
 /// </summary>
 class AudioMainWidget : public QMainWindow
 {
-    Q_OBJECT
+    Q_OBJECT;
 
 public:
     /// <summary>
@@ -30,7 +29,7 @@ public:
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~AudioMainWidget();
+    ~AudioMainWidget() override;
 
 protected slots:
     /// <summary>
