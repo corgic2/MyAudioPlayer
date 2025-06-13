@@ -32,10 +32,10 @@ public:
     static const AVCodec* FindEncoder(const char* formatName);
 
     /// <summary>
-    /// 配置编码器参数
+    /// 配置编解码器参数，参数设置对应的接编解码器
     /// </summary>
     /// <param name="codecPar">编解码器参数</param>
-    /// <param name="encCtx">编码器上下文</param>
+    /// <param name="encCtx">编解码器上下文</param>
     static void ConfigureEncoderParams(AVCodecParameters* codecPar, AVCodecContext* encCtx);
 
     /// <summary>

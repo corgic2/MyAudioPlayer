@@ -367,13 +367,11 @@ int ST_SwrContext::SwrContextInit()
     return m_swrCtx ? swr_init(m_swrCtx) : -1;
 }
 
-// ST_AVChannelLayout implementation
 ST_AVChannelLayout::ST_AVChannelLayout(AVChannelLayout* ptr)
     : channel(ptr)
 {
 }
 
-// ST_AudioPlayState implementation
 void ST_AudioPlayState::Reset()
 {
     m_isPlaying = false;

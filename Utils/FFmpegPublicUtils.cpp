@@ -15,9 +15,37 @@ const AVCodec* FFmpegPublicUtils::FindEncoder(const char* formatName)
     {
         return avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
     }
+    else if (strcmp(formatName, "pcm") == 0)
+    {
+        return avcodec_find_encoder(AV_CODEC_ID_PCM_S16LE);
+    }
+    else if (strcmp(formatName, "aac") == 0)
+    {
+        return avcodec_find_encoder(AV_CODEC_ID_AAC);
+    }
+    else if (strcmp(formatName, "flv") == 0)
+    {
+        return avcodec_find_encoder(AV_CODEC_ID_FLV1);
+    }
+    else if (strcmp(formatName, "ogg") == 0)
+    {
+        return avcodec_find_encoder(AV_CODEC_ID_VORBIS);
+    }
     else if (strcmp(formatName, "mp3") == 0)
     {
         return avcodec_find_encoder(AV_CODEC_ID_MP3);
+    }
+    else if (strcmp(formatName, "aac") == 0)
+    {
+        return avcodec_find_encoder(AV_CODEC_ID_AAC);
+    }
+    else if (strcmp(formatName, "flac") == 0)
+    {
+        return avcodec_find_encoder(AV_CODEC_ID_FLAC);
+    }
+    else if (strcmp(formatName, "opus") == 0)
+    {
+        return avcodec_find_encoder(AV_CODEC_ID_OPUS);
     }
     // 其他格式处理...
     return nullptr;
