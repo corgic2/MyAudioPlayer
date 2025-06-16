@@ -37,6 +37,22 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 
 private:
+    /// <summary>
+    /// 计算RMS值
+    /// </summary>
+    /// <param name="startIdx">起始索引</param>
+    /// <param name="count">计算数量</param>
+    /// <returns>RMS值和峰值对</returns>
+    std::pair<float, float> CalculateRMS(int startIdx, int count) const;
+
+    /// <summary>
+    /// 归一化数据
+    /// </summary>
+    /// <param name="value">输入值</param>
+    /// <returns>归一化后的值</returns>
+    float NormalizeValue(float value) const;
+
+private:
     QVector<float> m_samples;           /// 音频采样数据
     static const int SAMPLE_WIDTH = 2;  /// 采样点宽度
     static const int SAMPLE_SPACING = 1;/// 采样点间距
