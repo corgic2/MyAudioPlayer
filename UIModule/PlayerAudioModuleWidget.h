@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include "CoreServerGlobal.h"
-#include "FFmpegUtils.h"
+#include "AudioFFmpegUtils.h"
 #include "ui_PlayerAudioModuleWidget.h"
 #include "CoreWidget/CustomLabel.h"
 #include "DomainWidget/FilePathIconListWidgetItem.h"
@@ -194,7 +194,7 @@ private:
 
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;
-    FFmpegUtils m_ffmpeg;
+    AudioFFmpegUtils m_ffmpeg;
     QString m_currentAudioFile;                    /// 当前播放的音频文件
     bool m_isRecording = false;                            /// 是否正在录制
     bool m_isPlaying = false;                      /// 是否正在播放

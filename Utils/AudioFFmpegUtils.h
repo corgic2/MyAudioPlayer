@@ -21,7 +21,7 @@ extern "C"
 /// <summary>
 /// FFmpeg音频工具类
 /// </summary>
-class FFmpegUtils : public QObject
+class AudioFFmpegUtils : public QObject
 {
     Q_OBJECT;
 
@@ -30,12 +30,12 @@ public:
     /// 构造函数
     /// </summary>
     /// <param name="parent">父对象</param>
-    explicit FFmpegUtils(QObject* parent = nullptr);
+    explicit AudioFFmpegUtils(QObject* parent = nullptr);
 
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~FFmpegUtils() override;
+    ~AudioFFmpegUtils() override;
 
     /// <summary>
     /// 注册设备

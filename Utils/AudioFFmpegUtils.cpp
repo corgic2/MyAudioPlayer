@@ -1,4 +1,4 @@
-﻿#include "FFmpegUtils.h"
+﻿#include "AudioFFmpegUtils.h"
 #include <QFile>
 #include "AudioResampler.h"
 #include "FFmpegPublicUtils.h"
@@ -8,19 +8,19 @@
 #define FMT_NAME "dshow"
 #pragma execution_character_set("utf-8")
 //根据不同设备进行修改，此电脑为USB音频设备
-FFmpegUtils::FFmpegUtils(QObject* parent)
+AudioFFmpegUtils::AudioFFmpegUtils(QObject* parent)
     : QObject(parent)
 {
     m_playState.Reset();
 }
 
-FFmpegUtils::~FFmpegUtils()
+AudioFFmpegUtils::~AudioFFmpegUtils()
 {
     StopAudioPlayback();
     StopAudioRecording();
 }
 
-void FFmpegUtils::ResigsterDevice()
+void AudioFFmpegUtils::ResigsterDevice()
 {
     avdevice_register_all();
     if (SDL_Init(SDL_INIT_AUDIO))
@@ -29,7 +29,7 @@ void FFmpegUtils::ResigsterDevice()
     }
 }
 
-std::unique_ptr<ST_OpenAudioDevice> FFmpegUtils::OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio)
+std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio)
 {
     auto openDeviceParam = std::make_unique<ST_OpenAudioDevice>();
     openDeviceParam->GetInputFormat().FindInputFormat(devieceFormat.toStdString());
@@ -53,7 +53,7 @@ std::unique_ptr<ST_OpenAudioDevice> FFmpegUtils::OpenDevice(const QString& devie
     return openDeviceParam;
 }
 
-void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat)
+void AudioFFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat)
 {
     if (m_playState.IsRecording())
     {
@@ -143,7 +143,7 @@ void FFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QStri
     outputFormatCtx.WriteFileTrailer();
 }
 
-void FFmpegUtils::StopAudioRecording()
+void AudioFFmpegUtils::StopAudioRecording()
 {
     if (!m_playState.IsRecording())
     {
@@ -154,7 +154,7 @@ void FFmpegUtils::StopAudioRecording()
     m_recordDevice.reset();
 }
 
-void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QStringList& args)
+void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QStringList& args)
 {
     // 先停止当前播放并等待资源释放
     if (m_playState.IsPlaying())
@@ -286,7 +286,7 @@ void FFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QString
     emit SigPlayStateChanged(true);
 }
 
-void FFmpegUtils::PauseAudioPlayback()
+void AudioFFmpegUtils::PauseAudioPlayback()
 {
     if (!m_playState.IsPlaying() || !m_playInfo)
     {
@@ -298,7 +298,7 @@ void FFmpegUtils::PauseAudioPlayback()
     m_playState.SetCurrentPosition(m_playState.GetCurrentPosition() + (SDL_GetTicks() - m_playState.GetStartTime()) / 1000.0);
 }
 
-void FFmpegUtils::ResumeAudioPlayback()
+void AudioFFmpegUtils::ResumeAudioPlayback()
 {
     if (!m_playState.IsPlaying() || !m_playInfo || !m_playState.IsPaused())
     {
@@ -310,7 +310,7 @@ void FFmpegUtils::ResumeAudioPlayback()
     m_playInfo->ResumeAudio();
 }
 
-void FFmpegUtils::StopAudioPlayback()
+void AudioFFmpegUtils::StopAudioPlayback()
 {
     if (!m_playState.IsPlaying())
     {
@@ -336,7 +336,7 @@ void FFmpegUtils::StopAudioPlayback()
     emit SigPlayStateChanged(false);
 }
 
-void FFmpegUtils::SeekAudioForward(int seconds)
+void AudioFFmpegUtils::SeekAudioForward(int seconds)
 {
     if (!m_playState.IsPlaying() || !m_playInfo)
     {
@@ -347,7 +347,7 @@ void FFmpegUtils::SeekAudioForward(int seconds)
     m_playState.SetCurrentPosition(m_playInfo->GetCurrentPosition());
 }
 
-void FFmpegUtils::SeekAudioBackward(int seconds)
+void AudioFFmpegUtils::SeekAudioBackward(int seconds)
 {
     if (!m_playState.IsPlaying() || !m_playInfo)
     {
@@ -358,7 +358,7 @@ void FFmpegUtils::SeekAudioBackward(int seconds)
     m_playState.SetCurrentPosition(m_playInfo->GetCurrentPosition());
 }
 
-void FFmpegUtils::ShowSpec(AVFormatContext* ctx)
+void AudioFFmpegUtils::ShowSpec(AVFormatContext* ctx)
 {
     if (!ctx)
     {
@@ -381,7 +381,7 @@ void FFmpegUtils::ShowSpec(AVFormatContext* ctx)
     qDebug() << "Bits per Sample:" << params.GetBitPerSample();
 }
 
-QStringList FFmpegUtils::GetInputAudioDevices()
+QStringList AudioFFmpegUtils::GetInputAudioDevices()
 {
     QStringList devices;
     const AVInputFormat* inputFormat = av_find_input_format(FMT_NAME);
@@ -413,7 +413,7 @@ QStringList FFmpegUtils::GetInputAudioDevices()
     return devices;
 }
 
-void FFmpegUtils::SetInputDevice(const QString& deviceName)
+void AudioFFmpegUtils::SetInputDevice(const QString& deviceName)
 {
     m_currentInputDevice = deviceName;
 }
