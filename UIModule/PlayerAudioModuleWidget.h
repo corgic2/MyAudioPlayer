@@ -136,11 +136,6 @@ protected:
     void closeEvent(QCloseEvent* event) override;
 
 private:
-    /// <summary>
-    /// 获取文件列表中的文件数量
-    /// </summary>
-    /// <returns>文件数量</returns>
-    int GetFileCount() const;
 
     /// <summary>
     /// 连接信号槽
@@ -169,13 +164,6 @@ private:
     void MoveFileToTop(const QString& filePath);
 
     /// <summary>
-    /// 检查文件是否已存在于列表中
-    /// </summary>
-    /// <param name="filePath">要检查的文件路径</param>
-    /// <returns>true表示文件已存在，false表示文件不存在</returns>
-    bool IsFileExists(const QString& filePath) const;
-
-    /// <summary>
     /// 获取文件在列表中的索引
     /// </summary>
     /// <param name="filePath">要查找的文件路径</param>
@@ -195,11 +183,6 @@ private:
     QString GetJsonFilePath() const;
 
     /// <summary>
-    /// 初始化自动保存定时器
-    /// </summary>
-    void InitializeAutoSaveTimer();
-
-    /// <summary>
     /// 启动音频播放线程
     /// </summary>
     void StartAudioPlayThread();
@@ -213,12 +196,12 @@ private:
     Ui::PlayerAudioModuleWidgetClass* ui;
     FFmpegUtils m_ffmpeg;
     QString m_currentAudioFile;                    /// 当前播放的音频文件
-    bool m_isRecording;                            /// 是否正在录制
-    bool m_isPlaying;                              /// 是否正在播放
-    bool m_isPaused;                               /// 是否已暂停
-    QTimer* m_playTimer;                           /// 播放定时器
-    QString m_jsonFileName;                        /// JSON文件名
-    QTimer* m_autoSaveTimer;                       /// 自动保存定时器
+    bool m_isRecording = false;                            /// 是否正在录制
+    bool m_isPlaying = false;                      /// 是否正在播放
+    bool m_isPaused = false;                               /// 是否已暂停
+    QTimer *m_playTimer = nullptr;                   /// 播放定时器
+    QString m_jsonFileName = "audiofiles.json";                           /// JSON文件名
+    QTimer *m_autoSaveTimer = nullptr;               /// 自动保存定时器
     size_t m_playThreadId;                         /// 音频播放线程ID
     std::atomic<bool> m_playThreadRunning{false};  /// 音频播放线程运行标志
     static const int AUTO_SAVE_INTERVAL = 1800000; // 30分钟 = 30 * 60 * 1000毫秒

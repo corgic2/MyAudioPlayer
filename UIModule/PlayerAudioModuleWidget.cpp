@@ -20,14 +20,13 @@
 #include "UtilsWidget/CustomToolTips.h"
 
 PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
-    : QWidget(parent), ui(new Ui::PlayerAudioModuleWidgetClass()), m_isRecording(false), m_isPlaying(false), m_isPaused(false), m_playTimer(nullptr), m_jsonFileName("audiofiles.json"), m_autoSaveTimer(nullptr)
+    : QWidget(parent), ui(new Ui::PlayerAudioModuleWidgetClass())
 {
     ui->setupUi(this);
     InitializeWidget();
     ConnectSignals();
     InitAudioDevices();
     LoadFileListFromJson(); // 加载保存的文件列表
-    InitializeAutoSaveTimer();
 }
 
 void PlayerAudioModuleWidget::InitializeWidget()
@@ -35,6 +34,14 @@ void PlayerAudioModuleWidget::InitializeWidget()
     // 初始化播放定时器
     m_playTimer = new QTimer(this);
     m_playTimer->setInterval(100); // 100ms更新一次
+
+    if (!m_autoSaveTimer)
+    {
+        m_autoSaveTimer = new QTimer(this);
+        m_autoSaveTimer->setInterval(AUTO_SAVE_INTERVAL);
+        connect(m_autoSaveTimer, &QTimer::timeout, this, &PlayerAudioModuleWidget::SlotAutoSave);
+        m_autoSaveTimer->start();
+    }
 
     // 设置文件列表标签样式
     ui->labelFileList->SetFontSize(CustomLabel::FontSize_Medium);
@@ -155,9 +162,10 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
     if (m_autoSaveTimer)
     {
         m_autoSaveTimer->stop();
-        delete m_autoSaveTimer;
-        m_autoSaveTimer = nullptr;
+        SAFE_DELETE_POINTER_VALUE(m_autoSaveTimer)
     }
+
+    SAFE_DELETE_POINTER_VALUE(m_playTimer)
 
     delete ui;
 }
@@ -419,7 +427,7 @@ void PlayerAudioModuleWidget::AddAudioFiles(const QStringList& filePaths)
             continue;
         }
 
-        if (!IsFileExists(filePath))
+        if (GetFileIndex(filePath) == -1)
         {
             audio_player::ST_AudioFileInfo audioInfo = audio_player::AudioFileSystem::GetAudioFileInfo(stdPath);
             FilePathIconListWidgetItem::ST_NodeInfo nodeInfo;
@@ -483,11 +491,6 @@ void PlayerAudioModuleWidget::MoveFileToTop(const QString& filePath)
             ui->audioFileList->InsertFileItem(0, nodeInfo);
         }
     }
-}
-
-bool PlayerAudioModuleWidget::IsFileExists(const QString& filePath) const
-{
-    return GetFileIndex(filePath) != -1;
 }
 
 int PlayerAudioModuleWidget::GetFileIndex(const QString& filePath) const
@@ -590,26 +593,10 @@ void PlayerAudioModuleWidget::LoadFileListFromJson()
     }
 }
 
-void PlayerAudioModuleWidget::InitializeAutoSaveTimer()
-{
-    if (!m_autoSaveTimer)
-    {
-        m_autoSaveTimer = new QTimer(this);
-        m_autoSaveTimer->setInterval(AUTO_SAVE_INTERVAL);
-        connect(m_autoSaveTimer, &QTimer::timeout, this, &PlayerAudioModuleWidget::SlotAutoSave);
-        m_autoSaveTimer->start();
-    }
-}
-
 void PlayerAudioModuleWidget::SlotAutoSave()
 {
     SaveFileListToJson();
     qDebug() << "Auto saved file list to JSON";
-}
-
-int PlayerAudioModuleWidget::GetFileCount() const
-{
-    return ui->audioFileList->GetItemCount();
 }
 
 FilePathIconListWidgetItem::ST_NodeInfo PlayerAudioModuleWidget::GetFileInfo(int index) const
