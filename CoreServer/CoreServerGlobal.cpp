@@ -11,9 +11,9 @@ void CoreServerGlobal::Initialize()
 {
     // 配置线程池
     ST_ThreadPoolConfig config;
-    config.m_minThreads = 2;
-    config.m_maxThreads = 4;
-    config.m_maxQueueSize = 1000;
+    config.m_minThreads = 4;
+    config.m_maxThreads = 6;
+    config.m_maxQueueSize = 100;
     config.m_keepAliveTime = 60000; // 1分钟
     m_threadPool = new ThreadPool(config);
     // 创建日志目录

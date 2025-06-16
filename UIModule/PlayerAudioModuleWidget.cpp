@@ -2,14 +2,12 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QDebug>
-#include <QDir>
-#include <QFileDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
-#include <QMessageBox>
-#include <QStandardPaths>
+
 #include <QTimer>
+#include <QThread>
 #include "AudioMainWidget.h"
 
 #include "AudioFileSystem.h"
@@ -135,6 +133,9 @@ void PlayerAudioModuleWidget::ConnectSignals()
     // 文件列表信号
     connect(ui->audioFileList, &FilePathIconListWidget::SigItemSelected, this, &PlayerAudioModuleWidget::SlotAudioFileSelected);
     connect(ui->audioFileList, &FilePathIconListWidget::SigItemDoubleClicked, this, &PlayerAudioModuleWidget::SlotAudioFileDoubleClicked);
+
+    // 音频播放完成信号
+    connect(this, &PlayerAudioModuleWidget::SigAudioPlayFinished, this, &PlayerAudioModuleWidget::SlotAudioPlayFinished);
 }
 
 PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
@@ -148,7 +149,7 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
     }
     if (m_isPlaying)
     {
-        m_ffmpeg.StopAudioPlayback();
+        StopAudioPlayThread();
     }
 
     if (m_autoSaveTimer)
@@ -177,7 +178,7 @@ void PlayerAudioModuleWidget::SlotBtnRecordClicked()
             CoreServerGlobal::Instance().GetThreadPool().Submit([this, filePath]()
             {
                 m_ffmpeg.StartAudioRecording(filePath, "wav");
-            }, EM_TaskPriority::Normal);
+            }, EM_TaskPriority::Critical);
         }
     }
     else
@@ -198,19 +199,14 @@ void PlayerAudioModuleWidget::SlotBtnPlayClicked()
             m_isPlaying = true;
             m_isPaused = false;
             UpdatePlayState(true);
-
-            // 使用线程池启动播放任务
-            CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
-            {
-                m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
-            }, EM_TaskPriority::Normal);
+            StartAudioPlayThread();
         }
         else
         {
             m_isPlaying = false;
             m_isPaused = false;
             UpdatePlayState(false);
-            m_ffmpeg.StopAudioPlayback();
+            StopAudioPlayThread();
         }
     }
     else
@@ -219,25 +215,74 @@ void PlayerAudioModuleWidget::SlotBtnPlayClicked()
     }
 }
 
+void PlayerAudioModuleWidget::StartAudioPlayThread()
+{
+    if (m_playThreadRunning)
+    {
+        StopAudioPlayThread();
+    }
+
+    m_playThreadRunning = true;
+    m_playThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread(
+        "AudioPlayThread",
+        [this]()
+        {
+            try
+            {
+                m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
+                
+                // 等待播放完成
+                while (m_playThreadRunning && m_ffmpeg.IsPlaying())
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                }
+
+                // 播放完成，发送信号
+                if (m_playThreadRunning)
+                {
+                    emit SigAudioPlayFinished();
+                }
+            }
+            catch (const std::exception& e)
+            {
+                qDebug() << "Audio playback error:" << e.what();
+                emit SigAudioPlayFinished();
+            }
+        }
+    );
+}
+
+void PlayerAudioModuleWidget::StopAudioPlayThread()
+{
+    if (m_playThreadRunning)
+    {
+        m_playThreadRunning = false;
+        CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
+        m_ffmpeg.StopAudioPlayback();
+    }
+}
+
+void PlayerAudioModuleWidget::SlotAudioPlayFinished()
+{
+    m_isPlaying = false;
+    m_isPaused = false;
+    UpdatePlayState(false);
+    m_playThreadRunning = false;
+}
+
 void PlayerAudioModuleWidget::SlotBtnForwardClicked()
 {
-    if (m_isPlaying)
+    if (m_isPlaying && m_playThreadRunning)
     {
-        CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
-        {
-            m_ffmpeg.SeekAudioForward(15); // 前进15秒
-        }, EM_TaskPriority::High);
+        m_ffmpeg.SeekAudioForward(15); // 前进15秒
     }
 }
 
 void PlayerAudioModuleWidget::SlotBtnBackwardClicked()
 {
-    if (m_isPlaying)
+    if (m_isPlaying && m_playThreadRunning)
     {
-        CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
-        {
-            m_ffmpeg.SeekAudioBackward(15); // 后退15秒
-        }, EM_TaskPriority::High);
+        m_ffmpeg.SeekAudioBackward(15); // 后退15秒
     }
 }
 
@@ -266,11 +311,8 @@ void PlayerAudioModuleWidget::SlotBtnNextClicked()
                 m_currentAudioFile = nextItem->GetNodeInfo().filePath;
                 if (m_isPlaying)
                 {
-                    m_ffmpeg.StopAudioPlayback();
-                    CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
-                    {
-                        m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
-                    }, EM_TaskPriority::Normal);
+                    StopAudioPlayThread();
+                    StartAudioPlayThread();
                 }
                 ui->audioFileList->MoveItemToTop(nextItem);
             }
@@ -303,11 +345,8 @@ void PlayerAudioModuleWidget::SlotBtnPreviousClicked()
                 m_currentAudioFile = prevItem->GetNodeInfo().filePath;
                 if (m_isPlaying)
                 {
-                    m_ffmpeg.StopAudioPlayback();
-                    CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
-                    {
-                        m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
-                    }, EM_TaskPriority::Normal);
+                    StopAudioPlayThread();
+                    StartAudioPlayThread();
                 }
                 ui->audioFileList->MoveItemToTop(prevItem);
             }
@@ -402,7 +441,7 @@ void PlayerAudioModuleWidget::RemoveAudioFile(const QString& filePath)
         // 如果正在播放这个文件，先停止播放
         if (m_currentAudioFile == filePath && m_isPlaying)
         {
-            m_ffmpeg.StopAudioPlayback();
+            StopAudioPlayThread();
             m_isPlaying = false;
             UpdatePlayState(false);
         }
@@ -422,7 +461,7 @@ void PlayerAudioModuleWidget::ClearAudioFiles()
     // 如果正在播放，先停止播放
     if (m_isPlaying)
     {
-        m_ffmpeg.StopAudioPlayback();
+        StopAudioPlayThread();
         m_isPlaying = false;
         UpdatePlayState(false);
     }

@@ -59,12 +59,18 @@ public:
     /// 保存文件列表到JSON文件
     /// </summary>
     void SaveFileListToJson();
+
 signals:
     /// <summary>
     /// 音频文件被选中信号
     /// </summary>
     /// <param name="filePath">音频文件路径</param>
     void SigAudioFileSelected(const QString& filePath);
+
+    /// <summary>
+    /// 音频播放完成信号
+    /// </summary>
+    void SigAudioPlayFinished();
 
 protected slots:
     /// <summary>
@@ -116,6 +122,11 @@ protected slots:
     /// 自动保存槽函数
     /// </summary>
     void SlotAutoSave();
+
+    /// <summary>
+    /// 音频播放完成槽函数
+    /// </summary>
+    void SlotAudioPlayFinished();
 
 protected:
     /// <summary>
@@ -188,6 +199,16 @@ private:
     /// </summary>
     void InitializeAutoSaveTimer();
 
+    /// <summary>
+    /// 启动音频播放线程
+    /// </summary>
+    void StartAudioPlayThread();
+
+    /// <summary>
+    /// 停止音频播放线程
+    /// </summary>
+    void StopAudioPlayThread();
+
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;
     FFmpegUtils m_ffmpeg;
@@ -198,5 +219,7 @@ private:
     QTimer* m_playTimer;                           /// 播放定时器
     QString m_jsonFileName;                        /// JSON文件名
     QTimer* m_autoSaveTimer;                       /// 自动保存定时器
+    size_t m_playThreadId;                         /// 音频播放线程ID
+    std::atomic<bool> m_playThreadRunning{false};  /// 音频播放线程运行标志
     static const int AUTO_SAVE_INTERVAL = 1800000; // 30分钟 = 30 * 60 * 1000毫秒
 };
