@@ -1,7 +1,9 @@
 ﻿#pragma once
 #include <cstdint>
 #include <QDebug>
-#include "../DataDefine/FFmpegAudioDataDefine.h"
+#include "BaseDataDefine/ST_SwrContext.h"
+#include "DataDefine/ST_ResampleParams.h"
+#include "DataDefine/ST_ResampleResult.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>

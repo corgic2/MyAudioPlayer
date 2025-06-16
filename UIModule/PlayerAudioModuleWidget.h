@@ -5,6 +5,7 @@
 #include "ui_PlayerAudioModuleWidget.h"
 #include "CoreWidget/CustomLabel.h"
 #include "DomainWidget/FilePathIconListWidgetItem.h"
+#include "AudioWaveformWidget.h"
 
 
 QT_BEGIN_NAMESPACE namespace Ui
@@ -158,18 +159,11 @@ private:
     void UpdatePlayState(bool isPlaying);
 
     /// <summary>
-    /// 将文件移动到列表顶部
-    /// </summary>
-    /// <param name="filePath">要移动的文件路径</param>
-    void MoveFileToTop(const QString& filePath);
-
-    /// <summary>
     /// 获取文件在列表中的索引
     /// </summary>
     /// <param name="filePath">要查找的文件路径</param>
     /// <returns>文件在列表中的索引，如果不存在则返回-1</returns>
     int GetFileIndex(const QString& filePath) const;
-
 
     /// <summary>
     /// 从JSON文件加载文件列表
@@ -205,4 +199,5 @@ private:
     size_t m_playThreadId;                         /// 音频播放线程ID
     std::atomic<bool> m_playThreadRunning{false};  /// 音频播放线程运行标志
     static const int AUTO_SAVE_INTERVAL = 1800000; // 30分钟 = 30 * 60 * 1000毫秒
+    AudioWaveformWidget* m_waveformWidget;         /// 音频波形控件
 };

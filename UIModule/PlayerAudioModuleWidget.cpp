@@ -43,6 +43,10 @@ void PlayerAudioModuleWidget::InitializeWidget()
         m_autoSaveTimer->start();
     }
 
+    // 初始化波形控件
+    m_waveformWidget = new AudioWaveformWidget(ui->VedioFrame);
+    m_waveformWidget->setGeometry(0, 0, ui->VedioFrame->width(), ui->VedioFrame->height());
+
     // 设置文件列表标签样式
     ui->labelFileList->SetFontSize(CustomLabel::FontSize_Medium);
     ui->labelFileList->SetFontStyle(CustomLabel::FontStyle_Bold);
@@ -166,7 +170,7 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
     }
 
     SAFE_DELETE_POINTER_VALUE(m_playTimer)
-
+    CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
     delete ui;
 }
 
@@ -237,6 +241,16 @@ void PlayerAudioModuleWidget::StartAudioPlayThread()
         {
             try
             {
+                // 在播放前加载音频数据并生成波形
+                QVector<float> waveformData;
+                if (m_ffmpeg.LoadAudioWaveform(m_currentAudioFile, waveformData))
+                {
+                    // 在主线程中更新波形显示
+                    QMetaObject::invokeMethod(this, [this, waveformData]() {
+                        m_waveformWidget->SetWaveformData(waveformData);
+                    }, Qt::QueuedConnection);
+                }
+
                 m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
                 
                 // 等待播放完成
@@ -267,6 +281,7 @@ void PlayerAudioModuleWidget::StopAudioPlayThread()
         m_playThreadRunning = false;
         CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
         m_ffmpeg.StopAudioPlayback();
+        m_waveformWidget->ClearWaveform();
     }
 }
 
@@ -397,7 +412,6 @@ void PlayerAudioModuleWidget::SlotAudioFileSelected(const QString& filePath)
 void PlayerAudioModuleWidget::SlotAudioFileDoubleClicked(const QString& filePath)
 {
     m_currentAudioFile = filePath;
-    MoveFileToTop(filePath); // 将双击的文件移动到顶部
     SlotBtnPlayClicked();    // 自动开始播放
 }
 
@@ -476,21 +490,6 @@ void PlayerAudioModuleWidget::ClearAudioFiles()
 
     ui->audioFileList->Clear();
     m_currentAudioFile.clear();
-}
-
-void PlayerAudioModuleWidget::MoveFileToTop(const QString& filePath)
-{
-    int index = GetFileIndex(filePath);
-    if (index > 0) // 如果文件不在顶部
-    {
-        FilePathIconListWidgetItem* item = ui->audioFileList->GetItem(index);
-        if (item)
-        {
-            FilePathIconListWidgetItem::ST_NodeInfo nodeInfo = item->GetNodeInfo();
-            ui->audioFileList->RemoveItemByIndex(index);
-            ui->audioFileList->InsertFileItem(0, nodeInfo);
-        }
-    }
 }
 
 int PlayerAudioModuleWidget::GetFileIndex(const QString& filePath) const
@@ -608,3 +607,4 @@ FilePathIconListWidgetItem::ST_NodeInfo PlayerAudioModuleWidget::GetFileInfo(int
     }
     return FilePathIconListWidgetItem::ST_NodeInfo();
 }
+

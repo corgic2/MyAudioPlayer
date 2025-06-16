@@ -3,6 +3,13 @@
 #include "AudioResampler.h"
 #include "FFmpegPublicUtils.h"
 #include "../include/SDL3/SDL.h"
+#include "BaseDataDefine/ST_AVCodec.h"
+#include "BaseDataDefine/ST_AVCodecContext.h"
+#include "BaseDataDefine/ST_AVCodecParameters.h"
+#include "DataDefine/ST_AudioDecodeResult.h"
+#include "DataDefine/ST_OpenFileResult.h"
+#include "DataDefine/ST_ResampleParams.h"
+#include "DataDefine/ST_ResampleResult.h"
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
 #define FMT_NAME "dshow"
@@ -173,56 +180,8 @@ void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QS
 
     m_playInfo = std::make_unique<ST_AudioPlayInfo>();
 
-    // 打开音频文件
-    ST_AVFormatContext formatCtx;
-    int ret = formatCtx.OpenInputFilePath(inputFilePath.toUtf8().constData(), nullptr, nullptr);
-    if (ret < 0)
-    {
-        LOG_WARN("Failed to open input file");
-        m_playInfo.reset();
-        return;
-    }
-
-    ret = avformat_find_stream_info(formatCtx.GetRawContext(), nullptr);
-    if (ret < 0)
-    {
-        LOG_WARN("Find stream info failed");
-        return;
-    }
-
-    int audioStreamIdx = formatCtx.FindBestStream(AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
-    if (audioStreamIdx < 0)
-    {
-        LOG_WARN("No audio stream found");
-        m_playInfo.reset();
-        return;
-    }
-
-    // 初始化解码器
-    ST_AVCodecParameters codecParams(formatCtx.GetRawContext()->streams[audioStreamIdx]->codecpar);
-    ST_AVCodec codec(codecParams.GetCodecId());
-    ST_AVCodecContext codeCtx(codec.GetRawCodec());
-
-    if (!codec.GetRawCodec())
-    {
-        LOG_WARN("Failed to find codec");
-        m_playInfo.reset();
-        return;
-    }
-
-    if (codeCtx.BindParamToContext(codecParams.GetRawParameters()) < 0)
-    {
-        LOG_WARN("Failed to bind codec parameters");
-        m_playInfo.reset();
-        return;
-    }
-
-    if (codeCtx.OpenCodec(codec.GetRawCodec(), nullptr) < 0)
-    {
-        LOG_WARN("Failed to open codec");
-        m_playInfo.reset();
-        return;
-    }
+    ST_OpenFileResult openFileResult;
+    openFileResult.OpenFilePath(inputFilePath);
 
     // 创建重采样器
     AudioResampler resampler;
@@ -258,12 +217,12 @@ void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QS
     m_playState.SetCurrentPosition(0.0);
 
     ST_AVPacket pkt;
-    while (pkt.ReadPacket(formatCtx.GetRawContext()) >= 0)
+    while (pkt.ReadPacket(openFileResult.m_formatCtx->GetRawContext()) >= 0)
     {
-        if (pkt.GetRawPacket()->stream_index == audioStreamIdx)
+        if (pkt.GetRawPacket()->stream_index == openFileResult.m_audioStreamIdx)
         {
             // 解码音频数据包 处理平面格式与交错格式
-            ST_AudioDecodeResult decodeResult = FFmpegPublicUtils::DecodeAudioPacket(pkt.GetRawPacket(), codeCtx.GetRawContext());
+            ST_AudioDecodeResult decodeResult = FFmpegPublicUtils::DecodeAudioPacket(pkt.GetRawPacket(), openFileResult.m_codecCtx->GetRawContext());
             m_playInfo->PutDataToStream(decodeResult.audioData.data(), decodeResult.audioData.size());
         }
 
@@ -416,4 +375,58 @@ QStringList AudioFFmpegUtils::GetInputAudioDevices()
 void AudioFFmpegUtils::SetInputDevice(const QString& deviceName)
 {
     m_currentInputDevice = deviceName;
+}
+
+bool AudioFFmpegUtils::LoadAudioWaveform(const QString &filePath, QVector<float> &waveformData)
+{
+    ST_OpenFileResult openFileResult;
+    openFileResult.OpenFilePath(filePath);
+    // 读取音频数据并计算波形
+    ST_AVPacket packet;
+    AVFrame *frame = av_frame_alloc();
+    const int SAMPLES_PER_PIXEL = 256; // 每个像素点对应的采样数
+    float maxSample = 0;
+    float currentSum = 0;
+    int sampleCount = 0;
+
+    while (packet.ReadPacket(openFileResult.m_formatCtx->GetRawContext()) >= 0)
+    {
+        if (packet.GetStreamIndex() == openFileResult.m_audioStreamIdx)
+        {
+            if (packet.SendPacket(openFileResult.m_codecCtx->GetRawContext()) >= 0)
+            {
+                while (avcodec_receive_frame(openFileResult.m_codecCtx->GetRawContext(), frame) >= 0)
+                {
+                    // 处理音频帧数据
+                    float *samples = (float *)frame->data[0];
+                    for (int i = 0; i < frame->nb_samples; i++)
+                    {
+                        float sample = std::abs(samples[i]);
+                        currentSum += sample;
+                        sampleCount++;
+
+                        if (sampleCount >= SAMPLES_PER_PIXEL)
+                        {
+                            float average = currentSum / sampleCount;
+                            waveformData.append(average);
+                            maxSample = std::max(maxSample, average);
+                            currentSum = 0;
+                            sampleCount = 0;
+                        }
+                    }
+                }
+            }
+        }
+        packet.UnrefPacket();
+    }
+
+    // 归一化波形数据
+    if (maxSample > 0)
+    {
+        for (float &sample : waveformData)
+        {
+            sample /= maxSample;
+        }
+    }
+    return true;
 }

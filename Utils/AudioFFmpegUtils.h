@@ -5,7 +5,9 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
-#include "../DataDefine/FFmpegAudioDataDefine.h"
+#include "DataDefine/ST_AudioPlayInfo.h"
+#include "DataDefine/ST_AudioPlayState.h"
+#include "DataDefine/ST_OpenAudioDevice.h"
 
 extern "C"
 {
@@ -99,6 +101,14 @@ public:
     /// </summary>
     /// <param name="deviceName">设备名称</param>
     void SetInputDevice(const QString& deviceName);
+
+    /// <summary>
+    /// 加载音频波形数据
+    /// </summary>
+    /// <param name="filePath">音频文件路径</param>
+    /// <param name="waveformData">输出的波形数据</param>
+    /// <returns>是否成功加载波形数据</returns>
+    bool LoadAudioWaveform(const QString &filePath, QVector<float> &waveformData);
 
     /// <summary>
     /// 获取当前播放状态

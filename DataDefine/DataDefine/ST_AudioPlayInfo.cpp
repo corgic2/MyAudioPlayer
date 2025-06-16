@@ -1,24 +1,8 @@
-﻿#include "FFmpegAudioDataDefine.h"
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_audio.h>
-#include <SDL3/SDL_timer.h>
+﻿#include "ST_AudioPlayInfo.h"
 
-// ST_OpenAudioDevice implementation
-ST_OpenAudioDevice::ST_OpenAudioDevice(ST_OpenAudioDevice&& other) noexcept
-    : m_pInputFormatCtx(std::move(other.m_pInputFormatCtx))
-    , m_pFormatCtx(std::move(other.m_pFormatCtx))
-{
-}
+#include <qDebug>
+#include "SDL3/SDL_timer.h"
 
-ST_OpenAudioDevice& ST_OpenAudioDevice::operator=(ST_OpenAudioDevice&& other) noexcept
-{
-    if (this != &other)
-    {
-        m_pInputFormatCtx = std::move(other.m_pInputFormatCtx);
-        m_pFormatCtx = std::move(other.m_pFormatCtx);
-    }
-    return *this;
-}
 
 // ST_AudioPlayInfo implementation
 ST_AudioPlayInfo::~ST_AudioPlayInfo()
@@ -42,17 +26,17 @@ ST_AudioPlayInfo::~ST_AudioPlayInfo()
     }
 }
 
-ST_SDLAudioStream& ST_AudioPlayInfo::GetAudioStream()
+ST_SDLAudioStream &ST_AudioPlayInfo::GetAudioStream()
 {
     return m_audioStream;
 }
 
-SDL_AudioSpec& ST_AudioPlayInfo::GetAudioSpec(bool bsrc)
+SDL_AudioSpec &ST_AudioPlayInfo::GetAudioSpec(bool bsrc)
 {
     return bsrc ? m_srcSpec : m_dstSpec;
 }
 
-ST_SDLAudioDeviceID& ST_AudioPlayInfo::GetDeviceId()
+ST_SDLAudioDeviceID &ST_AudioPlayInfo::GetDeviceId()
 {
     return m_audioDeviceId;
 }
@@ -91,13 +75,13 @@ void ST_AudioPlayInfo::BindStreamAndDevice()
     {
         // 先暂停设备
         SDL_PauseAudioDevice(m_audioDeviceId.GetRawDeviceID());
-        
+
         // 解绑之前的流（如果有）
         SDL_UnbindAudioStream(m_audioStream.GetRawStream());
-        
+
         // 绑定新的流
         SDL_BindAudioStream(m_audioDeviceId.GetRawDeviceID(), m_audioStream.GetRawStream());
-        
+
         // 清空流
         SDL_FlushAudioStream(m_audioStream.GetRawStream());
     }
@@ -109,13 +93,13 @@ void ST_AudioPlayInfo::BeginPlayAudio()
     {
         m_startTime = SDL_GetTicks();
         m_currentPosition = 0;
-        
+
         // 确保设备已经绑定了音频流
         if (m_audioStream.GetRawStream())
         {
             SDL_FlushAudioStream(m_audioStream.GetRawStream());
         }
-        
+
         // 恢复设备播放
         SDL_ResumeAudioDevice(m_audioDeviceId.GetRawDeviceID());
     }
@@ -175,7 +159,7 @@ void ST_AudioPlayInfo::SeekAudio(int seconds)
     SDL_ResumeAudioDevice(m_audioDeviceId.GetRawDeviceID());
 }
 
-void ST_AudioPlayInfo::PutDataToStream(const void* buf, int len)
+void ST_AudioPlayInfo::PutDataToStream(const void *buf, int len)
 {
     if (m_audioStream.GetRawStream() && buf && len > 0)
     {
@@ -193,10 +177,10 @@ bool ST_AudioPlayInfo::GetDataIsEnd()
     {
         return true;
     }
-    
+
     int queued = SDL_GetAudioStreamQueued(m_audioStream.GetRawStream());
     int available = SDL_GetAudioStreamAvailable(m_audioStream.GetRawStream());
-    
+
     // 如果队列中没有数据且没有可用数据，则认为数据已结束
     return queued == 0 && available == 0;
 }
@@ -232,4 +216,3 @@ int ST_AudioPlayInfo::GetAudioStreamAvailable() const
 {
     return m_audioStream.GetRawStream() ? SDL_GetAudioStreamAvailable(m_audioStream.GetRawStream()) : 0;
 }
-

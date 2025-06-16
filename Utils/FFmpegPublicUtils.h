@@ -3,8 +3,10 @@
 #include <cstdint>
 #include <memory>
 #include <vector>
+#include "DataDefine/ST_AudioDecodeResult.h"
 
-extern "C" {
+extern "C"
+{
 #include <libavcodec/avcodec.h>
 #include <libavcodec/codec.h>
 #include <libavcodec/codec_par.h>
@@ -13,7 +15,6 @@ extern "C" {
 }
 
 #include <SDL3/SDL_audio.h>
-#include "../DataDefine/FFmpegAudioBaseStrcutDefine.h"
 
 /// <summary>
 /// FFmpeg公共工具类
