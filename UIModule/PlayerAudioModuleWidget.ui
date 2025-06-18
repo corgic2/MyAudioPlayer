@@ -111,107 +111,7 @@
          <number>0</number>
         </property>
         <item>
-         <layout class="QHBoxLayout" name="horizontalLayout_2">
-          <property name="spacing">
-           <number>0</number>
-          </property>
-          <item>
-           <widget class="CustomToolButton" name="btnRecord">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>36</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>录制</string>
-            </property>
-            <property name="toolTipsText" stdset="0">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="CustomToolButton" name="btnPrevious">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>36</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>上一个</string>
-            </property>
-            <property name="toolTipsText" stdset="0">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="CustomToolButton" name="btnBackward">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>36</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>后退15秒</string>
-            </property>
-            <property name="toolTipsText" stdset="0">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="CustomToolButton" name="btnPlay">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>36</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>播放</string>
-            </property>
-            <property name="toolTipsText" stdset="0">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="CustomToolButton" name="btnForward">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>36</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>前进15秒</string>
-            </property>
-            <property name="toolTipsText" stdset="0">
-             <string/>
-            </property>
-           </widget>
-          </item>
-          <item>
-           <widget class="CustomToolButton" name="btnNext">
-            <property name="minimumSize">
-             <size>
-              <width>0</width>
-              <height>36</height>
-             </size>
-            </property>
-            <property name="text">
-             <string>下一个</string>
-            </property>
-            <property name="toolTipsText" stdset="0">
-             <string/>
-            </property>
-           </widget>
-          </item>
-         </layout>
+         <widget class="AudioControlButtonWidget" name="audioControlButtons" native="true"/>
         </item>
        </layout>
       </item>
@@ -348,14 +248,14 @@
    <header>CoreWidget/CustomLabel.h</header>
   </customwidget>
   <customwidget>
-   <class>CustomToolButton</class>
-   <extends>QToolButton</extends>
-   <header>CoreWidget/CustomToolButton.h</header>
-  </customwidget>
-  <customwidget>
    <class>FilePathIconListWidget</class>
    <extends>QListWidget</extends>
    <header>DomainWidget/FilePathIconListWidget.h</header>
+  </customwidget>
+  <customwidget>
+   <class>AudioControlButtonWidget</class>
+   <extends>QWidget</extends>
+   <header>AudioControlButtonWidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

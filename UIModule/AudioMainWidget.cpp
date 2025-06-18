@@ -53,7 +53,7 @@ void AudioMainWidget::InitializeMenuBar()
     saveAction->setShortcut(QKeySequence::Save);
     saveAction->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
     fileMenu->addAction(saveAction);
-    connect(saveAction, &QAction::triggered, this, &AudioMainWidget::SlotSaveUIData);
+    //connect(saveAction, &QAction::triggered, this, &AudioMainWidget::SlotSaveUIData);
 
     // 编辑菜单
     QMenu* editMenu = menuBar()->addMenu(tr("编辑"));
@@ -129,24 +129,6 @@ void AudioMainWidget::SlotOpenAudioFolder()
             emit ui->widget->SigAudioFileSelected(m_currentAudioFile);
         }
     }
-}
-
-void AudioMainWidget::SlotSaveUIData()
-{
-    if (SaveUIDataToFile())
-    {
-        QMessageBox::information(this, tr("保存"), tr("UI数据已保存"));
-    }
-    else
-    {
-        QMessageBox::warning(this, tr("错误"), tr("保存UI数据失败"));
-    }
-}
-
-bool AudioMainWidget::SaveUIDataToFile()
-{
-    ui->widget->SaveFileListToJson();
-    return true;
 }
 
 void AudioMainWidget::SlotClearFileList()

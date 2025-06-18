@@ -46,12 +46,6 @@ protected slots:
     /// 清空文件列表槽函数
     /// </summary>
     void SlotClearFileList();
-
-    /// <summary>
-    /// 保存UI数据槽函数
-    /// </summary>
-    void SlotSaveUIData();
-
     /// <summary>
     /// 从列表移除文件槽函数
     /// </summary>
@@ -72,11 +66,6 @@ private:
     /// 连接信号槽
     /// </summary>
     void ConnectSignals();
-    /// <summary>
-    /// 保存UI数据槽函数
-    /// </summary>
-    /// <returns></returns>
-    bool SaveUIDataToFile();
 
 private:
     Ui::AudioMainWidgetClass* ui;
