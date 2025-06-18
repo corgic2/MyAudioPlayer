@@ -147,6 +147,9 @@ void PlayerAudioModuleWidget::ConnectSignals()
 
     // 音频播放完成信号
     connect(this, &PlayerAudioModuleWidget::SigAudioPlayFinished, this, &PlayerAudioModuleWidget::SlotAudioPlayFinished);
+
+    // 添加录制完成信号连接
+    connect(this, &PlayerAudioModuleWidget::SigAudioRecordFinished, this, &PlayerAudioModuleWidget::SlotAudioRecordFinished);
 }
 
 PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
@@ -156,7 +159,7 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
 
     if (m_isRecording)
     {
-        m_ffmpeg.StopAudioRecording();
+        StopAudioRecordThread();
     }
     if (m_isPlaying)
     {
@@ -171,6 +174,7 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
 
     SAFE_DELETE_POINTER_VALUE(m_playTimer)
     CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
+    CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_recordThreadId);
     delete ui;
 }
 
@@ -186,11 +190,8 @@ void PlayerAudioModuleWidget::SlotBtnRecordClicked()
             ui->btnRecord->setText(tr("停止录制"));
             ui->btnRecord->SetBackgroundColor(UIColorDefine::theme_color::Error);
 
-            // 使用线程池启动录制任务
-            CoreServerGlobal::Instance().GetThreadPool().Submit([this, filePath]()
-            {
-                m_ffmpeg.StartAudioRecording(filePath, "wav");
-            }, EM_TaskPriority::Critical);
+            // 启动录制线程
+            StartAudioRecordThread(filePath);
         }
     }
     else
@@ -198,7 +199,7 @@ void PlayerAudioModuleWidget::SlotBtnRecordClicked()
         m_isRecording = false;
         ui->btnRecord->setText(tr("录制"));
         ui->btnRecord->SetBackgroundColor(UIColorDefine::theme_color::Info);
-        m_ffmpeg.StopAudioRecording();
+        StopAudioRecordThread();
     }
 }
 
@@ -337,7 +338,7 @@ void PlayerAudioModuleWidget::SlotBtnNextClicked()
                     StopAudioPlayThread();
                     StartAudioPlayThread();
                 }
-                ui->audioFileList->MoveItemToTop(nextItem);
+                ui->audioFileList->setCurrentItem(nextItem);
             }
         }
     }
@@ -371,7 +372,7 @@ void PlayerAudioModuleWidget::SlotBtnPreviousClicked()
                     StopAudioPlayThread();
                     StartAudioPlayThread();
                 }
-                ui->audioFileList->MoveItemToTop(prevItem);
+                ui->audioFileList->setCurrentItem(prevItem);
             }
         }
     }
@@ -606,5 +607,56 @@ FilePathIconListWidgetItem::ST_NodeInfo PlayerAudioModuleWidget::GetFileInfo(int
         return item->GetNodeInfo();
     }
     return FilePathIconListWidgetItem::ST_NodeInfo();
+}
+
+void PlayerAudioModuleWidget::StartAudioRecordThread(const QString& filePath)
+{
+    if (m_recordThreadRunning)
+    {
+        StopAudioRecordThread();
+    }
+
+    m_recordThreadRunning = true;
+    m_recordThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AudioRecordThread", [this, filePath]()
+    {
+        try
+        {
+            m_ffmpeg.StartAudioRecording(filePath, "wav");
+
+            // 等待录制停止
+            while (m_recordThreadRunning && m_ffmpeg.IsRecording())
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+
+            // 录制完成，发送信号
+            if (m_recordThreadRunning)
+            {
+                emit SigAudioRecordFinished();
+            }
+        } catch (const std::exception& e)
+        {
+            qDebug() << "Audio recording error:" << e.what();
+            emit SigAudioRecordFinished();
+        }
+    });
+}
+
+void PlayerAudioModuleWidget::StopAudioRecordThread()
+{
+    if (m_recordThreadRunning)
+    {
+        m_recordThreadRunning = false;
+        m_ffmpeg.StopAudioRecording();
+        CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_recordThreadId);
+    }
+}
+
+void PlayerAudioModuleWidget::SlotAudioRecordFinished()
+{
+    m_isRecording = false;
+    ui->btnRecord->setText(tr("录制"));
+    ui->btnRecord->SetBackgroundColor(UIColorDefine::theme_color::Info);
+    m_recordThreadRunning = false;
 }
 

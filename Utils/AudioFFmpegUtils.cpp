@@ -62,7 +62,7 @@ std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString& 
 
 void AudioFFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat)
 {
-    if (m_playState.IsRecording())
+    if (m_isRecording.load())
     {
         return;
     }
@@ -75,7 +75,7 @@ void AudioFFmpegUtils::StartAudioRecording(const QString& outputFilePath, const 
         return;
     }
 
-    m_playState.SetRecording(true);
+    m_isRecording.store(true);
     ST_AVFormatContext outputFormatCtx;
     outputFormatCtx.OpenOutputFilePath(nullptr, encoderFormat.toStdString().c_str(), outputFilePath.toUtf8().constData());
     if (!outputFormatCtx.GetRawContext())
@@ -152,12 +152,12 @@ void AudioFFmpegUtils::StartAudioRecording(const QString& outputFilePath, const 
 
 void AudioFFmpegUtils::StopAudioRecording()
 {
-    if (!m_playState.IsRecording())
+    if (!m_isRecording.load())
     {
         return;
     }
 
-    m_playState.SetRecording(false);
+    m_isRecording.store(false);
     m_recordDevice.reset();
 }
 

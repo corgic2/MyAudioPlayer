@@ -8,6 +8,7 @@
 #include "DataDefine/ST_AudioPlayInfo.h"
 #include "DataDefine/ST_AudioPlayState.h"
 #include "DataDefine/ST_OpenAudioDevice.h"
+#include <atomic>
 
 extern "C"
 {
@@ -128,6 +129,12 @@ public:
         return m_playState.IsPaused();
     }
 
+    /// <summary>
+    /// 获取当前录制状态
+    /// </summary>
+    /// <returns>true表示正在录制，false表示已停止录制</returns>
+    bool IsRecording() const { return m_isRecording.load(); }
+
 signals:
     /// <summary>
     /// 播放状态改变信号
@@ -163,4 +170,5 @@ private:
     std::unique_ptr<ST_OpenAudioDevice> m_recordDevice; /// 录制设备
     std::unique_ptr<ST_AudioPlayInfo> m_playInfo;       /// 播放信息
     ST_AudioPlayState m_playState;                      /// 播放状态
+    std::atomic<bool> m_isRecording{false};    /// 录制状态标志
 };

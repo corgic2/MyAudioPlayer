@@ -73,6 +73,11 @@ signals:
     /// </summary>
     void SigAudioPlayFinished();
 
+    /// <summary>
+    /// 音频录制完成信号
+    /// </summary>
+    void SigAudioRecordFinished();
+
 protected slots:
     /// <summary>
     /// 录制按钮点击槽函数
@@ -128,6 +133,11 @@ protected slots:
     /// 音频播放完成槽函数
     /// </summary>
     void SlotAudioPlayFinished();
+
+    /// <summary>
+    /// 音频录制完成槽函数
+    /// </summary>
+    void SlotAudioRecordFinished();
 
 protected:
     /// <summary>
@@ -186,6 +196,17 @@ private:
     /// </summary>
     void StopAudioPlayThread();
 
+    /// <summary>
+    /// 启动音频录制线程
+    /// </summary>
+    /// <param name="filePath">录制文件路径</param>
+    void StartAudioRecordThread(const QString& filePath);
+
+    /// <summary>
+    /// 停止音频录制线程
+    /// </summary>
+    void StopAudioRecordThread();
+
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;
     AudioFFmpegUtils m_ffmpeg;
@@ -198,6 +219,8 @@ private:
     QTimer *m_autoSaveTimer = nullptr;               /// 自动保存定时器
     size_t m_playThreadId;                         /// 音频播放线程ID
     std::atomic<bool> m_playThreadRunning{false};  /// 音频播放线程运行标志
+    size_t m_recordThreadId;                        /// 音频录制线程ID
+    std::atomic<bool> m_recordThreadRunning{false}; /// 音频录制线程运行标志
     static const int AUTO_SAVE_INTERVAL = 1800000; // 30分钟 = 30 * 60 * 1000毫秒
     AudioWaveformWidget* m_waveformWidget;         /// 音频波形控件
 };
