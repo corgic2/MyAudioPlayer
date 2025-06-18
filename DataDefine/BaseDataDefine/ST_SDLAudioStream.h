@@ -25,6 +25,14 @@ class ST_SDLAudioStream
         return m_audioStreamSdl;
     }
 
+    /// <summary>
+    /// 检查音频流是否有效
+    /// </summary>
+    operator bool() const
+    {
+        return m_audioStreamSdl != nullptr;
+    }
+
   private:
     SDL_AudioStream *m_audioStreamSdl = nullptr;
 };

@@ -161,7 +161,7 @@ void AudioFFmpegUtils::StopAudioRecording()
     m_recordDevice.reset();
 }
 
-void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QStringList& args)
+void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, double startPosition, const QStringList& args)
 {
     // 先停止当前播放并等待资源释放
     if (m_playState.IsPlaying())
@@ -174,28 +174,64 @@ void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QS
     if (m_playInfo)
     {
         m_playInfo->StopAudio();
+        m_playInfo->UnbindStreamAndDevice();
         m_playInfo.reset();
         SDL_Delay(50); // 等待资源释放
     }
 
     m_playInfo = std::make_unique<ST_AudioPlayInfo>();
+    m_currentFilePath = inputFilePath;
 
+    // 打开文件
     ST_OpenFileResult openFileResult;
     openFileResult.OpenFilePath(inputFilePath);
+    if (!openFileResult.m_formatCtx || !openFileResult.m_formatCtx->GetRawContext())
+    {
+        return;
+    }
+
+    // 获取音频时长
+    m_duration = static_cast<double>(openFileResult.m_formatCtx->GetRawContext()->duration) / AV_TIME_BASE;
+
+    // 如果指定了起始位置，执行定位
+    if (startPosition > 0.0)
+    {
+        // 确保不会超出音频范围
+        if (startPosition > m_duration)
+        {
+            startPosition = m_duration;
+        }
+
+        // 计算目标时间戳并执行定位
+        int64_t targetTs = static_cast<int64_t>(startPosition * AV_TIME_BASE);
+        int ret = av_seek_frame(openFileResult.m_formatCtx->GetRawContext(), -1, targetTs, AVSEEK_FLAG_BACKWARD);
+        if (ret < 0)
+        {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            LOG_WARN("Failed to seek audio: " + std::string(errbuf));
+            return;
+        }
+
+        // 清空解码器缓冲
+        avcodec_flush_buffers(openFileResult.m_codecCtx->GetRawContext());
+    }
+
+    m_currentPosition = startPosition;
 
     // 创建重采样器
     AudioResampler resampler;
     QString format = QString::fromStdString(my_sdk::FileSystem::GetExtension(inputFilePath.toStdString()));
     ST_ResampleParams resampleParams = resampler.GetResampleParams(format);
 
-    // 初始化音频规格与播放文件音频规格相同
+    // 初始化音频规格
     SDL_AudioSpec wantedSpec;
     wantedSpec.freq = resampleParams.GetOutput().GetSampleRate();
     wantedSpec.format = FFmpegPublicUtils::FFmpegToSDLFormat(resampleParams.GetOutput().GetSampleFormat().sampleFormat);
     wantedSpec.channels = resampleParams.GetOutput().GetChannels();
 
-    m_playInfo->InitAudioSpec(true, wantedSpec.freq, wantedSpec.format, wantedSpec.channels);
-    m_playInfo->InitAudioSpec(false, wantedSpec.freq, wantedSpec.format, wantedSpec.channels);
+    m_playInfo->InitAudioSpec(true, static_cast<int>(wantedSpec.freq), wantedSpec.format, static_cast<int>(wantedSpec.channels));
+    m_playInfo->InitAudioSpec(false, static_cast<int>(wantedSpec.freq), wantedSpec.format, static_cast<int>(wantedSpec.channels));
     m_playInfo->InitAudioStream();
 
     // 打开音频设备
@@ -208,24 +244,33 @@ void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QS
     }
 
     m_playInfo->InitAudioDevice(deviceId);
+
+    // 在绑定设备和流之前确保它们都已经正确初始化
+    if (!m_playInfo->GetAudioStream().GetRawStream() || !m_playInfo->GetAudioDevice())
+    {
+        LOG_WARN("Failed to initialize audio stream or device");
+        m_playInfo.reset();
+        return;
+    }
+
     m_playInfo->BindStreamAndDevice();
 
+    // 开始播放
     m_playInfo->BeginPlayAudio();
     m_playState.SetPlaying(true);
     m_playState.SetPaused(false);
     m_playState.SetStartTime(SDL_GetTicks());
-    m_playState.SetCurrentPosition(0.0);
+    m_playState.SetCurrentPosition(startPosition);
 
+    // 读取并解码音频数据
     ST_AVPacket pkt;
     while (pkt.ReadPacket(openFileResult.m_formatCtx->GetRawContext()) >= 0)
     {
         if (pkt.GetRawPacket()->stream_index == openFileResult.m_audioStreamIdx)
         {
-            // 解码音频数据包 处理平面格式与交错格式
             ST_AudioDecodeResult decodeResult = FFmpegPublicUtils::DecodeAudioPacket(pkt.GetRawPacket(), openFileResult.m_codecCtx->GetRawContext());
             m_playInfo->PutDataToStream(decodeResult.audioData.data(), decodeResult.audioData.size());
         }
-
         pkt.UnrefPacket();
     }
 
@@ -237,12 +282,8 @@ void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, const QS
         m_playInfo->PutDataToStream(flushResult.GetData().data(), flushResult.GetData().size());
     }
 
-    // 等待音频播放完成
-    while (m_playInfo->GetDataIsEnd() > 0)
-    {
-        m_playInfo->Delay(100);
-    }
-    emit SigPlayStateChanged(true);
+    // 发送进度更新信号
+    emit SigProgressChanged(static_cast<qint64>(m_currentPosition), static_cast<qint64>(m_duration));
 }
 
 void AudioFFmpegUtils::PauseAudioPlayback()
@@ -295,26 +336,62 @@ void AudioFFmpegUtils::StopAudioPlayback()
     emit SigPlayStateChanged(false);
 }
 
-void AudioFFmpegUtils::SeekAudioForward(int seconds)
+bool AudioFFmpegUtils::SeekAudio(int seconds)
 {
-    if (!m_playState.IsPlaying() || !m_playInfo)
+    if (m_currentFilePath.isEmpty() || !m_playInfo)
     {
-        return;
+        return false;
     }
 
-    m_playInfo->SeekAudio(seconds);
-    m_playState.SetCurrentPosition(m_playInfo->GetCurrentPosition());
+    // 计算目标位置
+    double targetPosition = m_currentPosition + seconds;
+
+    // 确保不会超出音频范围
+    if (targetPosition < 0)
+    {
+        targetPosition = 0;
+    }
+    else if (targetPosition > m_duration)
+    {
+        targetPosition = m_duration;
+    }
+
+    // 如果位置没有变化，直接返回
+    if (qFuzzyCompare(targetPosition, m_currentPosition))
+    {
+        return false;
+    }
+
+    // 暂停当前播放
+    bool wasPlaying = m_playState.IsPlaying() && !m_playState.IsPaused();
+    if (wasPlaying)
+    {
+        m_playInfo->PauseAudio();
+    }
+
+    // 保存当前设备ID
+    SDL_AudioDeviceID currentDeviceId = m_playInfo->GetAudioDevice();
+
+    // 重新初始化播放
+    StartAudioPlayback(m_currentFilePath, targetPosition);
+
+    return true;
+}
+
+void AudioFFmpegUtils::SeekAudioForward(int seconds)
+{
+    if (m_playState.IsPlaying())
+    {
+        SeekAudio(seconds);
+    }
 }
 
 void AudioFFmpegUtils::SeekAudioBackward(int seconds)
 {
-    if (!m_playState.IsPlaying() || !m_playInfo)
+    if (m_playState.IsPlaying())
     {
-        return;
+        SeekAudio(-seconds);
     }
-
-    m_playInfo->SeekAudio(-seconds);
-    m_playState.SetCurrentPosition(m_playInfo->GetCurrentPosition());
 }
 
 void AudioFFmpegUtils::ShowSpec(AVFormatContext* ctx)
@@ -377,13 +454,13 @@ void AudioFFmpegUtils::SetInputDevice(const QString& deviceName)
     m_currentInputDevice = deviceName;
 }
 
-bool AudioFFmpegUtils::LoadAudioWaveform(const QString &filePath, QVector<float> &waveformData)
+bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData)
 {
     ST_OpenFileResult openFileResult;
     openFileResult.OpenFilePath(filePath);
     // 读取音频数据并计算波形
     ST_AVPacket packet;
-    AVFrame *frame = av_frame_alloc();
+    AVFrame* frame = av_frame_alloc();
     const int SAMPLES_PER_PIXEL = 256; // 每个像素点对应的采样数
     float maxSample = 0;
     float currentSum = 0;
@@ -398,7 +475,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString &filePath, QVector<float>
                 while (avcodec_receive_frame(openFileResult.m_codecCtx->GetRawContext(), frame) >= 0)
                 {
                     // 处理音频帧数据
-                    float *samples = (float *)frame->data[0];
+                    auto samples = (float*)frame->data[0];
                     for (int i = 0; i < frame->nb_samples; i++)
                     {
                         float sample = std::abs(samples[i]);
@@ -423,7 +500,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString &filePath, QVector<float>
     // 归一化波形数据
     if (maxSample > 0)
     {
-        for (float &sample : waveformData)
+        for (float& sample : waveformData)
         {
             sample /= maxSample;
         }

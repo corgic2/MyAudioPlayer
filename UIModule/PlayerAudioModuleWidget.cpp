@@ -6,8 +6,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 
-#include <QTimer>
 #include <QThread>
+#include <QTimer>
 #include "AudioMainWidget.h"
 
 #include "AudioFileSystem.h"
@@ -236,43 +236,41 @@ void PlayerAudioModuleWidget::StartAudioPlayThread()
     }
 
     m_playThreadRunning = true;
-    m_playThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread(
-        "AudioPlayThread",
-        [this]()
+    m_playThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AudioPlayThread", [this]()
+    {
+        try
         {
-            try
+            // 在播放前加载音频数据并生成波形
+            QVector<float> waveformData;
+            if (m_ffmpeg.LoadAudioWaveform(m_currentAudioFile, waveformData))
             {
-                // 在播放前加载音频数据并生成波形
-                QVector<float> waveformData;
-                if (m_ffmpeg.LoadAudioWaveform(m_currentAudioFile, waveformData))
+                // 在主线程中更新波形显示
+                QMetaObject::invokeMethod(this, [this, waveformData]()
                 {
-                    // 在主线程中更新波形显示
-                    QMetaObject::invokeMethod(this, [this, waveformData]() {
-                        m_waveformWidget->SetWaveformData(waveformData);
-                    }, Qt::QueuedConnection);
-                }
-
-                m_ffmpeg.StartAudioPlayback(m_currentAudioFile);
-                
-                // 等待播放完成
-                while (m_playThreadRunning && m_ffmpeg.IsPlaying())
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                }
-
-                // 播放完成，发送信号
-                if (m_playThreadRunning)
-                {
-                    emit SigAudioPlayFinished();
-                }
+                    m_waveformWidget->SetWaveformData(waveformData);
+                }, Qt::QueuedConnection);
             }
-            catch (const std::exception& e)
+
+            // 从指定位置开始播放
+            m_ffmpeg.StartAudioPlayback(m_currentAudioFile, m_currentPosition);
+
+            // 等待播放完成
+            while (m_playThreadRunning && m_ffmpeg.IsPlaying())
             {
-                qDebug() << "Audio playback error:" << e.what();
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+
+            // 播放完成，发送信号
+            if (m_playThreadRunning)
+            {
                 emit SigAudioPlayFinished();
             }
+        } catch (const std::exception& e)
+        {
+            qDebug() << "Audio playback error:" << e.what();
+            emit SigAudioPlayFinished();
         }
-    );
+    });
 }
 
 void PlayerAudioModuleWidget::StopAudioPlayThread()
@@ -282,7 +280,10 @@ void PlayerAudioModuleWidget::StopAudioPlayThread()
         m_playThreadRunning = false;
         CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
         m_ffmpeg.StopAudioPlayback();
-        m_waveformWidget->ClearWaveform();
+        if (m_currentPosition < 1e-5)
+        {
+            m_waveformWidget->ClearWaveform();
+        }
     }
 }
 
@@ -296,17 +297,27 @@ void PlayerAudioModuleWidget::SlotAudioPlayFinished()
 
 void PlayerAudioModuleWidget::SlotBtnForwardClicked()
 {
-    if (m_isPlaying && m_playThreadRunning)
+    if (m_isPlaying)
     {
-        m_ffmpeg.SeekAudioForward(15); // 前进15秒
+        // 停止当前播放线程
+        StopAudioPlayThread();
+
+        // 启动新的播放线程，从新位置开始播放
+        m_currentPosition += 15;
+        StartAudioPlayThread();
     }
 }
 
 void PlayerAudioModuleWidget::SlotBtnBackwardClicked()
 {
-    if (m_isPlaying && m_playThreadRunning)
+    if (m_isPlaying)
     {
-        m_ffmpeg.SeekAudioBackward(15); // 后退15秒
+        // 停止当前播放线程
+        StopAudioPlayThread();
+
+        // 启动新的播放线程，从新位置开始播放
+        m_currentPosition = std::max(0.0, m_currentPosition - 15.0);
+        StartAudioPlayThread();
     }
 }
 
@@ -413,7 +424,7 @@ void PlayerAudioModuleWidget::SlotAudioFileSelected(const QString& filePath)
 void PlayerAudioModuleWidget::SlotAudioFileDoubleClicked(const QString& filePath)
 {
     m_currentAudioFile = filePath;
-    SlotBtnPlayClicked();    // 自动开始播放
+    SlotBtnPlayClicked(); // 自动开始播放
 }
 
 void PlayerAudioModuleWidget::UpdatePlayState(bool isPlaying)
@@ -659,4 +670,3 @@ void PlayerAudioModuleWidget::SlotAudioRecordFinished()
     ui->btnRecord->SetBackgroundColor(UIColorDefine::theme_color::Info);
     m_recordThreadRunning = false;
 }
-

@@ -223,4 +223,5 @@ private:
     std::atomic<bool> m_recordThreadRunning{false}; /// 音频录制线程运行标志
     static const int AUTO_SAVE_INTERVAL = 1800000; // 30分钟 = 30 * 60 * 1000毫秒
     AudioWaveformWidget* m_waveformWidget;         /// 音频波形控件
+    double m_currentPosition{0.0};                    /// 当前播放位置（秒）
 };

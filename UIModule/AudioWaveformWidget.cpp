@@ -1,8 +1,8 @@
 ﻿#include "AudioWaveformWidget.h"
+#include <cmath>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPaintEvent>
-#include <cmath>
 
 AudioWaveformWidget::AudioWaveformWidget(QWidget* parent)
     : QWidget(parent)
@@ -17,6 +17,7 @@ AudioWaveformWidget::AudioWaveformWidget(QWidget* parent)
 void AudioWaveformWidget::SetWaveformData(const QVector<float>& samples)
 {
     m_samples = samples;
+
     update(); // 触发重绘
 }
 
@@ -75,7 +76,7 @@ void AudioWaveformWidget::paintEvent(QPaintEvent* event)
 
     // 计算每个显示块包含的采样点数
     const int samplesPerPixel = std::max(1, m_samples.size() / width);
-    
+
     // 绘制波形
     for (int x = 0; x < width; ++x)
     {
@@ -87,7 +88,7 @@ void AudioWaveformWidget::paintEvent(QPaintEvent* event)
         peak = NormalizeValue(peak);
 
         // 计算显示高度
-        int rmsHeight = static_cast<int>(rms * centerY * 0.8f);  // 使用80%的高度显示RMS
+        int rmsHeight = static_cast<int>(rms * centerY * 0.8f);   // 使用80%的高度显示RMS
         int peakHeight = static_cast<int>(peak * centerY * 0.9f); // 使用90%的高度显示峰值
 
         // 绘制RMS区域

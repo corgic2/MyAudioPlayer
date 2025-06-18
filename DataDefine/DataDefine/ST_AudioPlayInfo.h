@@ -115,6 +115,26 @@ class ST_AudioPlayInfo
     /// </summary>
     int GetAudioStreamAvailable() const;
 
+    /// <summary>
+    /// 获取当前音频设备ID
+    /// </summary>
+    /// <returns>音频设备ID</returns>
+    SDL_AudioDeviceID GetAudioDevice() const
+    {
+        return m_audioDeviceId.GetRawDeviceID();
+    }
+
+    /// <summary>
+    /// 解绑音频流和设备
+    /// </summary>
+    void UnbindStreamAndDevice()
+    {
+        if (m_audioDeviceId.GetRawDeviceID() && m_audioStream.GetRawStream())
+        {
+            SDL_UnbindAudioStream(m_audioStream.GetRawStream());
+        }
+    }
+
   private:
     ST_SDLAudioStream m_audioStream;     /// 音频流
     ST_SDLAudioDeviceID m_audioDeviceId; /// 音频设备ID

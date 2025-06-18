@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include <atomic>
 #include <memory>
 #include <QDebug>
 #include <QObject>
@@ -8,7 +9,6 @@
 #include "DataDefine/ST_AudioPlayInfo.h"
 #include "DataDefine/ST_AudioPlayState.h"
 #include "DataDefine/ST_OpenAudioDevice.h"
-#include <atomic>
 
 extern "C"
 {
@@ -61,8 +61,9 @@ public:
     /// 播放音频文件
     /// </summary>
     /// <param name="inputFilePath">输入文件路径</param>
+    /// <param name="startPosition">开始播放位置（秒），默认从头开始</param>
     /// <param name="args">播放参数</param>
-    void StartAudioPlayback(const QString& inputFilePath, const QStringList& args = QStringList());
+    void StartAudioPlayback(const QString& inputFilePath, double startPosition = 0.0, const QStringList& args = QStringList());
 
     /// <summary>
     /// 暂停音频播放
@@ -109,7 +110,7 @@ public:
     /// <param name="filePath">音频文件路径</param>
     /// <param name="waveformData">输出的波形数据</param>
     /// <returns>是否成功加载波形数据</returns>
-    bool LoadAudioWaveform(const QString &filePath, QVector<float> &waveformData);
+    bool LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData);
 
     /// <summary>
     /// 获取当前播放状态
@@ -133,7 +134,10 @@ public:
     /// 获取当前录制状态
     /// </summary>
     /// <returns>true表示正在录制，false表示已停止录制</returns>
-    bool IsRecording() const { return m_isRecording.load(); }
+    bool IsRecording() const
+    {
+        return m_isRecording.load();
+    }
 
 signals:
     /// <summary>
@@ -165,10 +169,20 @@ private:
     /// <param name="ctx">格式上下文</param>
     void ShowSpec(AVFormatContext* ctx);
 
+    /// <summary>
+    /// 音频定位
+    /// </summary>
+    /// <param name="seconds">定位时间（秒），正数表示前进，负数表示后退</param>
+    /// <returns>是否定位成功</returns>
+    bool SeekAudio(int seconds);
+
 private:
     QString m_currentInputDevice;                       /// 当前选择的FFmpeg输入设备
     std::unique_ptr<ST_OpenAudioDevice> m_recordDevice; /// 录制设备
     std::unique_ptr<ST_AudioPlayInfo> m_playInfo;       /// 播放信息
     ST_AudioPlayState m_playState;                      /// 播放状态
-    std::atomic<bool> m_isRecording{false};    /// 录制状态标志
+    std::atomic<bool> m_isRecording{false};             /// 录制状态标志
+    QString m_currentFilePath;                          /// 当前播放的文件路径
+    double m_currentPosition{0.0};                      /// 当前播放位置（秒）
+    double m_duration{0.0};                             /// 音频总时长（秒）
 };
