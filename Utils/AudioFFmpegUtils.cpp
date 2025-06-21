@@ -2,7 +2,7 @@
 #include <QFile>
 #include "AudioResampler.h"
 #include "FFmpegPublicUtils.h"
-#include "../include/SDL3/SDL.h"
+#include "SDL3/SDL.h"
 #include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVCodecParameters.h"
