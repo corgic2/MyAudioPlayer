@@ -3,6 +3,8 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPaintEvent>
+#include <string>
+#include "LogSystem/LogSystem.h"
 
 AudioWaveformWidget::AudioWaveformWidget(QWidget* parent)
     : QWidget(parent)
@@ -16,8 +18,8 @@ AudioWaveformWidget::AudioWaveformWidget(QWidget* parent)
 
 void AudioWaveformWidget::SetWaveformData(const QVector<float>& samples)
 {
+    LOG_INFO("设置音频波形数据，样本数: " + std::to_string(samples.size()));
     m_samples = samples;
-
     update(); // 触发重绘
 }
 
@@ -29,6 +31,7 @@ void AudioWaveformWidget::ClearWaveform()
 
 std::pair<float, float> AudioWaveformWidget::CalculateRMS(int startIdx, int count) const
 {
+    LOG_DEBUG("计算RMS值，起始索引: " + std::to_string(startIdx) + ", 计算数量: " + std::to_string(count));
     if (startIdx >= m_samples.size() || count <= 0)
     {
         return {0.0f, 0.0f};

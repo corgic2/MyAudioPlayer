@@ -62,16 +62,18 @@ std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString& 
 
 void AudioFFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat)
 {
+    LOG_INFO("Starting audio recording, output file: " + outputFilePath.toStdString() + ", encoder format: " + encoderFormat.toStdString());
+    
     if (m_isRecording.load())
     {
+        LOG_WARN("Recording failed: Another recording task is already in progress");
         return;
     }
 
-    // 使用当前选择的输入设备
     m_recordDevice = OpenDevice(FMT_NAME, m_currentInputDevice);
     if (!m_recordDevice || !m_recordDevice->GetFormatContext().GetRawContext())
     {
-        LOG_WARN("Failed to open input device");
+        LOG_ERROR("Failed to open input device");
         return;
     }
 
@@ -119,9 +121,12 @@ void AudioFFmpegUtils::StartAudioRecording(const QString& outputFilePath, const 
     ret = outputFormatCtx.WriteFileHeader(nullptr);
     if (ret < 0)
     {
-        LOG_WARN("Error writing header");
+        LOG_ERROR("Failed to write file header");
         return;
     }
+
+    LOG_INFO("Audio recording initialization completed, starting recording");
+    m_isRecording.store(true);
 
     ST_AVPacket pkt;
     int count = 50;
@@ -154,20 +159,25 @@ void AudioFFmpegUtils::StopAudioRecording()
 {
     if (!m_isRecording.load())
     {
+        LOG_WARN("Stop recording failed: No recording task in progress");
         return;
     }
 
+    LOG_INFO("Stopping audio recording");
     m_isRecording.store(false);
     m_recordDevice.reset();
 }
 
 void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, double startPosition, const QStringList& args)
 {
+    LOG_INFO("Starting audio playback: " + inputFilePath.toStdString() + ", start position: " + std::to_string(startPosition) + " seconds");
+    
     // 先停止当前播放并等待资源释放
     if (m_playState.IsPlaying())
     {
+        LOG_INFO("Stopping current playback, waiting for resource release");
         StopAudioPlayback();
-        SDL_Delay(100); // 给予系统一些时间来清理资源
+        SDL_Delay(100);
     }
 
     // 确保之前的资源被完全释放
@@ -187,10 +197,13 @@ void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, double s
     openFileResult.OpenFilePath(inputFilePath);
     if (!openFileResult.m_formatCtx || !openFileResult.m_formatCtx->GetRawContext())
     {
+        LOG_ERROR("Failed to open audio file: " + inputFilePath.toStdString());
         return;
     }
 
-    // 获取音频时长
+    LOG_INFO("Audio file opened successfully, total duration: " + std::to_string(m_duration) + " seconds");
+
+    // Get audio duration
     m_duration = static_cast<double>(openFileResult.m_formatCtx->GetRawContext()->duration) / AV_TIME_BASE;
 
     // 如果指定了起始位置，执行定位
@@ -255,12 +268,14 @@ void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, double s
 
     m_playInfo->BindStreamAndDevice();
 
-    // 开始播放
+    // Start playback
     m_playInfo->BeginPlayAudio();
     m_playState.SetPlaying(true);
     m_playState.SetPaused(false);
     m_playState.SetStartTime(SDL_GetTicks());
     m_playState.SetCurrentPosition(startPosition);
+
+    LOG_INFO("Audio playback started");
 
     // 读取并解码音频数据
     ST_AVPacket pkt;
@@ -290,9 +305,11 @@ void AudioFFmpegUtils::PauseAudioPlayback()
 {
     if (!m_playState.IsPlaying() || !m_playInfo)
     {
+        LOG_WARN("Pause failed: No audio is currently playing");
         return;
     }
 
+    LOG_INFO("Pausing audio playback");
     m_playState.SetPaused(true);
     m_playInfo->PauseAudio();
     m_playState.SetCurrentPosition(m_playState.GetCurrentPosition() + (SDL_GetTicks() - m_playState.GetStartTime()) / 1000.0);
@@ -314,22 +331,17 @@ void AudioFFmpegUtils::StopAudioPlayback()
 {
     if (!m_playState.IsPlaying())
     {
+        LOG_WARN("Stop failed: No audio is currently playing");
         return;
     }
 
-    // 先停止播放状态
+    LOG_INFO("Stopping audio playback");
     m_playState.Reset();
 
-    // 停止音频播放并释放资源
     if (m_playInfo)
     {
-        // 先停止音频播放
         m_playInfo->StopAudio();
-
-        // 给系统一些时间来处理停止操作
         SDL_Delay(50);
-
-        // 最后释放资源
         m_playInfo.reset();
     }
 
@@ -402,9 +414,9 @@ void AudioFFmpegUtils::ShowSpec(AVFormatContext* ctx)
         return;
     }
 
-    // 获取输入流
+    // Get input stream
     AVStream* stream = ctx->streams[0];
-    // 获取音频参数
+    // Get audio parameters
     ST_AVCodecParameters params(stream->codecpar);
 
     // 输出音频参数信息

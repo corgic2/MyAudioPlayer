@@ -103,15 +103,15 @@ void CrashHandler::WriteCrashLog(int signal)
 
         crashContent << "\n=== End of Crash Report ===\n\n";
 
-        // 使用FileSystem API写入崩溃日志
+        // 使用FileSystem API写入崩溃日志，确保UTF-8编码
         std::string existingContent;
         if (my_sdk::FileSystem::Exists(m_crashLogPath))
         {
-            existingContent = my_sdk::FileSystem::ReadStringFromFile(m_crashLogPath);
+            existingContent = my_sdk::FileSystem::ReadStringFromFile(m_crashLogPath, true); // 移除BOM
         }
 
         std::string finalContent = existingContent + crashContent.str();
-        my_sdk::FileSystem::WriteStringToFile(m_crashLogPath, finalContent, true);
+        my_sdk::FileSystem::WriteStringToFile(m_crashLogPath, finalContent, true); // 写入BOM
 
         // 记录到日志系统
         LOG_ERROR("Application crashed with signal %d", signal);

@@ -141,10 +141,13 @@ void PlayerAudioModuleWidget::SlotBtnRecordClicked()
 
 void PlayerAudioModuleWidget::SlotBtnPlayClicked()
 {
+    LOG_INFO("播放按钮被点击");
     if (!m_currentAudioFile.isEmpty())
     {
         if (!m_isPlaying)
         {
+            LOG_INFO("恢复播放");
+
             m_isPlaying = true;
             m_isPaused = false;
             ui->audioControlButtons->UpdatePlayState(true);
@@ -152,6 +155,8 @@ void PlayerAudioModuleWidget::SlotBtnPlayClicked()
         }
         else
         {
+            LOG_INFO("暂停播放");
+
             m_isPlaying = false;
             m_isPaused = false;
             ui->audioControlButtons->UpdatePlayState(false);
@@ -353,6 +358,7 @@ void PlayerAudioModuleWidget::InitAudioDevices()
 void PlayerAudioModuleWidget::SlotInputDeviceChanged(int index)
 {
     QString deviceName = ui->comboBoxInput->itemText(index);
+    LOG_INFO("切换输入设备: " + deviceName.toStdString());
     m_ffmpeg.SetInputDevice(deviceName);
 }
 
@@ -371,8 +377,10 @@ void PlayerAudioModuleWidget::SlotAudioFileDoubleClicked(const QString& filePath
 
 void PlayerAudioModuleWidget::AddAudioFiles(const QStringList& filePaths)
 {
+    LOG_INFO("添加音频文件到列表，文件数量: " + std::to_string(filePaths.size()));
     for (const QString& filePath : filePaths)
     {
+        LOG_DEBUG("添加文件: " + filePath.toStdString());
         std::string stdPath = my_sdk::FileSystem::QtPathToStdPath(filePath.toStdString());
         if (!audio_player::AudioFileSystem::IsAudioFile(stdPath))
         {

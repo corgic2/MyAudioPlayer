@@ -16,16 +16,19 @@ AudioResampler::AudioResampler()
 
 void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_ResampleResult& output, ST_ResampleParams& params)
 {
+    LOG_INFO("Starting audio resampling, input samples: " + std::to_string(inputSamples));
+    
     // 验证输入
     if (!inputData || inputSamples <= 0)
     {
-        LOG_WARN("Resample() : Invalid input parameters");
+        LOG_ERROR("Resampling failed: Invalid input parameters");
         return;
     }
 
     // 初始化或更新重采样器
     if (!InitializeResampler(params))
     {
+        LOG_ERROR("Failed to initialize resampler");
         return;
     }
 
@@ -44,7 +47,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
         return;
     }
 
-    // 获取通道数和采样格式
+    // Get channels count and sample format
     int outChannels = params.GetOutput().GetChannels();
     if (outChannels <= 0)
     {
@@ -84,10 +87,12 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     int realOutSamples = swr_convert(m_swrCtx.GetRawContext(), &alignedBuffer, outSamples, inputData, inputSamples);
     if (realOutSamples < 0)
     {
-        LOG_WARN("Resample() : Resampling failed");
+        LOG_ERROR("Resample Failed");
         av_free(alignedBuffer);
         return;
     }
+
+    LOG_INFO("Resampling completed, output samples: " + std::to_string(realOutSamples));
 
     // 计算实际使用的缓冲区大小
     int realBufSize = av_samples_get_buffer_size(&linesize, outChannels, realOutSamples, outFormat, 16);
