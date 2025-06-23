@@ -28,7 +28,6 @@ AVBaseWidget::AVBaseWidget(QWidget* parent)
     ui->audioFileList->EnableAutoSave(true);
     ui->audioFileList->SetAutoSaveInterval(1800000); // 30分钟
     ui->audioFileList->LoadFileListFromJson();
-
 }
 
 AVBaseWidget::~AVBaseWidget()
@@ -177,11 +176,16 @@ void AVBaseWidget::StartAVPlayThread()
     {
         m_ffmpeg = m_audioPlayerWidget->GetFFMpegUtils();
         m_audioPlayerWidget->LoadWaveWidegt(m_currentAVFile);
-        ShowAVWidget();
+        ShowAVWidget(true);
     }
     else if (AV_player::AVFileSystem::IsVideoFile(m_currentAVFile.toStdString()))
     {
         m_ffmpeg = m_videoPlayerWidget->GetFFMpegUtils();
+        
+        // 设置视频显示控件
+        VideoFFmpegUtils* videoUtils = static_cast<VideoFFmpegUtils*>(m_ffmpeg);
+        videoUtils->SetVideoDisplayWidget(m_videoPlayerWidget);
+        
         ShowAVWidget(false);
     }
     else
@@ -189,8 +193,9 @@ void AVBaseWidget::StartAVPlayThread()
         qDebug() << "Unsupported file type for playback:" << m_currentAVFile;
         return;
     }
+
     m_playThreadRunning = true;
-    m_playThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AudioPlayThread", [this]()
+    m_playThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AVPlayThread", [this]()
     {
         try
         {
@@ -208,9 +213,10 @@ void AVBaseWidget::StartAVPlayThread()
             {
                 emit SigAVPlayFinished();
             }
-        } catch (const std::exception& e)
+        } 
+        catch (const std::exception& e)
         {
-            qDebug() << "Audio playback error:" << e.what();
+            qDebug() << "AV playback error:" << e.what();
             emit SigAVPlayFinished();
         }
     });
@@ -223,10 +229,6 @@ void AVBaseWidget::StopAVPlayThread()
         m_playThreadRunning = false;
         CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
         m_ffmpeg->StopPlay();
-        // if (m_currentPosition < 1e-5)
-        //{
-        //     m_waveformWidget->ClearWaveform();
-        // }
     }
 }
 

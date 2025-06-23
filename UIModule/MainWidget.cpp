@@ -18,7 +18,7 @@
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
 MainWidget::MainWidget(QWidget* parent)
-    : QMainWindow(parent), ui(new Ui::MainWidgetClass()), m_currentAudioFile("")
+    : QMainWindow(parent), ui(new Ui::MainWidgetClass()), m_currentAVFile("")
 {
     ui->setupUi(this);
     InitializeMenuBar();
@@ -40,13 +40,13 @@ void MainWidget::InitializeMenuBar()
     openFileAction->setShortcut(QKeySequence::Open);
     openFileAction->setIcon(style()->standardIcon(QStyle::SP_DialogOpenButton));
     fileMenu->addAction(openFileAction);
-    connect(openFileAction, &QAction::triggered, this, &MainWidget::SlotOpenAudioFile);
+    connect(openFileAction, &QAction::triggered, this, &MainWidget::SlotOpenAVFile);
 
     auto openFolderAction = new QAction(tr("打开文件夹..."), this);
     openFolderAction->setShortcut(tr("Ctrl+Shift+O"));
     openFolderAction->setIcon(style()->standardIcon(QStyle::SP_DirOpenIcon));
     fileMenu->addAction(openFolderAction);
-    connect(openFolderAction, &QAction::triggered, this, &MainWidget::SlotOpenAudioFolder);
+    connect(openFolderAction, &QAction::triggered, this, &MainWidget::SlotOpenAVFolder);
 
     fileMenu->addSeparator();
 
@@ -54,7 +54,6 @@ void MainWidget::InitializeMenuBar()
     saveAction->setShortcut(QKeySequence::Save);
     saveAction->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
     fileMenu->addAction(saveAction);
-    //connect(saveAction, &QAction::triggered, this, &MainWidget::SlotSaveUIData);
 
     // 编辑菜单
     QMenu* editMenu = menuBar()->addMenu(tr("编辑"));
@@ -86,15 +85,15 @@ void MainWidget::ConnectSignals()
     // 连接PlayerAudioModuleWidget的信号
     connect(ui->widget, &AVBaseWidget::SigAVFileSelected, [this](const QString& filePath)
     {
-        m_currentAudioFile = filePath;
+        m_currentAVFile = filePath;
     });
 }
 
-void MainWidget::SlotOpenAudioFile()
+void MainWidget::SlotOpenAVFile()
 {
     QString dir = QDir::currentPath();
-    QString filter = QString::fromStdString(AV_player::AVFileSystem::GetAudioFileFilter());
-    QStringList files = QFileDialog::getOpenFileNames(this, tr("打开音频文件"), dir, filter);
+    QString filter = QString::fromStdString(AV_player::AVFileSystem::GetAVFileFilter());
+    QStringList files = QFileDialog::getOpenFileNames(this, tr("打开音视频文件"), dir, filter);
 
     if (!files.isEmpty())
     {
@@ -102,15 +101,15 @@ void MainWidget::SlotOpenAudioFile()
         // 选中第一个文件
         if (!files.isEmpty())
         {
-            m_currentAudioFile = files.first();
-            emit ui->widget->SigAVFileSelected(m_currentAudioFile);
+            m_currentAVFile = files.first();
+            emit ui->widget->SigAVFileSelected(m_currentAVFile);
         }
     }
 }
 
-void MainWidget::SlotOpenAudioFolder()
+void MainWidget::SlotOpenAVFolder()
 {
-    QString dir = QFileDialog::getExistingDirectory(this, tr("选择音频文件夹"), QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    QString dir = QFileDialog::getExistingDirectory(this, tr("选择音视频文件夹"), QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
     if (!dir.isEmpty())
     {
@@ -126,8 +125,8 @@ void MainWidget::SlotOpenAudioFolder()
         {
             ui->widget->AddAVFiles(filePaths);
             // 选中第一个文件
-            m_currentAudioFile = filePaths.first();
-            emit ui->widget->SigAVFileSelected(m_currentAudioFile);
+            m_currentAVFile = filePaths.first();
+            emit ui->widget->SigAVFileSelected(m_currentAVFile);
         }
     }
 }
@@ -137,18 +136,18 @@ void MainWidget::SlotClearFileList()
     if (QMessageBox::question(this, tr("清空列表"), tr("确定要清空文件列表吗？"), QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
     {
         ui->widget->ClearAVFiles();
-        m_currentAudioFile.clear();
+        m_currentAVFile.clear();
     }
 }
 
 void MainWidget::SlotRemoveFromList()
 {
-    if (!m_currentAudioFile.isEmpty())
+    if (!m_currentAVFile.isEmpty())
     {
         if (QMessageBox::question(this, tr("移除文件"), tr("确定要从列表中移除选中的文件吗？"), QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
         {
-            ui->widget->RemoveAVFile(m_currentAudioFile);
-            m_currentAudioFile.clear();
+            ui->widget->RemoveAVFile(m_currentAVFile);
+            m_currentAVFile.clear();
         }
     }
 }

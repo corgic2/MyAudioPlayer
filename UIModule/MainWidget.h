@@ -14,7 +14,7 @@ QT_BEGIN_NAMESPACE namespace Ui
 QT_END_NAMESPACE
 
 /// <summary>
-/// 音频播放器主窗口类
+/// 音视频播放器主窗口类
 /// </summary>
 class MainWidget : public QMainWindow
 {
@@ -33,14 +33,14 @@ public:
 
 protected slots:
     /// <summary>
-    /// 打开音频文件槽函数
+    /// 打开音视频文件槽函数
     /// </summary>
-    void SlotOpenAudioFile();
+    void SlotOpenAVFile();
 
     /// <summary>
-    /// 打开音频文件夹槽函数
+    /// 打开音视频文件夹槽函数
     /// </summary>
-    void SlotOpenAudioFolder();
+    void SlotOpenAVFolder();
 
     /// <summary>
     /// 清空文件列表槽函数
@@ -69,5 +69,5 @@ private:
 
 private:
     Ui::MainWidgetClass* ui;
-    QString m_currentAudioFile; /// 当前音频文件路径
+    QString m_currentAVFile; /// 当前音视频文件路径
 };

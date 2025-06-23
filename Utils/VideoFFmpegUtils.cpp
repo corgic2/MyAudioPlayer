@@ -1,187 +1,129 @@
 ﻿#include "VideoFFmpegUtils.h"
 #include <QDebug>
+#include <QMutexLocker>
 #include <QThread>
+#include "AVFileSystem.h"
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
+#include "VideoWidget/PlayerVideoModuleWidget.h"
 
 VideoFFmpegUtils::VideoFFmpegUtils(QObject* parent)
-    : BaseFFmpegUtils(parent), m_bSDLInitialized(false), m_playState(EM_VideoPlayState::Stopped), m_recordState(EM_VideoRecordState::Stopped), m_pPlayThread(nullptr), m_pRecordThread(nullptr)
+    : BaseFFmpegUtils(parent), m_playState(EM_VideoPlayState::Stopped), 
+      m_recordState(EM_VideoRecordState::Stopped), m_pPlayThread(nullptr), 
+      m_pPlayWorker(nullptr), m_pRecordThread(nullptr), m_pRecordWorker(nullptr),
+      m_currentTime(0.0), m_pVideoDisplayWidget(nullptr)
 {
-    InitSDL();
 }
 
 VideoFFmpegUtils::~VideoFFmpegUtils()
 {
     StopPlay();
     StopRecording();
-    QuitSDL();
 }
 
-bool VideoFFmpegUtils::InitSDL()
+void VideoFFmpegUtils::SetVideoDisplayWidget(PlayerVideoModuleWidget* videoWidget)
 {
-    if (m_bSDLInitialized)
-    {
-        return true;
-    }
-
-    SDL_Init(SDL_INIT_VIDEO);
-    m_bSDLInitialized = true;
-    return true;
-}
-
-void VideoFFmpegUtils::QuitSDL()
-{
-    if (m_bSDLInitialized)
-    {
-        SDL_Quit();
-        m_bSDLInitialized = false;
-    }
-}
-
-void VideoFFmpegUtils::ShowBMPImageFile(const QString& bmpFilePath, const QString& windowTitle)
-{
-    if (bmpFilePath.isEmpty())
-    {
-        LOG_WARN("Invalid BMP file path");
-        return;
-    }
-
-    if (!m_bSDLInitialized)
-    {
-        if (!InitSDL())
-        {
-            LOG_WARN("Failed to initialize SDL");
-            return;
-        }
-    }
-
-    // 创建窗口
-    if (!m_window.CreateWindow(windowTitle.toStdString(), 100, 100, 800, 600))
-    {
-        LOG_WARN("Failed to create window:" + std::string(SDL_GetError()));
-        return;
-    }
-
-    // 创建渲染器
-    if (!m_renderer.CreateRenderer(&m_window))
-    {
-        LOG_WARN("Failed to create renderer:" + std::string(SDL_GetError()));
-        m_window.DestroyWindow();
-        return;
-    }
-
-    // 加载BMP图片
-    if (!m_surface.CreateFromImage(bmpFilePath.toStdString()))
-    {
-        LOG_WARN("Failed to load BMP file:" + std::string(SDL_GetError()));
-        m_renderer.DestroyRenderer();
-        m_window.DestroyWindow();
-        return;
-    }
-
-    // 创建纹理
-    if (!m_texture.CreateFromSurface(&m_renderer, &m_surface))
-    {
-        LOG_WARN("Failed to create texture:" + std::string(SDL_GetError()));
-        m_surface.FreeSurface();
-        m_renderer.DestroyRenderer();
-        m_window.DestroyWindow();
-        return;
-    }
-
-    // 设置渲染器颜色
-    m_renderer.SetDrawColor(255, 255, 255, 255);
-    m_renderer.Clear();
-
-    // 获取图片尺寸
-    int imageWidth = m_surface.GetWidth();
-    int imageHeight = m_surface.GetHeight();
-
-    // 计算目标矩形
-    SDL_FRect dstRect;
-    dstRect.x = (800.0f - static_cast<float>(imageWidth)) / 2.0f; // 居中显示
-    dstRect.y = (600.0f - static_cast<float>(imageHeight)) / 2.0f;
-    dstRect.w = static_cast<float>(imageWidth);
-    dstRect.h = static_cast<float>(imageHeight);
-
-    // 渲染纹理
-    m_renderer.CopyTexture(m_texture.GetTexture(), nullptr, &dstRect);
-    m_renderer.Present();
-
-    // 等待用户关闭窗口
-    SDL_Event event;
-    bool quit = false;
-    while (!quit)
-    {
-        while (SDL_PollEvent(&event))
-        {
-            if (event.type == SDL_EVENT_QUIT)
-            {
-                quit = true;
-                break;
-            }
-        }
-        SDL_Delay(10);
-    }
-
-    // 清理资源
-    m_texture.DestroyTexture();
-    m_surface.FreeSurface();
-    m_renderer.DestroyRenderer();
-    m_window.DestroyWindow();
+    m_pVideoDisplayWidget = videoWidget;
 }
 
 void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition, const QStringList& args)
 {
-    std::string fileName = my_sdk::FileSystem::GetFileNameWithoutExtension(videoPath.toStdString());
     if (videoPath.isEmpty())
     {
-        LOG_WARN("Invalid video file path");
+        LOG_WARN("VideoFFmpegUtils::StartPlay() : Invalid video file path");
+        emit SigError("无效的视频文件路径");
         return;
     }
 
+    // 检查文件是否存在
+    if (!my_sdk::FileSystem::Exists(videoPath.toStdString()))
+    {
+        LOG_WARN("VideoFFmpegUtils::StartPlay() : Video file does not exist: " + videoPath.toStdString());
+        emit SigError("视频文件不存在");
+        return;
+    }
+
+    // 检查是否为支持的视频格式
+    if (!AV_player::AVFileSystem::IsVideoFile(videoPath.toStdString()))
+    {
+        LOG_WARN("VideoFFmpegUtils::StartPlay() : Unsupported video format: " + videoPath.toStdString());
+        emit SigError("不支持的视频格式");
+        return;
+    }
+
+    // 停止当前播放
     if (m_playState != EM_VideoPlayState::Stopped)
     {
         StopPlay();
     }
 
-    if (!m_bSDLInitialized)
+    try
     {
-        if (!InitSDL())
+        // 创建播放线程和工作对象
+        m_pPlayThread = new QThread(this);
+        m_pPlayWorker = new VideoPlayWorker();
+        m_pPlayWorker->moveToThread(m_pPlayThread);
+
+        // 连接信号槽
+        connect(m_pPlayWorker, &VideoPlayWorker::SigPlayStateChanged, 
+                this, &VideoFFmpegUtils::SigPlayStateChanged);
+        connect(m_pPlayWorker, &VideoPlayWorker::SigPlayProgressUpdated, 
+                this, &VideoFFmpegUtils::SigPlayProgressUpdated);
+        connect(m_pPlayWorker, &VideoPlayWorker::SigFrameDataUpdated, 
+                this, &VideoFFmpegUtils::SlotHandleFrameUpdate);
+        connect(m_pPlayWorker, &VideoPlayWorker::SigError, 
+                this, &VideoFFmpegUtils::SigError);
+
+        connect(this, &VideoFFmpegUtils::destroyed, m_pPlayWorker, &VideoPlayWorker::deleteLater);
+        connect(m_pPlayThread, &QThread::finished, m_pPlayThread, &QThread::deleteLater);
+
+        // 初始化播放器
+        if (!m_pPlayWorker->InitPlayer(videoPath, nullptr, nullptr))
         {
-            LOG_WARN("Failed to initialize SDL");
+            LOG_WARN("VideoFFmpegUtils::StartPlay() : Failed to initialize player");
+            emit SigError("播放器初始化失败");
+
+            // 清理资源
+            m_pPlayThread->quit();
+            m_pPlayThread->wait();
+            m_pPlayThread = nullptr;
+            m_pPlayWorker = nullptr;
             return;
         }
-    }
 
-    // 创建窗口
-    if (!m_window.CreateWindow(fileName, 100, 100, 1280, 720))
+        // 获取视频信息
+        m_videoInfo = m_pPlayWorker->GetVideoInfo();
+
+        // 启动线程
+        m_pPlayThread->start();
+
+        // 开始播放
+        QMetaObject::invokeMethod(m_pPlayWorker, "SlotStartPlay", Qt::QueuedConnection);
+
+        // 处理跳转
+        if (startPosition > 0.0)
+        {
+            QMetaObject::invokeMethod(m_pPlayWorker, "SlotSeekPlay", 
+                                    Qt::QueuedConnection, Q_ARG(double, startPosition));
+        }
+
+        m_playState = EM_VideoPlayState::Playing;
+        emit SigPlayStateChanged(m_playState);
+
+        LOG_INFO("Video playback started successfully: " + videoPath.toStdString());
+    } 
+    catch (const std::exception& e)
     {
-        LOG_WARN("Failed to create window:" + std::string(SDL_GetError()));
-        return;
+        LOG_WARN("Exception in StartPlay: " + std::string(e.what()));
+        emit SigError("播放启动异常");
     }
-
-    // 创建渲染器
-    if (!m_renderer.CreateRenderer(&m_window))
-    {
-        LOG_WARN("Failed to create renderer:" + std::string(SDL_GetError()));
-        m_window.DestroyWindow();
-        return;
-    }
-
-    // 创建播放线程
-    m_pPlayThread = new QThread();
-    // TODO: 在线程中实现视频解码和播放逻辑
-
-    m_playState = EM_VideoPlayState::Playing;
-    emit SigPlayStateChanged(m_playState);
-    return;
 }
 
 void VideoFFmpegUtils::PausePlay()
 {
-    if (m_playState == EM_VideoPlayState::Playing)
+    if (m_playState == EM_VideoPlayState::Playing && m_pPlayWorker)
     {
+        QMetaObject::invokeMethod(m_pPlayWorker, "SlotPausePlay", Qt::QueuedConnection);
         m_playState = EM_VideoPlayState::Paused;
         emit SigPlayStateChanged(m_playState);
     }
@@ -189,8 +131,9 @@ void VideoFFmpegUtils::PausePlay()
 
 void VideoFFmpegUtils::ResumePlay()
 {
-    if (m_playState == EM_VideoPlayState::Paused)
+    if (m_playState == EM_VideoPlayState::Paused && m_pPlayWorker)
     {
+        QMetaObject::invokeMethod(m_pPlayWorker, "SlotResumePlay", Qt::QueuedConnection);
         m_playState = EM_VideoPlayState::Playing;
         emit SigPlayStateChanged(m_playState);
     }
@@ -201,22 +144,29 @@ void VideoFFmpegUtils::StopPlay()
     if (m_playState != EM_VideoPlayState::Stopped)
     {
         // 停止播放线程
+        if (m_pPlayWorker)
+        {
+            QMetaObject::invokeMethod(m_pPlayWorker, "SlotStopPlay", Qt::QueuedConnection);
+        }
+
         if (m_pPlayThread)
         {
             m_pPlayThread->quit();
-            m_pPlayThread->wait();
+            m_pPlayThread->wait(3000); // 等待最多3秒
+            if (m_pPlayThread->isRunning())
+            {
+                m_pPlayThread->terminate();
+                m_pPlayThread->wait(1000);
+            }
             delete m_pPlayThread;
             m_pPlayThread = nullptr;
         }
 
-        // 清理资源
-        m_texture.DestroyTexture();
-        m_surface.FreeSurface();
-        m_renderer.DestroyRenderer();
-        m_window.DestroyWindow();
-
+        m_pPlayWorker = nullptr;
         m_playState = EM_VideoPlayState::Stopped;
         emit SigPlayStateChanged(m_playState);
+
+        LOG_INFO("Video playback stopped");
     }
 }
 
@@ -224,7 +174,8 @@ void VideoFFmpegUtils::StartRecording(const QString& outputPath)
 {
     if (outputPath.isEmpty())
     {
-        LOG_WARN("Invalid output file path");
+        LOG_WARN("VideoFFmpegUtils::StartRecording() : Invalid output file path");
+        emit SigError("无效的输出文件路径");
         return;
     }
 
@@ -233,13 +184,38 @@ void VideoFFmpegUtils::StartRecording(const QString& outputPath)
         StopRecording();
     }
 
-    // 创建录制线程
-    m_pRecordThread = new QThread();
-    // TODO: 在线程中实现视频编码和录制逻辑
+    try
+    {
+        // 创建录制线程和工作对象
+        m_pRecordThread = new QThread(this);
+        m_pRecordWorker = new VideoRecordWorker();
+        m_pRecordWorker->moveToThread(m_pRecordThread);
 
-    m_recordState = EM_VideoRecordState::Recording;
-    emit SigRecordStateChanged(m_recordState);
-    return;
+        // 连接录制信号槽
+        connect(m_pRecordWorker, &VideoRecordWorker::SigRecordStateChanged, 
+                this, &VideoFFmpegUtils::SigRecordStateChanged);
+        connect(m_pRecordWorker, &VideoRecordWorker::SigError, 
+                this, &VideoFFmpegUtils::SigError);
+        connect(this, &VideoFFmpegUtils::destroyed, m_pRecordWorker, &VideoRecordWorker::deleteLater);
+        connect(m_pRecordThread, &QThread::finished, m_pRecordThread, &QThread::deleteLater);
+
+        // 启动录制线程
+        m_pRecordThread->start();
+
+        // 开始录制
+        QMetaObject::invokeMethod(m_pRecordWorker, "SlotStartRecord", 
+                                Qt::QueuedConnection, Q_ARG(QString, outputPath));
+
+        m_recordState = EM_VideoRecordState::Recording;
+        emit SigRecordStateChanged(m_recordState);
+
+        LOG_INFO("Video recording started: " + outputPath.toStdString());
+    }
+    catch (const std::exception& e)
+    {
+        LOG_WARN("Exception in StartRecording: " + std::string(e.what()));
+        emit SigError("录制启动异常");
+    }
 }
 
 void VideoFFmpegUtils::StopRecording()
@@ -247,21 +223,40 @@ void VideoFFmpegUtils::StopRecording()
     if (m_recordState != EM_VideoRecordState::Stopped)
     {
         // 停止录制线程
+        if (m_pRecordWorker)
+        {
+            QMetaObject::invokeMethod(m_pRecordWorker, "SlotStopRecord", Qt::QueuedConnection);
+        }
+
         if (m_pRecordThread)
         {
             m_pRecordThread->quit();
-            m_pRecordThread->wait();
+            m_pRecordThread->wait(3000);
+            if (m_pRecordThread->isRunning())
+            {
+                m_pRecordThread->terminate();
+                m_pRecordThread->wait(1000);
+            }
             delete m_pRecordThread;
             m_pRecordThread = nullptr;
         }
 
+        m_pRecordWorker = nullptr;
         m_recordState = EM_VideoRecordState::Stopped;
         emit SigRecordStateChanged(m_recordState);
+
+        LOG_INFO("Video recording stopped");
     }
 }
 
 void VideoFFmpegUtils::SeekPlay(double seconds)
 {
+    if (m_pPlayWorker && m_playState != EM_VideoPlayState::Stopped)
+    {
+        QMetaObject::invokeMethod(m_pPlayWorker, "SlotSeekPlay", 
+                                Qt::QueuedConnection, Q_ARG(double, seconds));
+        LOG_INFO("Video seek to: " + std::to_string(seconds) + " seconds");
+    }
 }
 
 bool VideoFFmpegUtils::IsPlaying()
@@ -277,4 +272,21 @@ bool VideoFFmpegUtils::IsPaused()
 bool VideoFFmpegUtils::IsRecording()
 {
     return m_recordState == EM_VideoRecordState::Recording;
+}
+
+ST_VideoFrameInfo VideoFFmpegUtils::GetVideoInfo() const
+{
+    return m_videoInfo;
+}
+
+void VideoFFmpegUtils::SlotHandleFrameUpdate(const uint8_t* frameData, int width, int height)
+{
+    // 将帧数据传递给显示控件
+    if (m_pVideoDisplayWidget)
+    {
+        m_pVideoDisplayWidget->SetVideoFrame(frameData, width, height);
+    }
+
+    // 同时发送信号供其他模块使用
+    emit SigFrameUpdated(frameData, width, height);
 }

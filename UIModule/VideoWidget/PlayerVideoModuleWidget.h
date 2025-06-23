@@ -1,8 +1,16 @@
 ﻿#pragma once
 
+#include <QWidget>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QTimer>
 #include "ui_PlayerVideoModuleWidget.h"
-#include "VideoFFmpegUtils.h"
 #include "BaseWidget/BaseModuleWidegt.h"
+
+// 前向声明，避免循环包含
+class VideoFFmpegUtils;
+enum class EM_VideoPlayState;
+struct ST_VideoFrameInfo;
 
 QT_BEGIN_NAMESPACE namespace Ui
 {
@@ -12,11 +20,11 @@ QT_BEGIN_NAMESPACE namespace Ui
 QT_END_NAMESPACE
 
 /// <summary>
-/// 音频播放器模块控件类
+/// 视频播放器模块控件类
 /// </summary>
 class PlayerVideoModuleWidget : public BaseModuleWidegt
 {
-    Q_OBJECT;
+    Q_OBJECT
 
 public:
     /// <summary>
@@ -24,17 +32,83 @@ public:
     /// </summary>
     /// <param name="parent">父窗口指针</param>
     explicit PlayerVideoModuleWidget(QWidget* parent = nullptr);
+
     /// <summary>
     /// 析构函数
     /// </summary>
     ~PlayerVideoModuleWidget() override;
+
     /// <summary>
     /// 获取FFMpegUtils
     /// </summary>
-    /// <returns></returns>
-    BaseFFmpegUtils *GetFFMpegUtils() override;
+    /// <returns>FFmpeg工具类指针</returns>
+    BaseFFmpegUtils* GetFFMpegUtils() override;
+
+    /// <summary>
+    /// 获取视频显示控件
+    /// </summary>
+    /// <returns>视频显示控件指针</returns>
+    QWidget* GetVideoDisplayWidget();
+
+    /// <summary>
+    /// 设置视频帧数据
+    /// </summary>
+    /// <param name="frameData">帧数据</param>
+    /// <param name="width">帧宽度</param>
+    /// <param name="height">帧高度</param>
+    void SetVideoFrame(const uint8_t* frameData, int width, int height);
+
+    /// <summary>
+    /// 清空视频显示
+    /// </summary>
+    void ClearVideoDisplay();
+
+protected slots:
+    /// <summary>
+    /// 视频播放状态改变槽函数
+    /// </summary>
+    /// <param name="state">播放状态</param>
+    void SlotVideoPlayStateChanged(EM_VideoPlayState state);
+
+    /// <summary>
+    /// 视频播放进度更新槽函数
+    /// </summary>
+    /// <param name="currentTime">当前时间</param>
+    /// <param name="totalTime">总时间</param>
+    void SlotVideoProgressUpdated(double currentTime, double totalTime);
+
+    /// <summary>
+    /// 视频帧更新槽函数
+    /// </summary>
+    void SlotVideoFrameUpdated();
+
+    /// <summary>
+    /// 视频错误槽函数
+    /// </summary>
+    /// <param name="errorMsg">错误信息</param>
+    void SlotVideoError(const QString& errorMsg);
+
+private:
+    /// <summary>
+    /// 初始化界面
+    /// </summary>
+    void InitializeWidget();
+
+    /// <summary>
+    /// 连接信号槽
+    /// </summary>
+    void ConnectSignals();
+
+    /// <summary>
+    /// 调整视频显示尺寸
+    /// </summary>
+    void ResizeVideoDisplay();
 
 private:
     Ui::PlayerVideoModuleWidgetClass* ui;
-    VideoFFmpegUtils m_audioFFmpeg;
+    VideoFFmpegUtils* m_videoFFmpeg;      /// 视频FFmpeg工具类（使用指针避免循环包含）
+    QLabel* m_videoDisplayLabel;          /// 视频显示标签
+    QVBoxLayout* m_mainLayout;            /// 主布局
+    ST_VideoFrameInfo* m_currentVideoInfo; /// 当前视频信息（使用指针）
+    QTimer* m_updateTimer;                /// 更新定时器
 };

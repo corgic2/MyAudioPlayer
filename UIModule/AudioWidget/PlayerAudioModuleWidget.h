@@ -34,6 +34,10 @@ public:
     /// </summary>
     /// <returns></returns>
     BaseFFmpegUtils *GetFFMpegUtils() override;
+    /// <summary>
+    /// 加载波形图
+    /// </summary>
+    /// <param name="inputFilePath"></param>
     void LoadWaveWidegt(const QString &inputFilePath);
 
   private:
