@@ -1,5 +1,7 @@
 ﻿#include "PlayerAudioModuleWidget.h"
 
+#include "SDKCommonDefine/SDKCommonDefine.h"
+
 
 PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::PlayerAudioModuleWidgetClass())

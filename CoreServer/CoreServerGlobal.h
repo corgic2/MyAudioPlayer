@@ -2,7 +2,6 @@
 #include <filesystem>
 #include <memory>
 #include <QApplication>
-#include "CrashHandler.h"
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
 #include "ThreadPool/ThreadPool.h"
@@ -40,16 +39,6 @@ public:
     {
         return LogSystem::Instance();
     }
-
-    /// <summary>
-    /// 获取崩溃处理器
-    /// </summary>
-    /// <returns>崩溃处理器引用</returns>
-    CrashHandler& GetCrashHandler()
-    {
-        return CrashHandler::Instance();
-    }
-
     /// <summary>
     /// 初始化服务
     /// </summary>

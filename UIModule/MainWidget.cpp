@@ -83,7 +83,7 @@ void MainWidget::InitializeToolBar()
 void MainWidget::ConnectSignals()
 {
     // 连接PlayerAudioModuleWidget的信号
-    connect(ui->widget, &PlayerAudioModuleWidget::SigAudioFileSelected, [this](const QString& filePath)
+    connect(ui->widget, &AVBaseWidget::SigAVFileSelected, [this](const QString& filePath)
     {
         m_currentAudioFile = filePath;
     });
@@ -97,12 +97,12 @@ void MainWidget::SlotOpenAudioFile()
 
     if (!files.isEmpty())
     {
-        ui->widget->AddAudioFiles(files);
+        ui->widget->AddAVFiles(files);
         // 选中第一个文件
         if (!files.isEmpty())
         {
             m_currentAudioFile = files.first();
-            emit ui->widget->SigAudioFileSelected(m_currentAudioFile);
+            emit ui->widget->SigAVFileSelected(m_currentAudioFile);
         }
     }
 }
@@ -123,10 +123,10 @@ void MainWidget::SlotOpenAudioFolder()
 
         if (!filePaths.isEmpty())
         {
-            ui->widget->AddAudioFiles(filePaths);
+            ui->widget->AddAVFiles(filePaths);
             // 选中第一个文件
             m_currentAudioFile = filePaths.first();
-            emit ui->widget->SigAudioFileSelected(m_currentAudioFile);
+            emit ui->widget->SigAVFileSelected(m_currentAudioFile);
         }
     }
 }
@@ -135,7 +135,7 @@ void MainWidget::SlotClearFileList()
 {
     if (QMessageBox::question(this, tr("清空列表"), tr("确定要清空文件列表吗？"), QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
     {
-        ui->widget->ClearAudioFiles();
+        ui->widget->ClearAVFiles();
         m_currentAudioFile.clear();
     }
 }
@@ -146,7 +146,7 @@ void MainWidget::SlotRemoveFromList()
     {
         if (QMessageBox::question(this, tr("移除文件"), tr("确定要从列表中移除选中的文件吗？"), QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
         {
-            ui->widget->RemoveAudioFile(m_currentAudioFile);
+            ui->widget->RemoveAVFile(m_currentAudioFile);
             m_currentAudioFile.clear();
         }
     }

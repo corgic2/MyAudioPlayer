@@ -35,17 +35,6 @@ void CoreServerGlobal::Initialize()
 
     GetLogSystem().Initialize(logConfig);
 
-    // 初始化崩溃处理器
-    GetCrashHandler().Initialize(logDir.toStdString() + "/crash.log");
-
-    // 设置崩溃回调
-    GetCrashHandler().SetCrashCallback([this]()
-    {
-        // 在崩溃时尝试保存一些重要的状态
-        GetLogSystem().Flush();   // 确保所有日志都被写入
-        m_threadPool->Shutdown(); // 安全关闭线程池
-    });
-
     // 记录启动日志
     LOG_INFO("Application started");
 }
