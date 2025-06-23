@@ -25,7 +25,7 @@ extern "C"
 /// <summary>
 /// FFmpeg音频工具类
 /// </summary>
-class AudioFFmpegUtils : public QObject, BaseFFmpegUtils
+class AudioFFmpegUtils : public BaseFFmpegUtils
 {
     Q_OBJECT;
 
@@ -40,7 +40,6 @@ public:
     /// 析构函数
     /// </summary>
     ~AudioFFmpegUtils() override;
-
     /// <summary>
     /// 注册设备
     /// </summary>
@@ -88,18 +87,6 @@ public:
     void SeekPlay(double seconds) override;
 
     /// <summary>
-    /// 获取所有可用的音频输入设备
-    /// </summary>
-    /// <returns>设备名称列表</returns>
-    QStringList GetInputAudioDevices();
-
-    /// <summary>
-    /// 设置当前使用的输入设备
-    /// </summary>
-    /// <param name="deviceName">设备名称</param>
-    void SetInputDevice(const QString& deviceName);
-
-    /// <summary>
     /// 加载音频波形数据
     /// </summary>
     /// <param name="filePath">音频文件路径</param>
@@ -111,28 +98,18 @@ public:
     /// 获取当前播放状态
     /// </summary>
     /// <returns>true表示正在播放，false表示已停止</returns>
-    bool IsPlaying() const
-    {
-        return m_playState.IsPlaying();
-    }
+    bool IsPlaying() override;
 
     /// <summary>
     /// 获取当前暂停状态
     /// </summary>
     /// <returns>true表示已暂停，false表示未暂停</returns>
-    bool IsPaused() const
-    {
-        return m_playState.IsPaused();
-    }
-
+    bool IsPaused() override;
     /// <summary>
     /// 获取当前录制状态
     /// </summary>
     /// <returns>true表示正在录制，false表示已停止录制</returns>
-    bool IsRecording() const
-    {
-        return m_isRecording.load();
-    }
+    bool IsRecording() override;
 
 signals:
     /// <summary>
@@ -165,6 +142,17 @@ private:
     void ShowSpec(AVFormatContext* ctx);
 
     /// <summary>
+    /// 获取所有音频输入设备
+    /// </summary>
+    /// <returns></returns>
+    QStringList GetInputAudioDevices();
+    /// <summary>
+    /// 设置输入设备
+    /// </summary>
+    /// <param name="deviceName"></param>
+    void SetInputDevice(const QString& deviceName);
+
+    /// <summary>
     /// 音频定位
     /// </summary>
     /// <param name="seconds">定位时间（秒），正数表示前进，负数表示后退</param>
@@ -180,4 +168,6 @@ private:
     QString m_currentFilePath;                          /// 当前播放的文件路径
     double m_currentPosition{0.0};                      /// 当前播放位置（秒）
     double m_duration{0.0};                             /// 音频总时长（秒）
+
+    QStringList m_inputAudioDevices; /// 音频输入设备列表
 };

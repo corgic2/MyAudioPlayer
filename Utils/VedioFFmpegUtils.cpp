@@ -4,7 +4,8 @@
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
 
-VedioFFmpegUtils::VedioFFmpegUtils(QObject *parent) : BaseFFmpegUtils(parent), m_bSDLInitialized(false), m_playState(EM_VideoPlayState::Stopped), m_recordState(EM_VideoRecordState::Stopped), m_pPlayThread(nullptr), m_pRecordThread(nullptr)
+VedioFFmpegUtils::VedioFFmpegUtils(QObject* parent)
+    : BaseFFmpegUtils(parent), m_bSDLInitialized(false), m_playState(EM_VideoPlayState::Stopped), m_recordState(EM_VideoRecordState::Stopped), m_pPlayThread(nullptr), m_pRecordThread(nullptr)
 {
     InitSDL();
 }
@@ -23,12 +24,7 @@ bool VedioFFmpegUtils::InitSDL()
         return true;
     }
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        qDebug() << "SDL initialization failed:" << SDL_GetError();
-        return false;
-    }
-
+    SDL_Init(SDL_INIT_VIDEO);
     m_bSDLInitialized = true;
     return true;
 }
@@ -62,14 +58,14 @@ void VedioFFmpegUtils::ShowBMPImageFile(const QString& bmpFilePath, const QStrin
     // 创建窗口
     if (!m_window.CreateWindow(windowTitle.toStdString(), 100, 100, 800, 600))
     {
-        LOG_WARN("Failed to create window:", SDL_GetError());
+        LOG_WARN("Failed to create window:" + std::string(SDL_GetError()));
         return;
     }
 
     // 创建渲染器
     if (!m_renderer.CreateRenderer(&m_window))
     {
-        LOG_WARN("Failed to create renderer:", SDL_GetError());
+        LOG_WARN("Failed to create renderer:" + std::string(SDL_GetError()));
         m_window.DestroyWindow();
         return;
     }
@@ -77,7 +73,7 @@ void VedioFFmpegUtils::ShowBMPImageFile(const QString& bmpFilePath, const QStrin
     // 加载BMP图片
     if (!m_surface.CreateFromImage(bmpFilePath.toStdString()))
     {
-        LOG_WARN("Failed to load BMP file:", SDL_GetError());
+        LOG_WARN("Failed to load BMP file:" + std::string(SDL_GetError()));
         m_renderer.DestroyRenderer();
         m_window.DestroyWindow();
         return;
@@ -86,7 +82,7 @@ void VedioFFmpegUtils::ShowBMPImageFile(const QString& bmpFilePath, const QStrin
     // 创建纹理
     if (!m_texture.CreateFromSurface(&m_renderer, &m_surface))
     {
-        LOG_WARN("Failed to create texture:", SDL_GetError());
+        LOG_WARN("Failed to create texture:" + std::string(SDL_GetError()));
         m_surface.FreeSurface();
         m_renderer.DestroyRenderer();
         m_window.DestroyWindow();
@@ -135,13 +131,13 @@ void VedioFFmpegUtils::ShowBMPImageFile(const QString& bmpFilePath, const QStrin
     m_window.DestroyWindow();
 }
 
-void VedioFFmpegUtils::StartPlay(const QString& videoPath,double startPosition, const QStringList &args)
+void VedioFFmpegUtils::StartPlay(const QString& videoPath, double startPosition, const QStringList& args)
 {
     std::string fileName = my_sdk::FileSystem::GetFileNameWithoutExtension(videoPath.toStdString());
     if (videoPath.isEmpty())
     {
         LOG_WARN("Invalid video file path");
-        return ;
+        return;
     }
 
     if (m_playState != EM_VideoPlayState::Stopped)
@@ -154,23 +150,23 @@ void VedioFFmpegUtils::StartPlay(const QString& videoPath,double startPosition, 
         if (!InitSDL())
         {
             LOG_WARN("Failed to initialize SDL");
-            return ;
+            return;
         }
     }
 
     // 创建窗口
     if (!m_window.CreateWindow(fileName, 100, 100, 1280, 720))
     {
-        LOG_WARN("Failed to create window:", SDL_GetError());
-        return ;
+        LOG_WARN("Failed to create window:" + std::string(SDL_GetError()));
+        return;
     }
 
     // 创建渲染器
     if (!m_renderer.CreateRenderer(&m_window))
     {
-        LOG_WARN("Failed to create renderer:", SDL_GetError());
+        LOG_WARN("Failed to create renderer:" + std::string(SDL_GetError()));
         m_window.DestroyWindow();
-        return ;
+        return;
     }
 
     // 创建播放线程
@@ -179,7 +175,7 @@ void VedioFFmpegUtils::StartPlay(const QString& videoPath,double startPosition, 
 
     m_playState = EM_VideoPlayState::Playing;
     emit SigPlayStateChanged(m_playState);
-    return ;
+    return;
 }
 
 void VedioFFmpegUtils::PausePlay()
@@ -264,3 +260,21 @@ void VedioFFmpegUtils::StopRecording()
     }
 }
 
+void VedioFFmpegUtils::SeekPlay(double seconds)
+{
+}
+
+bool VedioFFmpegUtils::IsPlaying()
+{
+    return m_playState == EM_VideoPlayState::Playing;
+}
+
+bool VedioFFmpegUtils::IsPaused()
+{
+    return m_playState == EM_VideoPlayState::Paused;
+}
+
+bool VedioFFmpegUtils::IsRecording()
+{
+    return m_recordState == EM_VideoRecordState::Recording;
+}

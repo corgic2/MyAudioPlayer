@@ -54,7 +54,7 @@ enum class EM_VideoRecordState
 /// <summary>
 /// 视频FFmpeg工具类
 /// </summary>
-class VedioFFmpegUtils : public QObject, BaseFFmpegUtils
+class VedioFFmpegUtils : public BaseFFmpegUtils
 {
     Q_OBJECT
 
@@ -125,7 +125,27 @@ public:
     /// 暂停视频录制
     /// </summary>
     void StopRecording() override;
-signals:
+    /// <summary>
+    /// 移动播放位置
+    /// </summary>
+    /// <param name="seconds"></param>
+    void SeekPlay(double seconds) override;
+    /// <summary>
+    /// 获取当前播放状态
+    /// </summary>
+    /// <returns>true表示正在播放，false表示已停止</returns>
+    bool IsPlaying() override;
+    /// <summary>
+    /// 获取当前暂停状态
+    /// </summary>
+    /// <returns>true表示已暂停，false表示未暂停</returns>
+    bool IsPaused() override;
+    /// <summary>
+    /// 获取当前录制状态
+    /// </summary>
+    /// <returns>true表示正在录制，false表示已停止录制</returns>
+    bool IsRecording() override;
+  signals:
     /// <summary>
     /// 视频播放状态改变信号
     /// </summary>

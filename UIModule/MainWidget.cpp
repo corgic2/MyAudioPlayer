@@ -11,10 +11,11 @@
 #include <QMessageBox>
 #include <QStyle> 
 #include <QToolBar>
-#include "AudioFileSystem.h"
+#include "../AVFileSystem/AVFileSystem.h"
 #include "AudioWidget/PlayerAudioModuleWidget.h"
 #include "CoreWidget/CustomToolBar.h"
 #include "FileSystem/FileSystem.h"
+#include "SDKCommonDefine/SDKCommonDefine.h"
 
 MainWidget::MainWidget(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::MainWidgetClass()), m_currentAudioFile("")
@@ -92,7 +93,7 @@ void MainWidget::ConnectSignals()
 void MainWidget::SlotOpenAudioFile()
 {
     QString dir = QDir::currentPath();
-    QString filter = QString::fromStdString(audio_player::AudioFileSystem::GetAudioFileFilter());
+    QString filter = QString::fromStdString(AV_player::AVFileSystem::GetAudioFileFilter());
     QStringList files = QFileDialog::getOpenFileNames(this, tr("打开音频文件"), dir, filter);
 
     if (!files.isEmpty())
@@ -113,7 +114,7 @@ void MainWidget::SlotOpenAudioFolder()
 
     if (!dir.isEmpty())
     {
-        std::vector<std::string> audioFiles = audio_player::AudioFileSystem::GetAudioFiles(my_sdk::FileSystem::QtPathToStdPath(dir.toStdString()), false);
+        std::vector<std::string> audioFiles = AV_player::AVFileSystem::GetAudioFiles(my_sdk::FileSystem::QtPathToStdPath(dir.toStdString()), false);
 
         QStringList filePaths;
         for (const auto& file : audioFiles)

@@ -4,6 +4,7 @@
 #include "AudioFFmpegUtils.h"
 #include "BaseFFmpegUtils.h"
 #include "ui_AVBaseWidget.h"
+#include "VedioFFmpegUtils.h"
 #include "DomainWidget/FilePathIconListWidgetItem.h"
 
 QT_BEGIN_NAMESPACE namespace Ui
@@ -161,7 +162,9 @@ private:
 private:
     Ui::AVBaseWidgetClass* ui;
     BaseFFmpegUtils* m_ffmpeg = nullptr;
-    QString m_currentAudioFile;                     /// 当前播放的音视频文件
+    AudioFFmpegUtils m_audioFFmpeg;
+    VedioFFmpegUtils m_vedioFFmpeg;
+    QString m_currentAVFile;                     /// 当前播放的音视频文件
     bool m_isRecording = false;                     /// 是否正在录制
     bool m_isPlaying = false;                       /// 是否正在播放
     bool m_isPaused = false;                        /// 是否已暂停

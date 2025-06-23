@@ -3,14 +3,17 @@
 #include <QCloseEvent>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QTimer>
 
-#include "AVBaseWidget.h"
-#include "AudioFileSystem.h"
+#include "../AVFileSystem/AVFileSystem.h"
+#include "FileSystem/FileSystem.h"
 #include "ControlButtonWidget.h"
 #include "CoreServerGlobal.h"
 #include "CoreWidget/CustomComboBox.h"
 #include "CoreWidget/CustomLabel.h"
 #include "DomainWidget/FilePathIconListWidget.h"
+#include "CommonDefine/UIWidgetColorDefine.h"
+#include "SDKCommonDefine/SDKCommonDefine.h"
 
 AVBaseWidget::AVBaseWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::AVBaseWidgetClass())
@@ -127,7 +130,7 @@ void AVBaseWidget::SlotBtnRecordClicked()
 void AVBaseWidget::SlotBtnPlayClicked()
 {
     LOG_INFO("播放按钮被点击");
-    if (!m_currentAudioFile.isEmpty())
+    if (!m_currentAVFile.isEmpty())
     {
         if (!m_isPlaying)
         {
@@ -160,7 +163,10 @@ void AVBaseWidget::StartAVPlayThread()
     {
         StopAVPlayThread();
     }
-
+    
+    if (AV_player::AVFileSystem::IsAudioFile(m_currentAVFile.toStdString()))
+    {
+    }
     m_playThreadRunning = true;
     m_playThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AudioPlayThread", [this]()
     {
@@ -168,7 +174,7 @@ void AVBaseWidget::StartAVPlayThread()
         {
             //// 在播放前加载音频数据并生成波形
             // QVector<float> waveformData;
-            // if (m_ffmpeg.LoadAudioWaveform(m_currentAudioFile, waveformData))
+            // if (m_ffmpeg.LoadAudioWaveform(m_currentAVFile, waveformData))
             //{
             //     // 在主线程中更新波形显示
             //     QMetaObject::invokeMethod(this, [this, waveformData]()
@@ -178,7 +184,7 @@ void AVBaseWidget::StartAVPlayThread()
             // }
 
             // 从指定位置开始播放
-            m_ffmpeg->StartPlay(m_currentAudioFile, m_currentPosition);
+            m_ffmpeg->StartPlay(m_currentAVFile, m_currentPosition);
 
             // 等待播放完成
             while (m_playThreadRunning && m_ffmpeg->IsPlaying())
@@ -270,7 +276,7 @@ void AVBaseWidget::SlotBtnNextClicked()
             if (nextItem)
             {
                 QString filePath = nextItem->GetNodeInfo().filePath;
-                m_currentAudioFile = filePath;
+                m_currentAVFile = filePath;
                 ui->ControlButtons->SetCurrentAudioFile(filePath);
                 if (m_isPlaying)
                 {
@@ -306,7 +312,7 @@ void AVBaseWidget::SlotBtnPreviousClicked()
             if (prevItem)
             {
                 QString filePath = prevItem->GetNodeInfo().filePath;
-                m_currentAudioFile = filePath;
+                m_currentAVFile = filePath;
                 ui->ControlButtons->SetCurrentAudioFile(filePath);
                 if (m_isPlaying)
                 {
@@ -321,13 +327,13 @@ void AVBaseWidget::SlotBtnPreviousClicked()
 
 void AVBaseWidget::SlotAVFileSelected(const QString& filePath)
 {
-    m_currentAudioFile = filePath;
+    m_currentAVFile = filePath;
     ui->ControlButtons->SetCurrentAudioFile(filePath);
 }
 
 void AVBaseWidget::SlotAVFileDoubleClicked(const QString& filePath)
 {
-    m_currentAudioFile = filePath;
+    m_currentAVFile = filePath;
     ui->ControlButtons->SetCurrentAudioFile(filePath);
     SlotBtnPlayClicked(); // 自动开始播放
 }
@@ -339,14 +345,14 @@ void AVBaseWidget::AddAVFiles(const QStringList& filePaths)
     {
         LOG_DEBUG("添加文件: " + filePath.toStdString());
         std::string stdPath = my_sdk::FileSystem::QtPathToStdPath(filePath.toStdString());
-        if (!audio_player::AudioFileSystem::IsAudioFile(stdPath))
+        if (!AV_player::AVFileSystem::IsAVFile(stdPath))
         {
             continue;
         }
 
         if (GetFileIndex(filePath) == -1)
         {
-            audio_player::ST_AudioFileInfo audioInfo = audio_player::AudioFileSystem::GetAudioFileInfo(stdPath);
+            AV_player::ST_AVFileInfo audioInfo = AV_player::AVFileSystem::GetAVFileInfo(stdPath);
             FilePathIconListWidgetItem::ST_NodeInfo nodeInfo;
             nodeInfo.filePath = filePath;
             nodeInfo.displayName = QString::fromStdString(audioInfo.m_displayName);
@@ -370,7 +376,7 @@ void AVBaseWidget::RemoveAVFile(const QString& filePath)
     if (index != -1)
     {
         // 如果正在播放这个文件，先停止播放
-        if (m_currentAudioFile == filePath && m_isPlaying)
+        if (m_currentAVFile == filePath && m_isPlaying)
         {
             StopAVPlayThread();
             m_isPlaying = false;
@@ -380,9 +386,9 @@ void AVBaseWidget::RemoveAVFile(const QString& filePath)
         ui->audioFileList->RemoveItemByIndex(index);
 
         // 如果移除的是当前文件，清空当前文件路径
-        if (m_currentAudioFile == filePath)
+        if (m_currentAVFile == filePath)
         {
-            m_currentAudioFile.clear();
+            m_currentAVFile.clear();
             ui->ControlButtons->SetCurrentAudioFile(QString());
         }
     }
@@ -399,7 +405,7 @@ void AVBaseWidget::ClearAVFiles()
     }
 
     ui->audioFileList->Clear();
-    m_currentAudioFile.clear();
+    m_currentAVFile.clear();
     ui->ControlButtons->SetCurrentAudioFile(QString());
 }
 

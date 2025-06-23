@@ -2,6 +2,7 @@
 #include <QFile>
 
 #include "AudioResampler.h"
+#include "FFmpegPublicUtils.h"
 #include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVCodecParameters.h"
@@ -9,16 +10,22 @@
 #include "DataDefine/ST_OpenFileResult.h"
 #include "DataDefine/ST_ResampleParams.h"
 #include "DataDefine/ST_ResampleResult.h"
-#include "FFmpegPublicUtils.h"
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
 #include "SDL3/SDL.h"
 #define FMT_NAME "dshow"
 #pragma execution_character_set("utf-8")
 // 根据不同设备进行修改，此电脑为USB音频设备
-AudioFFmpegUtils::AudioFFmpegUtils(QObject *parent) : BaseFFmpegUtils(parent)
+AudioFFmpegUtils::AudioFFmpegUtils(QObject* parent)
+    : BaseFFmpegUtils(parent)
 {
     m_playState.Reset();
+    // 暂使用默认第一个设备
+    m_inputAudioDevices = GetInputAudioDevices();
+    if (!m_inputAudioDevices.empty())
+    {
+        m_currentInputDevice = m_inputAudioDevices.first();
+    }
 }
 
 AudioFFmpegUtils::~AudioFFmpegUtils()
@@ -36,7 +43,7 @@ void AudioFFmpegUtils::ResigsterDevice()
     }
 }
 
-std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString &devieceFormat, const QString &deviceName, bool bAudio)
+std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio)
 {
     auto openDeviceParam = std::make_unique<ST_OpenAudioDevice>();
     openDeviceParam->GetInputFormat().FindInputFormat(devieceFormat.toStdString());
@@ -60,7 +67,7 @@ std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString &
     return openDeviceParam;
 }
 
-void AudioFFmpegUtils::StartRecording(const QString &outputFilePath)
+void AudioFFmpegUtils::StartRecording(const QString& outputFilePath)
 {
     QString encoderFormat = QString::fromStdString(my_sdk::FileSystem::GetExtension(outputFilePath.toStdString()));
     LOG_INFO("Starting audio recording, output file: " + outputFilePath.toStdString() + ", encoder format: " + encoderFormat.toStdString());
@@ -88,7 +95,7 @@ void AudioFFmpegUtils::StartRecording(const QString &outputFilePath)
     }
 
     // 创建音频流
-    AVStream *outStream = avformat_new_stream(outputFormatCtx.GetRawContext(), nullptr);
+    AVStream* outStream = avformat_new_stream(outputFormatCtx.GetRawContext(), nullptr);
     if (!outStream)
     {
         LOG_WARN("Failed to create output stream");
@@ -169,7 +176,7 @@ void AudioFFmpegUtils::StopRecording()
     m_recordDevice.reset();
 }
 
-void AudioFFmpegUtils::StartPlay(const QString &inputFilePath, double startPosition, const QStringList &args)
+void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosition, const QStringList& args)
 {
     LOG_INFO("Starting audio playback: " + inputFilePath.toStdString() + ", start position: " + std::to_string(startPosition) + " seconds");
 
@@ -399,7 +406,7 @@ void AudioFFmpegUtils::SeekPlay(double seconds)
     }
 }
 
-void AudioFFmpegUtils::ShowSpec(AVFormatContext *ctx)
+void AudioFFmpegUtils::ShowSpec(AVFormatContext* ctx)
 {
     if (!ctx)
     {
@@ -408,7 +415,7 @@ void AudioFFmpegUtils::ShowSpec(AVFormatContext *ctx)
     }
 
     // Get input stream
-    AVStream *stream = ctx->streams[0];
+    AVStream* stream = ctx->streams[0];
     // Get audio parameters
     ST_AVCodecParameters params(stream->codecpar);
 
@@ -425,14 +432,14 @@ void AudioFFmpegUtils::ShowSpec(AVFormatContext *ctx)
 QStringList AudioFFmpegUtils::GetInputAudioDevices()
 {
     QStringList devices;
-    const AVInputFormat *inputFormat = av_find_input_format(FMT_NAME);
+    const AVInputFormat* inputFormat = av_find_input_format(FMT_NAME);
     if (!inputFormat)
     {
         LOG_WARN("Failed to find input format:" + std::string(FMT_NAME));
         return devices;
     }
 
-    AVDeviceInfoList *deviceList = nullptr;
+    AVDeviceInfoList* deviceList = nullptr;
     int ret = avdevice_list_input_sources(inputFormat, nullptr, nullptr, &deviceList);
     if (ret < 0)
     {
@@ -454,18 +461,18 @@ QStringList AudioFFmpegUtils::GetInputAudioDevices()
     return devices;
 }
 
-void AudioFFmpegUtils::SetInputDevice(const QString &deviceName)
+void AudioFFmpegUtils::SetInputDevice(const QString& deviceName)
 {
     m_currentInputDevice = deviceName;
 }
 
-bool AudioFFmpegUtils::LoadAudioWaveform(const QString &filePath, QVector<float> &waveformData)
+bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData)
 {
     ST_OpenFileResult openFileResult;
     openFileResult.OpenFilePath(filePath);
     // 读取音频数据并计算波形
     ST_AVPacket packet;
-    AVFrame *frame = av_frame_alloc();
+    AVFrame* frame = av_frame_alloc();
     const int SAMPLES_PER_PIXEL = 256; // 每个像素点对应的采样数
     float maxSample = 0;
     float currentSum = 0;
@@ -480,7 +487,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString &filePath, QVector<float>
                 while (avcodec_receive_frame(openFileResult.m_codecCtx->GetRawContext(), frame) >= 0)
                 {
                     // 处理音频帧数据
-                    auto samples = (float *)frame->data[0];
+                    auto samples = (float*)frame->data[0];
                     for (int i = 0; i < frame->nb_samples; i++)
                     {
                         float sample = std::abs(samples[i]);
@@ -505,10 +512,25 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString &filePath, QVector<float>
     // 归一化波形数据
     if (maxSample > 0)
     {
-        for (float &sample : waveformData)
+        for (float& sample : waveformData)
         {
             sample /= maxSample;
         }
     }
     return true;
+}
+
+bool AudioFFmpegUtils::IsPlaying()
+{
+    return m_playState.IsPlaying();
+}
+
+bool AudioFFmpegUtils::IsPaused()
+{
+    return m_playState.IsPaused();
+}
+
+bool AudioFFmpegUtils::IsRecording()
+{
+    return m_isRecording.load();
 }

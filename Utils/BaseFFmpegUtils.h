@@ -22,7 +22,7 @@ class BaseFFmpegUtils : public QObject
 
     virtual void SeekPlay(double position) = 0;
 
-    virtual bool IsPlaying() const = 0;
-    virtual bool IsPaused() const = 0;
-    virtual bool IsRecording() const = 0;
+    virtual bool IsPlaying() = 0;
+    virtual bool IsPaused() = 0;
+    virtual bool IsRecording() = 0;
 };

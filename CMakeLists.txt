@@ -105,7 +105,7 @@ target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/include")
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/UIModule")
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/DataDefine")
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/Utils")
-target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/AudioFileSystem")
+target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/AVFileSystem")
 target_include_directories(${TARGET_NAME} PUBLIC "${CMAKE_SOURCE_DIR}/CoreServer")
 
 # 添加lib信息
