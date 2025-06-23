@@ -1,4 +1,4 @@
-﻿#include "AudioMainWidget.h"
+﻿#include "MainWidget.h"
 #include <QAction>
 #include <QApplication>
 #include <QDir>
@@ -9,15 +9,15 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
-#include <QStyle>
+#include <QStyle> 
 #include <QToolBar>
 #include "AudioFileSystem.h"
-#include "PlayerAudioModuleWidget.h"
+#include "AudioWidget/PlayerAudioModuleWidget.h"
 #include "CoreWidget/CustomToolBar.h"
 #include "FileSystem/FileSystem.h"
 
-AudioMainWidget::AudioMainWidget(QWidget* parent)
-    : QMainWindow(parent), ui(new Ui::AudioMainWidgetClass()), m_currentAudioFile("")
+MainWidget::MainWidget(QWidget* parent)
+    : QMainWindow(parent), ui(new Ui::MainWidgetClass()), m_currentAudioFile("")
 {
     ui->setupUi(this);
     InitializeMenuBar();
@@ -25,12 +25,12 @@ AudioMainWidget::AudioMainWidget(QWidget* parent)
     ConnectSignals();
 }
 
-AudioMainWidget::~AudioMainWidget()
+MainWidget::~MainWidget()
 {
     delete ui;
 }
 
-void AudioMainWidget::InitializeMenuBar()
+void MainWidget::InitializeMenuBar()
 {
     // 文件菜单
     QMenu* fileMenu = menuBar()->addMenu(tr("文件"));
@@ -39,13 +39,13 @@ void AudioMainWidget::InitializeMenuBar()
     openFileAction->setShortcut(QKeySequence::Open);
     openFileAction->setIcon(style()->standardIcon(QStyle::SP_DialogOpenButton));
     fileMenu->addAction(openFileAction);
-    connect(openFileAction, &QAction::triggered, this, &AudioMainWidget::SlotOpenAudioFile);
+    connect(openFileAction, &QAction::triggered, this, &MainWidget::SlotOpenAudioFile);
 
     auto openFolderAction = new QAction(tr("打开文件夹..."), this);
     openFolderAction->setShortcut(tr("Ctrl+Shift+O"));
     openFolderAction->setIcon(style()->standardIcon(QStyle::SP_DirOpenIcon));
     fileMenu->addAction(openFolderAction);
-    connect(openFolderAction, &QAction::triggered, this, &AudioMainWidget::SlotOpenAudioFolder);
+    connect(openFolderAction, &QAction::triggered, this, &MainWidget::SlotOpenAudioFolder);
 
     fileMenu->addSeparator();
 
@@ -53,7 +53,7 @@ void AudioMainWidget::InitializeMenuBar()
     saveAction->setShortcut(QKeySequence::Save);
     saveAction->setIcon(style()->standardIcon(QStyle::SP_DialogSaveButton));
     fileMenu->addAction(saveAction);
-    //connect(saveAction, &QAction::triggered, this, &AudioMainWidget::SlotSaveUIData);
+    //connect(saveAction, &QAction::triggered, this, &MainWidget::SlotSaveUIData);
 
     // 编辑菜单
     QMenu* editMenu = menuBar()->addMenu(tr("编辑"));
@@ -62,15 +62,15 @@ void AudioMainWidget::InitializeMenuBar()
     removeAction->setShortcut(QKeySequence::Delete);
     removeAction->setIcon(style()->standardIcon(QStyle::SP_DialogDiscardButton));
     editMenu->addAction(removeAction);
-    connect(removeAction, &QAction::triggered, this, &AudioMainWidget::SlotRemoveFromList);
+    connect(removeAction, &QAction::triggered, this, &MainWidget::SlotRemoveFromList);
 
     auto clearAction = new QAction(tr("清空列表"), this);
     clearAction->setIcon(style()->standardIcon(QStyle::SP_TrashIcon));
     editMenu->addAction(clearAction);
-    connect(clearAction, &QAction::triggered, this, &AudioMainWidget::SlotClearFileList);
+    connect(clearAction, &QAction::triggered, this, &MainWidget::SlotClearFileList);
 }
 
-void AudioMainWidget::InitializeToolBar()
+void MainWidget::InitializeToolBar()
 {
     // 移除原有工具栏
     if (ui->mainToolBar)
@@ -80,7 +80,7 @@ void AudioMainWidget::InitializeToolBar()
     }
 }
 
-void AudioMainWidget::ConnectSignals()
+void MainWidget::ConnectSignals()
 {
     // 连接PlayerAudioModuleWidget的信号
     connect(ui->widget, &PlayerAudioModuleWidget::SigAudioFileSelected, [this](const QString& filePath)
@@ -89,7 +89,7 @@ void AudioMainWidget::ConnectSignals()
     });
 }
 
-void AudioMainWidget::SlotOpenAudioFile()
+void MainWidget::SlotOpenAudioFile()
 {
     QString dir = QDir::currentPath();
     QString filter = QString::fromStdString(audio_player::AudioFileSystem::GetAudioFileFilter());
@@ -107,7 +107,7 @@ void AudioMainWidget::SlotOpenAudioFile()
     }
 }
 
-void AudioMainWidget::SlotOpenAudioFolder()
+void MainWidget::SlotOpenAudioFolder()
 {
     QString dir = QFileDialog::getExistingDirectory(this, tr("选择音频文件夹"), QDir::currentPath(), QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
@@ -131,7 +131,7 @@ void AudioMainWidget::SlotOpenAudioFolder()
     }
 }
 
-void AudioMainWidget::SlotClearFileList()
+void MainWidget::SlotClearFileList()
 {
     if (QMessageBox::question(this, tr("清空列表"), tr("确定要清空文件列表吗？"), QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes)
     {
@@ -140,7 +140,7 @@ void AudioMainWidget::SlotClearFileList()
     }
 }
 
-void AudioMainWidget::SlotRemoveFromList()
+void MainWidget::SlotRemoveFromList()
 {
     if (!m_currentAudioFile.isEmpty())
     {

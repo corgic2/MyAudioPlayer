@@ -1,22 +1,24 @@
-#include "AudioControlButtonWidget.h"
-#include "ui_AudioControlButtonWidget.h"
+﻿#include "ControlButtonWidget.h"
+
+#include "ControlButtonWidget.h"
+#include "ui_ControlButtonWidget.h"
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "UtilsWidget/CustomToolTips.h"
 
-AudioControlButtonWidget::AudioControlButtonWidget(QWidget* parent)
-    : QWidget(parent), ui(new Ui::AudioControlButtonWidget())
+ControlButtonWidget::ControlButtonWidget(QWidget* parent)
+    : QWidget(parent), ui(new Ui::ControlButtonWidget())
 {
     ui->setupUi(this);
     InitializeWidget();
     ConnectSignals();
 }
 
-AudioControlButtonWidget::~AudioControlButtonWidget()
+ControlButtonWidget::~ControlButtonWidget()
 {
     delete ui;
 }
 
-void AudioControlButtonWidget::InitializeWidget()
+void ControlButtonWidget::InitializeWidget()
 {
     // 设置录制按钮样式
     ui->btnRecord->SetBackgroundType(CustomToolButton::BackgroundType_Solid);
@@ -54,17 +56,17 @@ void AudioControlButtonWidget::InitializeWidget()
     UpdateButtonStates();
 }
 
-void AudioControlButtonWidget::ConnectSignals()
+void ControlButtonWidget::ConnectSignals()
 {
-    connect(ui->btnRecord, &CustomToolButton::clicked, this, &AudioControlButtonWidget::SigRecordClicked);
-    connect(ui->btnPlay, &CustomToolButton::clicked, this, &AudioControlButtonWidget::SigPlayClicked);
-    connect(ui->btnForward, &CustomToolButton::clicked, this, &AudioControlButtonWidget::SigForwardClicked);
-    connect(ui->btnBackward, &CustomToolButton::clicked, this, &AudioControlButtonWidget::SigBackwardClicked);
-    connect(ui->btnNext, &CustomToolButton::clicked, this, &AudioControlButtonWidget::SigNextClicked);
-    connect(ui->btnPrevious, &CustomToolButton::clicked, this, &AudioControlButtonWidget::SigPreviousClicked);
+    connect(ui->btnRecord, &CustomToolButton::clicked, this, &ControlButtonWidget::SigRecordClicked);
+    connect(ui->btnPlay, &CustomToolButton::clicked, this, &ControlButtonWidget::SigPlayClicked);
+    connect(ui->btnForward, &CustomToolButton::clicked, this, &ControlButtonWidget::SigForwardClicked);
+    connect(ui->btnBackward, &CustomToolButton::clicked, this, &ControlButtonWidget::SigBackwardClicked);
+    connect(ui->btnNext, &CustomToolButton::clicked, this, &ControlButtonWidget::SigNextClicked);
+    connect(ui->btnPrevious, &CustomToolButton::clicked, this, &ControlButtonWidget::SigPreviousClicked);
 }
 
-void AudioControlButtonWidget::UpdatePlayState(bool isPlaying)
+void ControlButtonWidget::UpdatePlayState(bool isPlaying)
 {
     if (isPlaying)
     {
@@ -78,7 +80,7 @@ void AudioControlButtonWidget::UpdatePlayState(bool isPlaying)
     }
 }
 
-void AudioControlButtonWidget::UpdateRecordState(bool isRecording)
+void ControlButtonWidget::UpdateRecordState(bool isRecording)
 {
     if (isRecording)
     {
@@ -92,7 +94,7 @@ void AudioControlButtonWidget::UpdateRecordState(bool isRecording)
     }
 }
 
-void AudioControlButtonWidget::SetCurrentAudioFile(const QString& filePath)
+void ControlButtonWidget::SetCurrentAudioFile(const QString& filePath)
 {
     if (m_currentAudioFile != filePath)
     {
@@ -102,12 +104,12 @@ void AudioControlButtonWidget::SetCurrentAudioFile(const QString& filePath)
     }
 }
 
-QString AudioControlButtonWidget::GetCurrentAudioFile() const
+QString ControlButtonWidget::GetCurrentAudioFile() const
 {
     return m_currentAudioFile;
 }
 
-void AudioControlButtonWidget::UpdateButtonStates()
+void ControlButtonWidget::UpdateButtonStates()
 {
     bool hasFile = !m_currentAudioFile.isEmpty();
 

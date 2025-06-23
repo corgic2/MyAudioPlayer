@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include "BaseFFmpegUtils.h"
 #include "DataDefine/ST_AudioPlayInfo.h"
 #include "DataDefine/ST_AudioPlayState.h"
 #include "DataDefine/ST_OpenAudioDevice.h"
@@ -24,7 +25,7 @@ extern "C"
 /// <summary>
 /// FFmpeg音频工具类
 /// </summary>
-class AudioFFmpegUtils : public QObject
+class AudioFFmpegUtils : public QObject, BaseFFmpegUtils
 {
     Q_OBJECT;
 
@@ -50,12 +51,12 @@ public:
     /// </summary>
     /// <param name="outputFilePath">输出文件路径</param>
     /// <param name="encoderFormat">编码格式</param>
-    void StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat);
+    void StartRecording(const QString& outputFilePath) override;
 
     /// <summary>
     /// 停止录音
     /// </summary>
-    void StopAudioRecording();
+    void StopRecording() override;
 
     /// <summary>
     /// 播放音频文件
@@ -63,34 +64,28 @@ public:
     /// <param name="inputFilePath">输入文件路径</param>
     /// <param name="startPosition">开始播放位置（秒），默认从头开始</param>
     /// <param name="args">播放参数</param>
-    void StartAudioPlayback(const QString& inputFilePath, double startPosition = 0.0, const QStringList& args = QStringList());
+    void StartPlay(const QString& inputFilePath, double startPosition = 0.0, const QStringList& args = QStringList()) override;
 
     /// <summary>
     /// 暂停音频播放
     /// </summary>
-    void PauseAudioPlayback();
+    void PausePlay() override;
 
     /// <summary>
     /// 继续音频播放
     /// </summary>
-    void ResumeAudioPlayback();
+    void ResumePlay() override;
 
     /// <summary>
     /// 停止音频播放
     /// </summary>
-    void StopAudioPlayback();
+    void StopPlay() override;
 
     /// <summary>
     /// 音频快进
     /// </summary>
     /// <param name="seconds">快进秒数</param>
-    void SeekAudioForward(int seconds);
-
-    /// <summary>
-    /// 音频快退
-    /// </summary>
-    /// <param name="seconds">快退秒数</param>
-    void SeekAudioBackward(int seconds);
+    void SeekPlay(double seconds) override;
 
     /// <summary>
     /// 获取所有可用的音频输入设备
@@ -174,7 +169,7 @@ private:
     /// </summary>
     /// <param name="seconds">定位时间（秒），正数表示前进，负数表示后退</param>
     /// <returns>是否定位成功</returns>
-    bool SeekAudio(int seconds);
+    bool SeekAudio(double seconds);
 
 private:
     QString m_currentInputDevice;                       /// 当前选择的FFmpeg输入设备

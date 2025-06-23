@@ -3,7 +3,7 @@
 #include <QTextCodec>
 #include "CoreServerGlobal.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
-#include "UIModule/AudioMainWidget.h"
+#include "UIModule/MainWidget.h"
 #include "Utils/AudioFFmpegUtils.h"
 #include "Utils/FFmpegPublicUtils.h"
 void custom_log(void* ptr, int level, const char* fmt, va_list vl)
@@ -28,7 +28,7 @@ int main(int argc, char* argv[])
 {
     InitCoreObject();
     QApplication a(argc, argv);
-    AudioMainWidget widget;
+    MainWidget widget;
     widget.show();
     return a.exec();
 }

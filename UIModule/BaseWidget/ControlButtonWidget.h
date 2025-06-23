@@ -1,16 +1,18 @@
-#pragma once
+﻿#pragma once
 
 #include <QWidget>
 #include "CoreWidget/CustomToolButton.h"
 
-QT_BEGIN_NAMESPACE
-namespace Ui { class AudioControlButtonWidget; }
+QT_BEGIN_NAMESPACE namespace Ui
+{
+    class ControlButtonWidget;
+}
 QT_END_NAMESPACE
 
 /// <summary>
 /// 音频控制按钮组件类
 /// </summary>
-class AudioControlButtonWidget : public QWidget
+class ControlButtonWidget : public QWidget
 {
     Q_OBJECT
 
@@ -19,12 +21,12 @@ public:
     /// 构造函数
     /// </summary>
     /// <param name="parent">父窗口指针</param>
-    explicit AudioControlButtonWidget(QWidget* parent = nullptr);
+    explicit ControlButtonWidget(QWidget* parent = nullptr);
 
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~AudioControlButtonWidget() override;
+    ~ControlButtonWidget() override;
 
     /// <summary>
     /// 更新播放按钮状态
@@ -104,6 +106,6 @@ private:
     void ConnectSignals();
 
 private:
-    Ui::AudioControlButtonWidget* ui;
+    Ui::ControlButtonWidget* ui;
     QString m_currentAudioFile;    /// 当前音频文件路径
 }; 

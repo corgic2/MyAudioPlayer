@@ -1,18 +1,18 @@
 ﻿#include "VedioFFmpegUtils.h"
 #include <QDebug>
 #include <QThread>
+#include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
 
-VedioFFmpegUtils::VedioFFmpegUtils(QObject* parent)
-    : QObject(parent), m_bSDLInitialized(false), m_playState(EM_VideoPlayState::Stopped), m_recordState(EM_VideoRecordState::Stopped), m_pPlayThread(nullptr), m_pRecordThread(nullptr)
+VedioFFmpegUtils::VedioFFmpegUtils(QObject *parent) : BaseFFmpegUtils(parent), m_bSDLInitialized(false), m_playState(EM_VideoPlayState::Stopped), m_recordState(EM_VideoRecordState::Stopped), m_pPlayThread(nullptr), m_pRecordThread(nullptr)
 {
     InitSDL();
 }
 
 VedioFFmpegUtils::~VedioFFmpegUtils()
 {
-    StopVideo();
-    StopRecord();
+    StopPlay();
+    StopRecording();
     QuitSDL();
 }
 
@@ -135,17 +135,18 @@ void VedioFFmpegUtils::ShowBMPImageFile(const QString& bmpFilePath, const QStrin
     m_window.DestroyWindow();
 }
 
-bool VedioFFmpegUtils::StartPlayVideo(const QString& videoPath, const QString& windowTitle)
+void VedioFFmpegUtils::StartPlay(const QString& videoPath,double startPosition, const QStringList &args)
 {
+    std::string fileName = my_sdk::FileSystem::GetFileNameWithoutExtension(videoPath.toStdString());
     if (videoPath.isEmpty())
     {
         LOG_WARN("Invalid video file path");
-        return false;
+        return ;
     }
 
     if (m_playState != EM_VideoPlayState::Stopped)
     {
-        StopVideo();
+        StopPlay();
     }
 
     if (!m_bSDLInitialized)
@@ -153,15 +154,15 @@ bool VedioFFmpegUtils::StartPlayVideo(const QString& videoPath, const QString& w
         if (!InitSDL())
         {
             LOG_WARN("Failed to initialize SDL");
-            return false;
+            return ;
         }
     }
 
     // 创建窗口
-    if (!m_window.CreateWindow(windowTitle.toStdString(), 100, 100, 1280, 720))
+    if (!m_window.CreateWindow(fileName, 100, 100, 1280, 720))
     {
         LOG_WARN("Failed to create window:", SDL_GetError());
-        return false;
+        return ;
     }
 
     // 创建渲染器
@@ -169,7 +170,7 @@ bool VedioFFmpegUtils::StartPlayVideo(const QString& videoPath, const QString& w
     {
         LOG_WARN("Failed to create renderer:", SDL_GetError());
         m_window.DestroyWindow();
-        return false;
+        return ;
     }
 
     // 创建播放线程
@@ -178,10 +179,10 @@ bool VedioFFmpegUtils::StartPlayVideo(const QString& videoPath, const QString& w
 
     m_playState = EM_VideoPlayState::Playing;
     emit SigPlayStateChanged(m_playState);
-    return true;
+    return ;
 }
 
-void VedioFFmpegUtils::PauseVideo()
+void VedioFFmpegUtils::PausePlay()
 {
     if (m_playState == EM_VideoPlayState::Playing)
     {
@@ -190,7 +191,7 @@ void VedioFFmpegUtils::PauseVideo()
     }
 }
 
-void VedioFFmpegUtils::ResumeVideo()
+void VedioFFmpegUtils::ResumePlay()
 {
     if (m_playState == EM_VideoPlayState::Paused)
     {
@@ -199,7 +200,7 @@ void VedioFFmpegUtils::ResumeVideo()
     }
 }
 
-void VedioFFmpegUtils::StopVideo()
+void VedioFFmpegUtils::StopPlay()
 {
     if (m_playState != EM_VideoPlayState::Stopped)
     {
@@ -223,17 +224,17 @@ void VedioFFmpegUtils::StopVideo()
     }
 }
 
-bool VedioFFmpegUtils::StartRecordVideo(const QString& outputPath, int width, int height, int frameRate)
+void VedioFFmpegUtils::StartRecording(const QString& outputPath)
 {
     if (outputPath.isEmpty())
     {
         LOG_WARN("Invalid output file path");
-        return false;
+        return;
     }
 
     if (m_recordState != EM_VideoRecordState::Stopped)
     {
-        StopRecord();
+        StopRecording();
     }
 
     // 创建录制线程
@@ -242,28 +243,10 @@ bool VedioFFmpegUtils::StartRecordVideo(const QString& outputPath, int width, in
 
     m_recordState = EM_VideoRecordState::Recording;
     emit SigRecordStateChanged(m_recordState);
-    return true;
+    return;
 }
 
-void VedioFFmpegUtils::PauseRecord()
-{
-    if (m_recordState == EM_VideoRecordState::Recording)
-    {
-        m_recordState = EM_VideoRecordState::Paused;
-        emit SigRecordStateChanged(m_recordState);
-    }
-}
-
-void VedioFFmpegUtils::ResumeRecord()
-{
-    if (m_recordState == EM_VideoRecordState::Paused)
-    {
-        m_recordState = EM_VideoRecordState::Recording;
-        emit SigRecordStateChanged(m_recordState);
-    }
-}
-
-void VedioFFmpegUtils::StopRecord()
+void VedioFFmpegUtils::StopRecording()
 {
     if (m_recordState != EM_VideoRecordState::Stopped)
     {

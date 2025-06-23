@@ -1,54 +1,40 @@
 ﻿#pragma once
 
-#include "AudioControlButtonWidget.h"
+#include <QWidget>
 #include "AudioFFmpegUtils.h"
-#include "AudioWaveformWidget.h"
-#include "CoreServerGlobal.h"
-#include "ui_PlayerAudioModuleWidget.h"
-#include "CoreWidget/CustomLabel.h"
+#include "BaseFFmpegUtils.h"
+#include "ui_AVBaseWidget.h"
 #include "DomainWidget/FilePathIconListWidgetItem.h"
 
 QT_BEGIN_NAMESPACE namespace Ui
 {
-    class PlayerAudioModuleWidgetClass;
+    class AVBaseWidgetClass;
 };
 
-QT_END_NAMESPACE
+QT_END_NAMESPACE;
 
-/// <summary>
-/// 音频播放器模块控件类
-/// </summary>
-class PlayerAudioModuleWidget : public QWidget
+class AVBaseWidget : public QWidget
 {
     Q_OBJECT;
 
 public:
+    AVBaseWidget(QWidget* parent = nullptr);
     /// <summary>
-    /// 构造函数
+    /// 添加音视频文件到列表
     /// </summary>
-    /// <param name="parent">父窗口指针</param>
-    explicit PlayerAudioModuleWidget(QWidget* parent = nullptr);
-    /// <summary>
-    /// 析构函数
-    /// </summary>
-    ~PlayerAudioModuleWidget() override;
+    /// <param name="filePaths">音视频文件路径列表</param>
+    void AddAVFiles(const QStringList& filePaths);
 
     /// <summary>
-    /// 添加音频文件到列表
+    /// 从列表移除音视频文件
     /// </summary>
-    /// <param name="filePaths">音频文件路径列表</param>
-    void AddAudioFiles(const QStringList& filePaths);
+    /// <param name="filePath">音视频文件路径</param>
+    void RemoveAVFile(const QString& filePath);
 
     /// <summary>
-    /// 从列表移除音频文件
+    /// 清空音视频文件列表
     /// </summary>
-    /// <param name="filePath">音频文件路径</param>
-    void RemoveAudioFile(const QString& filePath);
-
-    /// <summary>
-    /// 清空音频文件列表
-    /// </summary>
-    void ClearAudioFiles();
+    void ClearAVFiles();
 
     /// <summary>
     /// 获取指定索引的文件信息
@@ -59,20 +45,20 @@ public:
 
 signals:
     /// <summary>
-    /// 音频文件被选中信号
+    /// 音视频文件被选中信号
     /// </summary>
-    /// <param name="filePath">音频文件路径</param>
-    void SigAudioFileSelected(const QString& filePath);
+    /// <param name="filePath">音视频文件路径</param>
+    void SigAVFileSelected(const QString& filePath);
 
     /// <summary>
-    /// 音频播放完成信号
+    /// 音视频播放完成信号
     /// </summary>
-    void SigAudioPlayFinished();
+    void SigAVPlayFinished();
 
     /// <summary>
-    /// 音频录制完成信号
+    /// 音视频录制完成信号
     /// </summary>
-    void SigAudioRecordFinished();
+    void SigAVRecordFinished();
 
 protected slots:
     /// <summary>
@@ -106,29 +92,24 @@ protected slots:
     void SlotBtnPreviousClicked();
 
     /// <summary>
-    /// 输入设备改变槽函数
+    /// 音视频文件选中槽函数
     /// </summary>
-    void SlotInputDeviceChanged(int index);
+    void SlotAVFileSelected(const QString& filePath);
 
     /// <summary>
-    /// 音频文件选中槽函数
+    /// 音视频文件双击槽函数
     /// </summary>
-    void SlotAudioFileSelected(const QString& filePath);
+    void SlotAVFileDoubleClicked(const QString& filePath);
 
     /// <summary>
-    /// 音频文件双击槽函数
+    /// 音视频播放完成槽函数
     /// </summary>
-    void SlotAudioFileDoubleClicked(const QString& filePath);
+    void SlotAVPlayFinished();
 
     /// <summary>
-    /// 音频播放完成槽函数
+    /// 音视频录制完成槽函数
     /// </summary>
-    void SlotAudioPlayFinished();
-
-    /// <summary>
-    /// 音频录制完成槽函数
-    /// </summary>
-    void SlotAudioRecordFinished();
+    void SlotAVRecordFinished();
 
 protected:
     /// <summary>
@@ -142,11 +123,7 @@ private:
     /// 连接信号槽
     /// </summary>
     void ConnectSignals();
-
-    /// <summary>
-    /// 初始化音频设备
-    /// </summary>
-    void InitAudioDevices();
+    ~AVBaseWidget();
 
     /// <summary>
     /// 初始化界面
@@ -161,38 +138,37 @@ private:
     int GetFileIndex(const QString& filePath) const;
 
     /// <summary>
-    /// 启动音频播放线程
+    /// 启动音视频播放线程
     /// </summary>
-    void StartAudioPlayThread();
+    void StartAVPlayThread();
 
     /// <summary>
-    /// 停止音频播放线程
+    /// 停止音视频播放线程
     /// </summary>
-    void StopAudioPlayThread();
+    void StopAVPlayThread();
 
     /// <summary>
-    /// 启动音频录制线程
+    /// 启动音视频录制线程
     /// </summary>
     /// <param name="filePath">录制文件路径</param>
-    void StartAudioRecordThread(const QString& filePath);
+    void StartAVRecordThread(const QString& filePath);
 
     /// <summary>
-    /// 停止音频录制线程
+    /// 停止音视频录制线程
     /// </summary>
-    void StopAudioRecordThread();
+    void StopAVRecordThread();
 
 private:
-    Ui::PlayerAudioModuleWidgetClass* ui;
-    AudioFFmpegUtils m_ffmpeg;
-    QString m_currentAudioFile;                     /// 当前播放的音频文件
+    Ui::AVBaseWidgetClass* ui;
+    BaseFFmpegUtils* m_ffmpeg = nullptr;
+    QString m_currentAudioFile;                     /// 当前播放的音视频文件
     bool m_isRecording = false;                     /// 是否正在录制
     bool m_isPlaying = false;                       /// 是否正在播放
     bool m_isPaused = false;                        /// 是否已暂停
     QTimer* m_playTimer = nullptr;                  /// 播放定时器
-    size_t m_playThreadId;                          /// 音频播放线程ID
-    std::atomic<bool> m_playThreadRunning{false};   /// 音频播放线程运行标志
-    size_t m_recordThreadId;                        /// 音频录制线程ID
-    std::atomic<bool> m_recordThreadRunning{false}; /// 音频录制线程运行标志
-    AudioWaveformWidget* m_waveformWidget;          /// 音频波形控件
+    size_t m_playThreadId;                          /// 音视频播放线程ID
+    std::atomic<bool> m_playThreadRunning{false};   /// 音视频播放线程运行标志
+    size_t m_recordThreadId;                        /// 音视频录制线程ID
+    std::atomic<bool> m_recordThreadRunning{false}; /// 音视频录制线程运行标志
     double m_currentPosition{0.0};                  /// 当前播放位置（秒）
 };

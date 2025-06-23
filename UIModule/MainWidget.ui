@@ -31,7 +31,7 @@
      <number>0</number>
     </property>
     <item>
-     <widget class="PlayerAudioModuleWidget" name="widget" native="true"/>
+     <widget class="AVBaseWidget" name="widget" native="true"/>
     </item>
    </layout>
   </widget>
@@ -73,9 +73,9 @@
  <layoutdefault spacing="6" margin="11"/>
  <customwidgets>
   <customwidget>
-   <class>PlayerAudioModuleWidget</class>
+   <class>AVBaseWidget</class>
    <extends>QWidget</extends>
-   <header>PlayerAudioModuleWidget.h</header>
+   <header>BaseWidget/AVBaseWidget.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QString>
 #include <SDL3/SDL.h>
+#include "BaseFFmpegUtils.h"
 #include "DataDefine/ST_SDL_Renderer.h"
 #include "DataDefine/ST_SDL_Suerface.h"
 #include "DataDefine/ST_SDL_Texture.h"
@@ -53,7 +54,7 @@ enum class EM_VideoRecordState
 /// <summary>
 /// 视频FFmpeg工具类
 /// </summary>
-class VedioFFmpegUtils : public QObject
+class VedioFFmpegUtils : public QObject, BaseFFmpegUtils
 {
     Q_OBJECT
 
@@ -93,22 +94,22 @@ public:
     /// <param name="videoPath">视频文件路径</param>
     /// <param name="windowTitle">窗口标题</param>
     /// <returns>是否成功开始播放</returns>
-    bool StartPlayVideo(const QString& videoPath, const QString& windowTitle = "Video Player");
+    void StartPlay(const QString& videoPath,double startPosition = 0.0, const QStringList &args = QStringList()) override;
 
     /// <summary>
     /// 暂停视频播放
     /// </summary>
-    void PauseVideo();
+    void PausePlay() override;
 
     /// <summary>
     /// 恢复视频播放
     /// </summary>
-    void ResumeVideo();
+    void ResumePlay() override;
 
     /// <summary>
     /// 停止视频播放
     /// </summary>
-    void StopVideo();
+    void StopPlay() override;
 
     /// <summary>
     /// 开始录制视频
@@ -118,23 +119,12 @@ public:
     /// <param name="height">视频高度</param>
     /// <param name="frameRate">帧率</param>
     /// <returns>是否成功开始录制</returns>
-    bool StartRecordVideo(const QString& outputPath, int width = 1920, int height = 1080, int frameRate = 30);
+    void StartRecording(const QString& outputPath) override;
 
     /// <summary>
     /// 暂停视频录制
     /// </summary>
-    void PauseRecord();
-
-    /// <summary>
-    /// 恢复视频录制
-    /// </summary>
-    void ResumeRecord();
-
-    /// <summary>
-    /// 停止视频录制
-    /// </summary>
-    void StopRecord();
-
+    void StopRecording() override;
 signals:
     /// <summary>
     /// 视频播放状态改变信号

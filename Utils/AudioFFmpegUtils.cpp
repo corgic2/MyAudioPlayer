@@ -1,8 +1,7 @@
 ﻿#include "AudioFFmpegUtils.h"
 #include <QFile>
+
 #include "AudioResampler.h"
-#include "FFmpegPublicUtils.h"
-#include "SDL3/SDL.h"
 #include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVCodecParameters.h"
@@ -10,21 +9,22 @@
 #include "DataDefine/ST_OpenFileResult.h"
 #include "DataDefine/ST_ResampleParams.h"
 #include "DataDefine/ST_ResampleResult.h"
+#include "FFmpegPublicUtils.h"
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
+#include "SDL3/SDL.h"
 #define FMT_NAME "dshow"
 #pragma execution_character_set("utf-8")
-//根据不同设备进行修改，此电脑为USB音频设备
-AudioFFmpegUtils::AudioFFmpegUtils(QObject* parent)
-    : QObject(parent)
+// 根据不同设备进行修改，此电脑为USB音频设备
+AudioFFmpegUtils::AudioFFmpegUtils(QObject *parent) : BaseFFmpegUtils(parent)
 {
     m_playState.Reset();
 }
 
 AudioFFmpegUtils::~AudioFFmpegUtils()
 {
-    StopAudioPlayback();
-    StopAudioRecording();
+    StopPlay();
+    StopRecording();
 }
 
 void AudioFFmpegUtils::ResigsterDevice()
@@ -36,7 +36,7 @@ void AudioFFmpegUtils::ResigsterDevice()
     }
 }
 
-std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio)
+std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString &devieceFormat, const QString &deviceName, bool bAudio)
 {
     auto openDeviceParam = std::make_unique<ST_OpenAudioDevice>();
     openDeviceParam->GetInputFormat().FindInputFormat(devieceFormat.toStdString());
@@ -60,10 +60,11 @@ std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString& 
     return openDeviceParam;
 }
 
-void AudioFFmpegUtils::StartAudioRecording(const QString& outputFilePath, const QString& encoderFormat)
+void AudioFFmpegUtils::StartRecording(const QString &outputFilePath)
 {
+    QString encoderFormat = QString::fromStdString(my_sdk::FileSystem::GetExtension(outputFilePath.toStdString()));
     LOG_INFO("Starting audio recording, output file: " + outputFilePath.toStdString() + ", encoder format: " + encoderFormat.toStdString());
-    
+
     if (m_isRecording.load())
     {
         LOG_WARN("Recording failed: Another recording task is already in progress");
@@ -87,7 +88,7 @@ void AudioFFmpegUtils::StartAudioRecording(const QString& outputFilePath, const 
     }
 
     // 创建音频流
-    AVStream* outStream = avformat_new_stream(outputFormatCtx.GetRawContext(), nullptr);
+    AVStream *outStream = avformat_new_stream(outputFormatCtx.GetRawContext(), nullptr);
     if (!outStream)
     {
         LOG_WARN("Failed to create output stream");
@@ -155,7 +156,7 @@ void AudioFFmpegUtils::StartAudioRecording(const QString& outputFilePath, const 
     outputFormatCtx.WriteFileTrailer();
 }
 
-void AudioFFmpegUtils::StopAudioRecording()
+void AudioFFmpegUtils::StopRecording()
 {
     if (!m_isRecording.load())
     {
@@ -168,15 +169,15 @@ void AudioFFmpegUtils::StopAudioRecording()
     m_recordDevice.reset();
 }
 
-void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, double startPosition, const QStringList& args)
+void AudioFFmpegUtils::StartPlay(const QString &inputFilePath, double startPosition, const QStringList &args)
 {
     LOG_INFO("Starting audio playback: " + inputFilePath.toStdString() + ", start position: " + std::to_string(startPosition) + " seconds");
-    
+
     // 先停止当前播放并等待资源释放
     if (m_playState.IsPlaying())
     {
         LOG_INFO("Stopping current playback, waiting for resource release");
-        StopAudioPlayback();
+        StopPlay();
         SDL_Delay(100);
     }
 
@@ -301,7 +302,7 @@ void AudioFFmpegUtils::StartAudioPlayback(const QString& inputFilePath, double s
     emit SigProgressChanged(static_cast<qint64>(m_currentPosition), static_cast<qint64>(m_duration));
 }
 
-void AudioFFmpegUtils::PauseAudioPlayback()
+void AudioFFmpegUtils::PausePlay()
 {
     if (!m_playState.IsPlaying() || !m_playInfo)
     {
@@ -315,7 +316,7 @@ void AudioFFmpegUtils::PauseAudioPlayback()
     m_playState.SetCurrentPosition(m_playState.GetCurrentPosition() + (SDL_GetTicks() - m_playState.GetStartTime()) / 1000.0);
 }
 
-void AudioFFmpegUtils::ResumeAudioPlayback()
+void AudioFFmpegUtils::ResumePlay()
 {
     if (!m_playState.IsPlaying() || !m_playInfo || !m_playState.IsPaused())
     {
@@ -327,7 +328,7 @@ void AudioFFmpegUtils::ResumeAudioPlayback()
     m_playInfo->ResumeAudio();
 }
 
-void AudioFFmpegUtils::StopAudioPlayback()
+void AudioFFmpegUtils::StopPlay()
 {
     if (!m_playState.IsPlaying())
     {
@@ -348,7 +349,7 @@ void AudioFFmpegUtils::StopAudioPlayback()
     emit SigPlayStateChanged(false);
 }
 
-bool AudioFFmpegUtils::SeekAudio(int seconds)
+bool AudioFFmpegUtils::SeekAudio(double seconds)
 {
     if (m_currentFilePath.isEmpty() || !m_playInfo)
     {
@@ -385,12 +386,12 @@ bool AudioFFmpegUtils::SeekAudio(int seconds)
     SDL_AudioDeviceID currentDeviceId = m_playInfo->GetAudioDevice();
 
     // 重新初始化播放
-    StartAudioPlayback(m_currentFilePath, targetPosition);
+    StartPlay(m_currentFilePath, targetPosition);
 
     return true;
 }
 
-void AudioFFmpegUtils::SeekAudioForward(int seconds)
+void AudioFFmpegUtils::SeekPlay(double seconds)
 {
     if (m_playState.IsPlaying())
     {
@@ -398,15 +399,7 @@ void AudioFFmpegUtils::SeekAudioForward(int seconds)
     }
 }
 
-void AudioFFmpegUtils::SeekAudioBackward(int seconds)
-{
-    if (m_playState.IsPlaying())
-    {
-        SeekAudio(-seconds);
-    }
-}
-
-void AudioFFmpegUtils::ShowSpec(AVFormatContext* ctx)
+void AudioFFmpegUtils::ShowSpec(AVFormatContext *ctx)
 {
     if (!ctx)
     {
@@ -415,7 +408,7 @@ void AudioFFmpegUtils::ShowSpec(AVFormatContext* ctx)
     }
 
     // Get input stream
-    AVStream* stream = ctx->streams[0];
+    AVStream *stream = ctx->streams[0];
     // Get audio parameters
     ST_AVCodecParameters params(stream->codecpar);
 
@@ -432,14 +425,14 @@ void AudioFFmpegUtils::ShowSpec(AVFormatContext* ctx)
 QStringList AudioFFmpegUtils::GetInputAudioDevices()
 {
     QStringList devices;
-    const AVInputFormat* inputFormat = av_find_input_format(FMT_NAME);
+    const AVInputFormat *inputFormat = av_find_input_format(FMT_NAME);
     if (!inputFormat)
     {
         LOG_WARN("Failed to find input format:" + std::string(FMT_NAME));
         return devices;
     }
 
-    AVDeviceInfoList* deviceList = nullptr;
+    AVDeviceInfoList *deviceList = nullptr;
     int ret = avdevice_list_input_sources(inputFormat, nullptr, nullptr, &deviceList);
     if (ret < 0)
     {
@@ -461,18 +454,18 @@ QStringList AudioFFmpegUtils::GetInputAudioDevices()
     return devices;
 }
 
-void AudioFFmpegUtils::SetInputDevice(const QString& deviceName)
+void AudioFFmpegUtils::SetInputDevice(const QString &deviceName)
 {
     m_currentInputDevice = deviceName;
 }
 
-bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData)
+bool AudioFFmpegUtils::LoadAudioWaveform(const QString &filePath, QVector<float> &waveformData)
 {
     ST_OpenFileResult openFileResult;
     openFileResult.OpenFilePath(filePath);
     // 读取音频数据并计算波形
     ST_AVPacket packet;
-    AVFrame* frame = av_frame_alloc();
+    AVFrame *frame = av_frame_alloc();
     const int SAMPLES_PER_PIXEL = 256; // 每个像素点对应的采样数
     float maxSample = 0;
     float currentSum = 0;
@@ -487,7 +480,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
                 while (avcodec_receive_frame(openFileResult.m_codecCtx->GetRawContext(), frame) >= 0)
                 {
                     // 处理音频帧数据
-                    auto samples = (float*)frame->data[0];
+                    auto samples = (float *)frame->data[0];
                     for (int i = 0; i < frame->nb_samples; i++)
                     {
                         float sample = std::abs(samples[i]);
@@ -512,7 +505,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
     // 归一化波形数据
     if (maxSample > 0)
     {
-        for (float& sample : waveformData)
+        for (float &sample : waveformData)
         {
             sample /= maxSample;
         }

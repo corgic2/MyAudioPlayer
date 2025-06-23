@@ -3,12 +3,12 @@
 #include <QFileDialog>
 #include <QMainWindow>
 #include <QMessageBox>
-#include "ui_AudioMainWidget.h"
+#include "ui_MainWidget.h"
 #include "CoreWidget/CustomToolBar.h"
 
 QT_BEGIN_NAMESPACE namespace Ui
 {
-    class AudioMainWidgetClass;
+    class MainWidgetClass;
 };
 
 QT_END_NAMESPACE
@@ -16,7 +16,7 @@ QT_END_NAMESPACE
 /// <summary>
 /// 音频播放器主窗口类
 /// </summary>
-class AudioMainWidget : public QMainWindow
+class MainWidget : public QMainWindow
 {
     Q_OBJECT;
 
@@ -25,11 +25,11 @@ public:
     /// 构造函数
     /// </summary>
     /// <param name="parent">父窗口指针</param>
-    explicit AudioMainWidget(QWidget* parent = nullptr);
+    explicit MainWidget(QWidget* parent = nullptr);
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~AudioMainWidget() override;
+    ~MainWidget() override;
 
 protected slots:
     /// <summary>
@@ -68,6 +68,6 @@ private:
     void ConnectSignals();
 
 private:
-    Ui::AudioMainWidgetClass* ui;
+    Ui::MainWidgetClass* ui;
     QString m_currentAudioFile; /// 当前音频文件路径
 };

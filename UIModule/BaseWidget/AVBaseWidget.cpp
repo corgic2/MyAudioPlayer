@@ -1,31 +1,23 @@
-﻿#include "PlayerAudioModuleWidget.h"
+﻿#include "AVBaseWidget.h"
 #include <QApplication>
 #include <QCloseEvent>
-#include <QDebug>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QJsonObject>
+#include <QFileDialog>
+#include <QMessageBox>
 
-#include <QThread>
-#include <QTimer>
-#include "AudioMainWidget.h"
-
+#include "AVBaseWidget.h"
 #include "AudioFileSystem.h"
+#include "ControlButtonWidget.h"
 #include "CoreServerGlobal.h"
-#include "CommonDefine/UIWidgetColorDefine.h"
 #include "CoreWidget/CustomComboBox.h"
 #include "CoreWidget/CustomLabel.h"
-#include "CoreWidget/CustomToolButton.h"
-#include "DomainWidget/FilePathIconListWidgetItem.h"
-#include "UtilsWidget/CustomToolTips.h"
+#include "DomainWidget/FilePathIconListWidget.h"
 
-PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
-    : QWidget(parent), ui(new Ui::PlayerAudioModuleWidgetClass())
+AVBaseWidget::AVBaseWidget(QWidget* parent)
+    : QWidget(parent), ui(new Ui::AVBaseWidgetClass())
 {
     ui->setupUi(this);
     InitializeWidget();
     ConnectSignals();
-    InitAudioDevices();
 
     // 设置文件列表的JSON文件路径并加载
     QString jsonPath = QApplication::applicationDirPath() + "/audiofiles.json";
@@ -35,15 +27,11 @@ PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
     ui->audioFileList->LoadFileListFromJson();
 }
 
-void PlayerAudioModuleWidget::InitializeWidget()
+void AVBaseWidget::InitializeWidget()
 {
     // 初始化播放定时器
     m_playTimer = new QTimer(this);
     m_playTimer->setInterval(100); // 100ms更新一次
-
-    // 初始化波形控件
-    m_waveformWidget = new AudioWaveformWidget(ui->VedioFrame);
-    m_waveformWidget->setGeometry(0, 0, ui->VedioFrame->width(), ui->VedioFrame->height());
 
     // 设置文件列表标签样式
     ui->labelFileList->SetFontSize(CustomLabel::FontSize_Medium);
@@ -62,9 +50,9 @@ void PlayerAudioModuleWidget::InitializeWidget()
     ui->audioFileList->SetBorderColor(UIColorDefine::border_color::Default);
 
     // 设置各个Frame的边框样式
-    ui->VedioFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
-    ui->VedioFrame->setLineWidth(1);
-    ui->VedioFrame->setMidLineWidth(0);
+    ui->AVFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
+    ui->AVFrame->setLineWidth(1);
+    ui->AVFrame->setMidLineWidth(0);
 
     ui->RightLayoutFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
     ui->RightLayoutFrame->setLineWidth(1);
@@ -75,48 +63,45 @@ void PlayerAudioModuleWidget::InitializeWidget()
     ui->ToolButtonFrame->setMidLineWidth(0);
 }
 
-void PlayerAudioModuleWidget::ConnectSignals()
+void AVBaseWidget::ConnectSignals()
 {
     // 连接音频控制按钮的信号
-    connect(ui->audioControlButtons, &AudioControlButtonWidget::SigRecordClicked, this, &PlayerAudioModuleWidget::SlotBtnRecordClicked);
-    connect(ui->audioControlButtons, &AudioControlButtonWidget::SigPlayClicked, this, &PlayerAudioModuleWidget::SlotBtnPlayClicked);
-    connect(ui->audioControlButtons, &AudioControlButtonWidget::SigForwardClicked, this, &PlayerAudioModuleWidget::SlotBtnForwardClicked);
-    connect(ui->audioControlButtons, &AudioControlButtonWidget::SigBackwardClicked, this, &PlayerAudioModuleWidget::SlotBtnBackwardClicked);
-    connect(ui->audioControlButtons, &AudioControlButtonWidget::SigNextClicked, this, &PlayerAudioModuleWidget::SlotBtnNextClicked);
-    connect(ui->audioControlButtons, &AudioControlButtonWidget::SigPreviousClicked, this, &PlayerAudioModuleWidget::SlotBtnPreviousClicked);
-
-    // 输入设备选择
-    connect(ui->comboBoxInput, QOverload<int>::of(&CustomComboBox::currentIndexChanged), this, &PlayerAudioModuleWidget::SlotInputDeviceChanged);
+    connect(ui->ControlButtons, &ControlButtonWidget::SigRecordClicked, this, &AVBaseWidget::SlotBtnRecordClicked);
+    connect(ui->ControlButtons, &ControlButtonWidget::SigPlayClicked, this, &AVBaseWidget::SlotBtnPlayClicked);
+    connect(ui->ControlButtons, &ControlButtonWidget::SigForwardClicked, this, &AVBaseWidget::SlotBtnForwardClicked);
+    connect(ui->ControlButtons, &ControlButtonWidget::SigBackwardClicked, this, &AVBaseWidget::SlotBtnBackwardClicked);
+    connect(ui->ControlButtons, &ControlButtonWidget::SigNextClicked, this, &AVBaseWidget::SlotBtnNextClicked);
+    connect(ui->ControlButtons, &ControlButtonWidget::SigPreviousClicked, this, &AVBaseWidget::SlotBtnPreviousClicked);
 
     // 文件列表信号
-    connect(ui->audioFileList, &FilePathIconListWidget::SigItemSelected, this, &PlayerAudioModuleWidget::SlotAudioFileSelected);
-    connect(ui->audioFileList, &FilePathIconListWidget::SigItemDoubleClicked, this, &PlayerAudioModuleWidget::SlotAudioFileDoubleClicked);
+    connect(ui->audioFileList, &FilePathIconListWidget::SigItemSelected, this, &AVBaseWidget::SlotAVFileSelected);
+    connect(ui->audioFileList, &FilePathIconListWidget::SigItemDoubleClicked, this, &AVBaseWidget::SlotAVFileDoubleClicked);
 
     // 音频播放完成信号
-    connect(this, &PlayerAudioModuleWidget::SigAudioPlayFinished, this, &PlayerAudioModuleWidget::SlotAudioPlayFinished);
+    connect(this, &AVBaseWidget::SigAVPlayFinished, this, &AVBaseWidget::SlotAVPlayFinished);
 
     // 添加录制完成信号连接
-    connect(this, &PlayerAudioModuleWidget::SigAudioRecordFinished, this, &PlayerAudioModuleWidget::SlotAudioRecordFinished);
+    connect(this, &AVBaseWidget::SigAVRecordFinished, this, &AVBaseWidget::SlotAVRecordFinished);
 }
 
-PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
+AVBaseWidget::~AVBaseWidget()
 {
     if (m_isRecording)
     {
-        StopAudioRecordThread();
+        StopAVRecordThread();
     }
     if (m_isPlaying)
     {
-        StopAudioPlayThread();
+        StopAVPlayThread();
     }
 
     SAFE_DELETE_POINTER_VALUE(m_playTimer)
     CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
     CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_recordThreadId);
-    delete ui;
+    SAFE_DELETE_POINTER_VALUE(ui);
 }
 
-void PlayerAudioModuleWidget::SlotBtnRecordClicked()
+void AVBaseWidget::SlotBtnRecordClicked()
 {
     if (!m_isRecording)
     {
@@ -125,21 +110,21 @@ void PlayerAudioModuleWidget::SlotBtnRecordClicked()
         if (!filePath.isEmpty())
         {
             m_isRecording = true;
-            ui->audioControlButtons->UpdateRecordState(true);
+            ui->ControlButtons->UpdateRecordState(true);
 
             // 启动录制线程
-            StartAudioRecordThread(filePath);
+            StartAVRecordThread(filePath);
         }
     }
     else
     {
         m_isRecording = false;
-        ui->audioControlButtons->UpdateRecordState(false);
-        StopAudioRecordThread();
+        ui->ControlButtons->UpdateRecordState(false);
+        StopAVRecordThread();
     }
 }
 
-void PlayerAudioModuleWidget::SlotBtnPlayClicked()
+void AVBaseWidget::SlotBtnPlayClicked()
 {
     LOG_INFO("播放按钮被点击");
     if (!m_currentAudioFile.isEmpty())
@@ -150,8 +135,8 @@ void PlayerAudioModuleWidget::SlotBtnPlayClicked()
 
             m_isPlaying = true;
             m_isPaused = false;
-            ui->audioControlButtons->UpdatePlayState(true);
-            StartAudioPlayThread();
+            ui->ControlButtons->UpdatePlayState(true);
+            StartAVPlayThread();
         }
         else
         {
@@ -159,8 +144,8 @@ void PlayerAudioModuleWidget::SlotBtnPlayClicked()
 
             m_isPlaying = false;
             m_isPaused = false;
-            ui->audioControlButtons->UpdatePlayState(false);
-            StopAudioPlayThread();
+            ui->ControlButtons->UpdatePlayState(false);
+            StopAVPlayThread();
         }
     }
     else
@@ -169,11 +154,11 @@ void PlayerAudioModuleWidget::SlotBtnPlayClicked()
     }
 }
 
-void PlayerAudioModuleWidget::StartAudioPlayThread()
+void AVBaseWidget::StartAVPlayThread()
 {
     if (m_playThreadRunning)
     {
-        StopAudioPlayThread();
+        StopAVPlayThread();
     }
 
     m_playThreadRunning = true;
@@ -181,22 +166,22 @@ void PlayerAudioModuleWidget::StartAudioPlayThread()
     {
         try
         {
-            // 在播放前加载音频数据并生成波形
-            QVector<float> waveformData;
-            if (m_ffmpeg.LoadAudioWaveform(m_currentAudioFile, waveformData))
-            {
-                // 在主线程中更新波形显示
-                QMetaObject::invokeMethod(this, [this, waveformData]()
-                {
-                    m_waveformWidget->SetWaveformData(waveformData);
-                }, Qt::QueuedConnection);
-            }
+            //// 在播放前加载音频数据并生成波形
+            // QVector<float> waveformData;
+            // if (m_ffmpeg.LoadAudioWaveform(m_currentAudioFile, waveformData))
+            //{
+            //     // 在主线程中更新波形显示
+            //     QMetaObject::invokeMethod(this, [this, waveformData]()
+            //     {
+            //         m_waveformWidget->SetWaveformData(waveformData);
+            //     }, Qt::QueuedConnection);
+            // }
 
             // 从指定位置开始播放
-            m_ffmpeg.StartAudioPlayback(m_currentAudioFile, m_currentPosition);
+            m_ffmpeg->StartPlay(m_currentAudioFile, m_currentPosition);
 
             // 等待播放完成
-            while (m_playThreadRunning && m_ffmpeg.IsPlaying())
+            while (m_playThreadRunning && m_ffmpeg->IsPlaying())
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
@@ -204,65 +189,65 @@ void PlayerAudioModuleWidget::StartAudioPlayThread()
             // 播放完成，发送信号
             if (m_playThreadRunning)
             {
-                emit SigAudioPlayFinished();
+                emit SigAVPlayFinished();
             }
         } catch (const std::exception& e)
         {
             qDebug() << "Audio playback error:" << e.what();
-            emit SigAudioPlayFinished();
+            emit SigAVPlayFinished();
         }
     });
 }
 
-void PlayerAudioModuleWidget::StopAudioPlayThread()
+void AVBaseWidget::StopAVPlayThread()
 {
     if (m_playThreadRunning)
     {
         m_playThreadRunning = false;
         CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
-        m_ffmpeg.StopAudioPlayback();
-        if (m_currentPosition < 1e-5)
-        {
-            m_waveformWidget->ClearWaveform();
-        }
+        m_ffmpeg->StopPlay();
+        // if (m_currentPosition < 1e-5)
+        //{
+        //     m_waveformWidget->ClearWaveform();
+        // }
     }
 }
 
-void PlayerAudioModuleWidget::SlotAudioPlayFinished()
+void AVBaseWidget::SlotAVPlayFinished()
 {
     m_isPlaying = false;
     m_isPaused = false;
-    ui->audioControlButtons->UpdatePlayState(false);
+    ui->ControlButtons->UpdatePlayState(false);
     m_playThreadRunning = false;
 }
 
-void PlayerAudioModuleWidget::SlotBtnForwardClicked()
+void AVBaseWidget::SlotBtnForwardClicked()
 {
     if (m_isPlaying)
     {
         // 停止当前播放线程
-        StopAudioPlayThread();
+        StopAVPlayThread();
 
         // 启动新的播放线程，从新位置开始播放
         m_currentPosition += 15;
-        StartAudioPlayThread();
+        StartAVPlayThread();
     }
 }
 
-void PlayerAudioModuleWidget::SlotBtnBackwardClicked()
+void AVBaseWidget::SlotBtnBackwardClicked()
 {
     if (m_isPlaying)
     {
         // 停止当前播放线程
-        StopAudioPlayThread();
+        StopAVPlayThread();
 
         // 启动新的播放线程，从新位置开始播放
         m_currentPosition = std::max(0.0, m_currentPosition - 15.0);
-        StartAudioPlayThread();
+        StartAVPlayThread();
     }
 }
 
-void PlayerAudioModuleWidget::SlotBtnNextClicked()
+void AVBaseWidget::SlotBtnNextClicked()
 {
     // 获取当前项的索引
     FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
@@ -286,11 +271,11 @@ void PlayerAudioModuleWidget::SlotBtnNextClicked()
             {
                 QString filePath = nextItem->GetNodeInfo().filePath;
                 m_currentAudioFile = filePath;
-                ui->audioControlButtons->SetCurrentAudioFile(filePath);
+                ui->ControlButtons->SetCurrentAudioFile(filePath);
                 if (m_isPlaying)
                 {
-                    StopAudioPlayThread();
-                    StartAudioPlayThread();
+                    StopAVPlayThread();
+                    StartAVPlayThread();
                 }
                 ui->audioFileList->setCurrentItem(nextItem);
             }
@@ -298,7 +283,7 @@ void PlayerAudioModuleWidget::SlotBtnNextClicked()
     }
 }
 
-void PlayerAudioModuleWidget::SlotBtnPreviousClicked()
+void AVBaseWidget::SlotBtnPreviousClicked()
 {
     // 获取当前项的索引
     FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
@@ -322,11 +307,11 @@ void PlayerAudioModuleWidget::SlotBtnPreviousClicked()
             {
                 QString filePath = prevItem->GetNodeInfo().filePath;
                 m_currentAudioFile = filePath;
-                ui->audioControlButtons->SetCurrentAudioFile(filePath);
+                ui->ControlButtons->SetCurrentAudioFile(filePath);
                 if (m_isPlaying)
                 {
-                    StopAudioPlayThread();
-                    StartAudioPlayThread();
+                    StopAVPlayThread();
+                    StartAVPlayThread();
                 }
                 ui->audioFileList->setCurrentItem(prevItem);
             }
@@ -334,48 +319,20 @@ void PlayerAudioModuleWidget::SlotBtnPreviousClicked()
     }
 }
 
-void PlayerAudioModuleWidget::InitAudioDevices()
-{
-    // 获取并设置输入设备
-    QStringList inputDevices = m_ffmpeg.GetInputAudioDevices();
-    ui->comboBoxInput->clear();
-    ui->comboBoxInput->addItems(inputDevices);
-    if (!inputDevices.isEmpty())
-    {
-        m_ffmpeg.SetInputDevice(inputDevices.first());
-    }
-
-    if (inputDevices.size() == 0)
-    {
-        ui->comboBoxInput->setEnabled(false);
-    }
-    else
-    {
-        ui->comboBoxInput->setEnabled(true);
-    }
-}
-
-void PlayerAudioModuleWidget::SlotInputDeviceChanged(int index)
-{
-    QString deviceName = ui->comboBoxInput->itemText(index);
-    LOG_INFO("切换输入设备: " + deviceName.toStdString());
-    m_ffmpeg.SetInputDevice(deviceName);
-}
-
-void PlayerAudioModuleWidget::SlotAudioFileSelected(const QString& filePath)
+void AVBaseWidget::SlotAVFileSelected(const QString& filePath)
 {
     m_currentAudioFile = filePath;
-    ui->audioControlButtons->SetCurrentAudioFile(filePath);
+    ui->ControlButtons->SetCurrentAudioFile(filePath);
 }
 
-void PlayerAudioModuleWidget::SlotAudioFileDoubleClicked(const QString& filePath)
+void AVBaseWidget::SlotAVFileDoubleClicked(const QString& filePath)
 {
     m_currentAudioFile = filePath;
-    ui->audioControlButtons->SetCurrentAudioFile(filePath);
+    ui->ControlButtons->SetCurrentAudioFile(filePath);
     SlotBtnPlayClicked(); // 自动开始播放
 }
 
-void PlayerAudioModuleWidget::AddAudioFiles(const QStringList& filePaths)
+void AVBaseWidget::AddAVFiles(const QStringList& filePaths)
 {
     LOG_INFO("添加音频文件到列表，文件数量: " + std::to_string(filePaths.size()));
     for (const QString& filePath : filePaths)
@@ -401,13 +358,13 @@ void PlayerAudioModuleWidget::AddAudioFiles(const QStringList& filePaths)
             // 如果是第一个文件，自动选中
             if (ui->audioFileList->GetItemCount() == 1)
             {
-                SlotAudioFileSelected(filePath);
+                SlotAVFileSelected(filePath);
             }
         }
     }
 }
 
-void PlayerAudioModuleWidget::RemoveAudioFile(const QString& filePath)
+void AVBaseWidget::RemoveAVFile(const QString& filePath)
 {
     int index = GetFileIndex(filePath);
     if (index != -1)
@@ -415,9 +372,9 @@ void PlayerAudioModuleWidget::RemoveAudioFile(const QString& filePath)
         // 如果正在播放这个文件，先停止播放
         if (m_currentAudioFile == filePath && m_isPlaying)
         {
-            StopAudioPlayThread();
+            StopAVPlayThread();
             m_isPlaying = false;
-            ui->audioControlButtons->UpdatePlayState(false);
+            ui->ControlButtons->UpdatePlayState(false);
         }
 
         ui->audioFileList->RemoveItemByIndex(index);
@@ -426,27 +383,27 @@ void PlayerAudioModuleWidget::RemoveAudioFile(const QString& filePath)
         if (m_currentAudioFile == filePath)
         {
             m_currentAudioFile.clear();
-            ui->audioControlButtons->SetCurrentAudioFile(QString());
+            ui->ControlButtons->SetCurrentAudioFile(QString());
         }
     }
 }
 
-void PlayerAudioModuleWidget::ClearAudioFiles()
+void AVBaseWidget::ClearAVFiles()
 {
     // 如果正在播放，先停止播放
     if (m_isPlaying)
     {
-        StopAudioPlayThread();
+        StopAVPlayThread();
         m_isPlaying = false;
-        ui->audioControlButtons->UpdatePlayState(false);
+        ui->ControlButtons->UpdatePlayState(false);
     }
 
     ui->audioFileList->Clear();
     m_currentAudioFile.clear();
-    ui->audioControlButtons->SetCurrentAudioFile(QString());
+    ui->ControlButtons->SetCurrentAudioFile(QString());
 }
 
-int PlayerAudioModuleWidget::GetFileIndex(const QString& filePath) const
+int AVBaseWidget::GetFileIndex(const QString& filePath) const
 {
     for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
     {
@@ -459,12 +416,12 @@ int PlayerAudioModuleWidget::GetFileIndex(const QString& filePath) const
     return -1;
 }
 
-void PlayerAudioModuleWidget::closeEvent(QCloseEvent* event)
+void AVBaseWidget::closeEvent(QCloseEvent* event)
 {
     event->accept();
 }
 
-FilePathIconListWidgetItem::ST_NodeInfo PlayerAudioModuleWidget::GetFileInfo(int index) const
+FilePathIconListWidgetItem::ST_NodeInfo AVBaseWidget::GetFileInfo(int index) const
 {
     FilePathIconListWidgetItem* item = ui->audioFileList->GetItem(index);
     if (item)
@@ -474,11 +431,11 @@ FilePathIconListWidgetItem::ST_NodeInfo PlayerAudioModuleWidget::GetFileInfo(int
     return FilePathIconListWidgetItem::ST_NodeInfo();
 }
 
-void PlayerAudioModuleWidget::StartAudioRecordThread(const QString& filePath)
+void AVBaseWidget::StartAVRecordThread(const QString& filePath)
 {
     if (m_recordThreadRunning)
     {
-        StopAudioRecordThread();
+        StopAVRecordThread();
     }
 
     m_recordThreadRunning = true;
@@ -486,10 +443,10 @@ void PlayerAudioModuleWidget::StartAudioRecordThread(const QString& filePath)
     {
         try
         {
-            m_ffmpeg.StartAudioRecording(filePath, "wav");
+            m_ffmpeg->StartRecording(filePath);
 
             // 等待录制停止
-            while (m_recordThreadRunning && m_ffmpeg.IsRecording())
+            while (m_recordThreadRunning && m_ffmpeg->IsRecording())
             {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
@@ -497,29 +454,29 @@ void PlayerAudioModuleWidget::StartAudioRecordThread(const QString& filePath)
             // 录制完成，发送信号
             if (m_recordThreadRunning)
             {
-                emit SigAudioRecordFinished();
+                emit SigAVRecordFinished();
             }
         } catch (const std::exception& e)
         {
             qDebug() << "Audio recording error:" << e.what();
-            emit SigAudioRecordFinished();
+            emit SigAVRecordFinished();
         }
     });
 }
 
-void PlayerAudioModuleWidget::StopAudioRecordThread()
+void AVBaseWidget::StopAVRecordThread()
 {
     if (m_recordThreadRunning)
     {
         m_recordThreadRunning = false;
-        m_ffmpeg.StopAudioRecording();
+        m_ffmpeg->StopRecording();
         CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_recordThreadId);
     }
 }
 
-void PlayerAudioModuleWidget::SlotAudioRecordFinished()
+void AVBaseWidget::SlotAVRecordFinished()
 {
     m_isRecording = false;
-    ui->audioControlButtons->UpdateRecordState(false);
+    ui->ControlButtons->UpdateRecordState(false);
     m_recordThreadRunning = false;
 }
