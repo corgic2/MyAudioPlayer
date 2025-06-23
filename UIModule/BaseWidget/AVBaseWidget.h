@@ -4,8 +4,10 @@
 #include "AudioFFmpegUtils.h"
 #include "BaseFFmpegUtils.h"
 #include "ui_AVBaseWidget.h"
-#include "VedioFFmpegUtils.h"
+#include "VideoFFmpegUtils.h"
+#include "AudioWidget/PlayerAudioModuleWidget.h"
 #include "DomainWidget/FilePathIconListWidgetItem.h"
+#include "VideoWidget/PlayerVideoModuleWidget.h"
 
 QT_BEGIN_NAMESPACE namespace Ui
 {
@@ -159,11 +161,13 @@ private:
     /// </summary>
     void StopAVRecordThread();
 
-private:
+    void ShowAVWidget(bool bAudio = true);
+
+  private:
     Ui::AVBaseWidgetClass* ui;
     BaseFFmpegUtils* m_ffmpeg = nullptr;
-    AudioFFmpegUtils m_audioFFmpeg;
-    VedioFFmpegUtils m_vedioFFmpeg;
+    PlayerAudioModuleWidget *m_audioPlayerWidget = nullptr; /// 音频播放器模块控件
+    PlayerVideoModuleWidget *m_videoPlayerWidget = nullptr; /// 视频播放器模块控件
     QString m_currentAVFile;                     /// 当前播放的音视频文件
     bool m_isRecording = false;                     /// 是否正在录制
     bool m_isPlaying = false;                       /// 是否正在播放

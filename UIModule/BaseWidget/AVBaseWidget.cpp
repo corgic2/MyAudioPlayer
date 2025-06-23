@@ -28,6 +28,26 @@ AVBaseWidget::AVBaseWidget(QWidget* parent)
     ui->audioFileList->EnableAutoSave(true);
     ui->audioFileList->SetAutoSaveInterval(1800000); // 30分钟
     ui->audioFileList->LoadFileListFromJson();
+
+}
+
+AVBaseWidget::~AVBaseWidget()
+{
+    if (m_isRecording)
+    {
+        StopAVRecordThread();
+    }
+    if (m_isPlaying)
+    {
+        StopAVPlayThread();
+    }
+
+    SAFE_DELETE_POINTER_VALUE(m_playTimer)
+    CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
+    CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_recordThreadId);
+    SAFE_DELETE_POINTER_VALUE(ui);
+    SAFE_DELETE_POINTER_VALUE(m_audioPlayerWidget);
+    SAFE_DELETE_POINTER_VALUE(m_videoPlayerWidget);
 }
 
 void AVBaseWidget::InitializeWidget()
@@ -64,6 +84,12 @@ void AVBaseWidget::InitializeWidget()
     ui->ToolButtonFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
     ui->ToolButtonFrame->setLineWidth(1);
     ui->ToolButtonFrame->setMidLineWidth(0);
+    m_audioPlayerWidget = new PlayerAudioModuleWidget(this);
+    m_videoPlayerWidget = new PlayerVideoModuleWidget(this);
+    ui->verticalLayout_6->addWidget(m_audioPlayerWidget);
+    ui->verticalLayout_6->addWidget(m_videoPlayerWidget);
+    m_audioPlayerWidget->hide();
+    m_videoPlayerWidget->hide();
 }
 
 void AVBaseWidget::ConnectSignals()
@@ -85,23 +111,6 @@ void AVBaseWidget::ConnectSignals()
 
     // 添加录制完成信号连接
     connect(this, &AVBaseWidget::SigAVRecordFinished, this, &AVBaseWidget::SlotAVRecordFinished);
-}
-
-AVBaseWidget::~AVBaseWidget()
-{
-    if (m_isRecording)
-    {
-        StopAVRecordThread();
-    }
-    if (m_isPlaying)
-    {
-        StopAVPlayThread();
-    }
-
-    SAFE_DELETE_POINTER_VALUE(m_playTimer)
-    CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
-    CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_recordThreadId);
-    SAFE_DELETE_POINTER_VALUE(ui);
 }
 
 void AVBaseWidget::SlotBtnRecordClicked()
@@ -166,23 +175,25 @@ void AVBaseWidget::StartAVPlayThread()
     
     if (AV_player::AVFileSystem::IsAudioFile(m_currentAVFile.toStdString()))
     {
+        m_ffmpeg = m_audioPlayerWidget->GetFFMpegUtils();
+        m_audioPlayerWidget->LoadWaveWidegt(m_currentAVFile);
+        ShowAVWidget();
+    }
+    else if (AV_player::AVFileSystem::IsVideoFile(m_currentAVFile.toStdString()))
+    {
+        m_ffmpeg = m_videoPlayerWidget->GetFFMpegUtils();
+        ShowAVWidget(false);
+    }
+    else
+    {
+        qDebug() << "Unsupported file type for playback:" << m_currentAVFile;
+        return;
     }
     m_playThreadRunning = true;
     m_playThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AudioPlayThread", [this]()
     {
         try
         {
-            //// 在播放前加载音频数据并生成波形
-            // QVector<float> waveformData;
-            // if (m_ffmpeg.LoadAudioWaveform(m_currentAVFile, waveformData))
-            //{
-            //     // 在主线程中更新波形显示
-            //     QMetaObject::invokeMethod(this, [this, waveformData]()
-            //     {
-            //         m_waveformWidget->SetWaveformData(waveformData);
-            //     }, Qt::QueuedConnection);
-            // }
-
             // 从指定位置开始播放
             m_ffmpeg->StartPlay(m_currentAVFile, m_currentPosition);
 
@@ -443,7 +454,19 @@ void AVBaseWidget::StartAVRecordThread(const QString& filePath)
     {
         StopAVRecordThread();
     }
-
+    if (AV_player::AVFileSystem::IsAudioFile(m_currentAVFile.toStdString()))
+    {
+        m_ffmpeg = m_audioPlayerWidget->GetFFMpegUtils();
+    }
+    else if (AV_player::AVFileSystem::IsVideoFile(m_currentAVFile.toStdString()))
+    {
+        m_ffmpeg = m_videoPlayerWidget->GetFFMpegUtils();
+    }
+    else
+    {
+        qDebug() << "Unsupported file type for playback:" << m_currentAVFile;
+        return;
+    }
     m_recordThreadRunning = true;
     m_recordThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AudioRecordThread", [this, filePath]()
     {
@@ -477,6 +500,20 @@ void AVBaseWidget::StopAVRecordThread()
         m_recordThreadRunning = false;
         m_ffmpeg->StopRecording();
         CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_recordThreadId);
+    }
+}
+
+void AVBaseWidget::ShowAVWidget(bool bAudio)
+{
+    if (bAudio)
+    {
+        m_audioPlayerWidget->show();
+        m_videoPlayerWidget->hide();
+    }
+    else
+    {
+        m_audioPlayerWidget->hide();
+        m_videoPlayerWidget->show();
     }
 }
 

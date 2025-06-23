@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>PlayerAudioModuleWidgetClass</class>
- <widget class="QWidget" name="PlayerAudioModuleWidgetClass">
+ <class>PlayerVideoModuleWidgetClass</class>
+ <widget class="QWidget" name="PlayerVideoModuleWidgetClass">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>PlayerAudioModuleWidget</string>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QHBoxLayout" name="horizontalLayout">
    <property name="spacing">
     <number>8</number>
    </property>

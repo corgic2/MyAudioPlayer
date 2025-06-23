@@ -54,7 +54,7 @@ enum class EM_VideoRecordState
 /// <summary>
 /// 视频FFmpeg工具类
 /// </summary>
-class VedioFFmpegUtils : public BaseFFmpegUtils
+class VideoFFmpegUtils : public BaseFFmpegUtils
 {
     Q_OBJECT
 
@@ -63,12 +63,12 @@ public:
     /// 构造函数
     /// </summary>
     /// <param name="parent">父对象</param>
-    explicit VedioFFmpegUtils(QObject* parent = nullptr);
+    explicit VideoFFmpegUtils(QObject* parent = nullptr);
 
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~VedioFFmpegUtils();
+    ~VideoFFmpegUtils();
 
     /// <summary>
     /// 显示BMP图片文件

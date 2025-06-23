@@ -1,23 +1,23 @@
-﻿#include "VedioFFmpegUtils.h"
+﻿#include "VideoFFmpegUtils.h"
 #include <QDebug>
 #include <QThread>
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
 
-VedioFFmpegUtils::VedioFFmpegUtils(QObject* parent)
+VideoFFmpegUtils::VideoFFmpegUtils(QObject* parent)
     : BaseFFmpegUtils(parent), m_bSDLInitialized(false), m_playState(EM_VideoPlayState::Stopped), m_recordState(EM_VideoRecordState::Stopped), m_pPlayThread(nullptr), m_pRecordThread(nullptr)
 {
     InitSDL();
 }
 
-VedioFFmpegUtils::~VedioFFmpegUtils()
+VideoFFmpegUtils::~VideoFFmpegUtils()
 {
     StopPlay();
     StopRecording();
     QuitSDL();
 }
 
-bool VedioFFmpegUtils::InitSDL()
+bool VideoFFmpegUtils::InitSDL()
 {
     if (m_bSDLInitialized)
     {
@@ -29,7 +29,7 @@ bool VedioFFmpegUtils::InitSDL()
     return true;
 }
 
-void VedioFFmpegUtils::QuitSDL()
+void VideoFFmpegUtils::QuitSDL()
 {
     if (m_bSDLInitialized)
     {
@@ -38,7 +38,7 @@ void VedioFFmpegUtils::QuitSDL()
     }
 }
 
-void VedioFFmpegUtils::ShowBMPImageFile(const QString& bmpFilePath, const QString& windowTitle)
+void VideoFFmpegUtils::ShowBMPImageFile(const QString& bmpFilePath, const QString& windowTitle)
 {
     if (bmpFilePath.isEmpty())
     {
@@ -131,7 +131,7 @@ void VedioFFmpegUtils::ShowBMPImageFile(const QString& bmpFilePath, const QStrin
     m_window.DestroyWindow();
 }
 
-void VedioFFmpegUtils::StartPlay(const QString& videoPath, double startPosition, const QStringList& args)
+void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition, const QStringList& args)
 {
     std::string fileName = my_sdk::FileSystem::GetFileNameWithoutExtension(videoPath.toStdString());
     if (videoPath.isEmpty())
@@ -178,7 +178,7 @@ void VedioFFmpegUtils::StartPlay(const QString& videoPath, double startPosition,
     return;
 }
 
-void VedioFFmpegUtils::PausePlay()
+void VideoFFmpegUtils::PausePlay()
 {
     if (m_playState == EM_VideoPlayState::Playing)
     {
@@ -187,7 +187,7 @@ void VedioFFmpegUtils::PausePlay()
     }
 }
 
-void VedioFFmpegUtils::ResumePlay()
+void VideoFFmpegUtils::ResumePlay()
 {
     if (m_playState == EM_VideoPlayState::Paused)
     {
@@ -196,7 +196,7 @@ void VedioFFmpegUtils::ResumePlay()
     }
 }
 
-void VedioFFmpegUtils::StopPlay()
+void VideoFFmpegUtils::StopPlay()
 {
     if (m_playState != EM_VideoPlayState::Stopped)
     {
@@ -220,7 +220,7 @@ void VedioFFmpegUtils::StopPlay()
     }
 }
 
-void VedioFFmpegUtils::StartRecording(const QString& outputPath)
+void VideoFFmpegUtils::StartRecording(const QString& outputPath)
 {
     if (outputPath.isEmpty())
     {
@@ -242,7 +242,7 @@ void VedioFFmpegUtils::StartRecording(const QString& outputPath)
     return;
 }
 
-void VedioFFmpegUtils::StopRecording()
+void VideoFFmpegUtils::StopRecording()
 {
     if (m_recordState != EM_VideoRecordState::Stopped)
     {
@@ -260,21 +260,21 @@ void VedioFFmpegUtils::StopRecording()
     }
 }
 
-void VedioFFmpegUtils::SeekPlay(double seconds)
+void VideoFFmpegUtils::SeekPlay(double seconds)
 {
 }
 
-bool VedioFFmpegUtils::IsPlaying()
+bool VideoFFmpegUtils::IsPlaying()
 {
     return m_playState == EM_VideoPlayState::Playing;
 }
 
-bool VedioFFmpegUtils::IsPaused()
+bool VideoFFmpegUtils::IsPaused()
 {
     return m_playState == EM_VideoPlayState::Paused;
 }
 
-bool VedioFFmpegUtils::IsRecording()
+bool VideoFFmpegUtils::IsRecording()
 {
     return m_recordState == EM_VideoRecordState::Recording;
 }
