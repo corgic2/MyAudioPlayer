@@ -22,36 +22,55 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     if (!inputData || inputSamples <= 0)
     {
         LOG_ERROR("Resampling failed: Invalid input parameters");
+        output.SetData(std::vector<uint8_t>());
         return;
     }
 
-    // 初始化或更新重采样器
-    if (!InitializeResampler(params))
+    // 验证重采样器上下文
+    if (!m_swrCtx.GetRawContext())
     {
-        LOG_ERROR("Failed to initialize resampler");
+        if (!InitializeResampler(params))
+        {
+            LOG_ERROR("Failed to initialize resampler");
+            output.SetData(std::vector<uint8_t>());
+            return;
+        }
+    }
+
+    // 验证输入数据
+    if (!inputData[0])
+    {
+        LOG_ERROR("Resampling failed: Input data is null");
+        output.SetData(std::vector<uint8_t>());
         return;
     }
 
-    // 计算输出样本数
-    int outSamples = swr_get_out_samples(m_swrCtx.GetRawContext(), inputSamples);
-    if (outSamples < 0)
-    {
-        int64_t delay = swr_get_delay(m_swrCtx.GetRawContext(), params.GetInput().GetSampleRate());
-        outSamples = static_cast<int>(av_rescale_rnd(delay + inputSamples, params.GetOutput().GetSampleRate(), params.GetInput().GetSampleRate(), AV_ROUND_UP));
-    }
+    // 计算输出样本数，使用更安全的计算方式
+    int64_t delay = swr_get_delay(m_swrCtx.GetRawContext(), params.GetInput().GetSampleRate());
+    int outSamples = static_cast<int>(av_rescale_rnd(delay + inputSamples, 
+                                                    params.GetOutput().GetSampleRate(), 
+                                                    params.GetInput().GetSampleRate(), 
+                                                    AV_ROUND_UP));
+    
+    // 确保输出样本数合理，添加更多安全检查
+    outSamples = std::max(outSamples, inputSamples);
+    outSamples = std::max(outSamples, 1024); // 最小缓冲区
+    outSamples = std::min(outSamples, 65536); // 最大缓冲区限制
 
     // 验证输出样本数
     if (outSamples <= 0)
     {
-        LOG_WARN("Resample() : Invalid output samples count");
+        LOG_WARN("Resample() : Invalid output samples count: " + std::to_string(outSamples));
+        output.SetData(std::vector<uint8_t>());
         return;
     }
 
     // Get channels count and sample format
-    int outChannels = params.GetOutput().GetChannels();
-    if (outChannels <= 0)
+    int outChannels = params.GetOutput().GetChannelLayout().GetRawLayout()->nb_channels;
+    if (outChannels <= 0 || outChannels > 8)
     {
-        LOG_WARN("Resample() : Invalid channel count");
+        LOG_WARN("Resample() : Invalid channel count: " + std::to_string(outChannels));
+        output.SetData(std::vector<uint8_t>());
         return;
     }
 
@@ -59,54 +78,80 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     int bytesPerSample = av_get_bytes_per_sample(outFormat);
     if (bytesPerSample <= 0)
     {
-        LOG_WARN("Resample() : Invalid sample format");
+        LOG_WARN("Resample() : Invalid sample format: " + std::to_string(outFormat));
+        output.SetData(std::vector<uint8_t>());
         return;
     }
 
-    // 计算缓冲区大小，确保16字节对齐
+    // 计算缓冲区大小，确保对齐
     int linesize;
-    int bufSize = av_samples_get_buffer_size(&linesize, outChannels, outSamples, outFormat, 16);
+    int bufSize = av_samples_get_buffer_size(&linesize, outChannels, outSamples, outFormat, 1);
     if (bufSize <= 0)
     {
-        LOG_WARN("Resample() : Invalid buffer size calculated");
+        LOG_WARN("Resample() : Invalid buffer size calculated: " + std::to_string(bufSize));
+        output.SetData(std::vector<uint8_t>());
         return;
     }
 
-    // 分配对齐的内存
-    auto alignedBuffer = static_cast<uint8_t*>(av_malloc(bufSize + AV_INPUT_BUFFER_PADDING_SIZE));
+    // 分配对齐的内存，增加更多填充
+    const int EXTRA_PADDING = 1024;
+    auto alignedBuffer = static_cast<uint8_t*>(av_malloc(bufSize + AV_INPUT_BUFFER_PADDING_SIZE + EXTRA_PADDING));
     if (!alignedBuffer)
     {
-        LOG_WARN("Resample() : Failed to allocate aligned buffer");
+        LOG_ERROR("Resample() : Failed to allocate aligned buffer");
+        output.SetData(std::vector<uint8_t>());
         return;
     }
 
-    // 清零整个缓冲区，包括padding区域
-    memset(alignedBuffer, 0, bufSize + AV_INPUT_BUFFER_PADDING_SIZE);
+    // 清零整个缓冲区，包括填充区域
+    memset(alignedBuffer, 0, bufSize + AV_INPUT_BUFFER_PADDING_SIZE + EXTRA_PADDING);
 
-    // 执行重采样
-    int realOutSamples = swr_convert(m_swrCtx.GetRawContext(), &alignedBuffer, outSamples, inputData, inputSamples);
-    if (realOutSamples < 0)
+    try
     {
-        LOG_ERROR("Resample Failed");
-        av_free(alignedBuffer);
-        return;
+        // 执行重采样
+        int realOutSamples = swr_convert(m_swrCtx.GetRawContext(), &alignedBuffer, outSamples, inputData, inputSamples);
+        if (realOutSamples < 0)
+        {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+            av_strerror(realOutSamples, errbuf, sizeof(errbuf));
+            LOG_ERROR("Resample Failed with error: " + std::to_string(realOutSamples) + " - " + std::string(errbuf));
+            av_free(alignedBuffer);
+            output.SetData(std::vector<uint8_t>());
+            return;
+        }
+
+        LOG_INFO("Resampling completed, input samples: " + std::to_string(inputSamples) + 
+                 ", output samples: " + std::to_string(realOutSamples));
+
+        // 计算实际使用的缓冲区大小
+        int realBufSize = av_samples_get_buffer_size(&linesize, outChannels, realOutSamples, outFormat, 1);
+        if (realBufSize > 0 && realBufSize <= bufSize)
+        {
+            // 将重采样后的数据复制到输出向量
+            std::vector<uint8_t> tempData(alignedBuffer, alignedBuffer + realBufSize);
+            output.SetData(std::move(tempData));
+
+            // 填充结果信息
+            output.SetSamples(realOutSamples);
+            output.SetChannels(outChannels);
+            output.SetSampleRate(params.GetOutput().GetSampleRate());
+            output.SetSampleFormat(params.GetOutput().GetSampleFormat());
+        }
+        else
+        {
+            LOG_WARN("Invalid real buffer size: " + std::to_string(realBufSize));
+            output.SetData(std::vector<uint8_t>());
+        }
     }
-
-    LOG_INFO("Resampling completed, output samples: " + std::to_string(realOutSamples));
-
-    // 计算实际使用的缓冲区大小
-    int realBufSize = av_samples_get_buffer_size(&linesize, outChannels, realOutSamples, outFormat, 16);
-    if (realBufSize > 0)
+    catch (const std::exception& e)
     {
-        // 将对齐的数据复制到输出向量
-        std::vector<uint8_t> tempData(alignedBuffer, alignedBuffer + realBufSize);
-        output.SetData(std::move(tempData));
-
-        // 填充结果信息
-        output.SetSamples(realOutSamples);
-        output.SetChannels(outChannels);
-        output.SetSampleRate(params.GetOutput().GetSampleRate());
-        output.SetSampleFormat(params.GetOutput().GetSampleFormat());
+        LOG_ERROR("Exception during resampling: " + std::string(e.what()));
+        output.SetData(std::vector<uint8_t>());
+    }
+    catch (...)
+    {
+        LOG_ERROR("Unknown exception during resampling");
+        output.SetData(std::vector<uint8_t>());
     }
 
     // 释放对齐的缓冲区
@@ -160,85 +205,22 @@ ST_ResampleParams AudioResampler::GetResampleParams(const QString& format)
 {
     ST_ResampleParams params;
 
-    // 设置输出参数（使用默认高质量设置）
+    // 注意：这个方法现在主要用作默认参数，实际参数应该从文件中获取
+    // 设置默认输出参数
     ST_ResampleSimpleData outputParams = GetDefaultOutputParams();
     params.SetOutput(outputParams);
 
-    // 根据不同格式设置输入参数
-    if (format.toLower() == "mp3")
-    {
-        params.GetInput().SetSampleRate(44100);                                   // MP3标准采样率
-        params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_FLTP)); // MP3解码后的格式
+    // 设置默认输入参数（会被实际文件参数覆盖）
+    params.GetInput().SetSampleRate(44100);
+    params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S16));
 
-        auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
-        if (inLayout)
-        {
-            av_channel_layout_default(inLayout, 2); // MP3通常是立体声
-            params.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
-        }
-    }
-    else if (format.toLower() == "wav")
+    auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
+    if (inLayout)
     {
-        params.GetInput().SetSampleRate(44100);                                  // WAV标准采样率
-        params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S16)); // WAV通常使用16位整数格式
-
-        auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
-        if (inLayout)
-        {
-            av_channel_layout_default(inLayout, 2); // WAV通常是立体声
-            params.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
-        }
+        av_channel_layout_default(inLayout, 2);
+        params.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
     }
-    else if (format.toLower() == "aac")
-    {
-        params.GetInput().SetSampleRate(48000);                                   // AAC通常使用48kHz
-        params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_FLTP)); // AAC通常使用平面浮点格式
-
-        auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
-        if (inLayout)
-        {
-            av_channel_layout_default(inLayout, 2); // AAC通常是立体声
-            params.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
-        }
-    }
-    else if (format.toLower() == "ogg")
-    {
-        params.GetInput().SetSampleRate(44100);                                   // OGG通常使用44.1kHz
-        params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_FLTP)); // OGG通常使用平面浮点格式
-
-        auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
-        if (inLayout)
-        {
-            av_channel_layout_default(inLayout, 2); // OGG通常是立体声
-            params.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
-        }
-    }
-    else if (format.toLower() == "flac")
-    {
-        params.GetInput().SetSampleRate(96000);                                  // FLAC支持高采样率
-        params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S32)); // FLAC通常使用32位整数格式
-
-        auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
-        if (inLayout)
-        {
-            av_channel_layout_default(inLayout, 2); // FLAC通常是立体声
-            params.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
-        }
-    }
-    else
-    {
-        // 默认参数
-        params.GetInput().SetSampleRate(44100);
-        params.GetInput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S16));
-
-        auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
-        if (inLayout)
-        {
-            av_channel_layout_default(inLayout, 2);
-            params.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
-        }
-    }
-    params.GetOutput() = params.GetInput();
+    
     return params;
 }
 
@@ -246,14 +228,14 @@ ST_ResampleSimpleData AudioResampler::GetDefaultOutputParams() const
 {
     ST_ResampleSimpleData params;
 
-    // 设置标准高质量输出参数
-    params.SetSampleRate(48000);                                  // 标准采样率
-    params.SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S16)); // 使用S16格式，确保更好的兼容性和质量
+    // 设置稳定的输出参数
+    params.SetSampleRate(44100);                                  // 标准采样率
+    params.SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S16)); // 16位整数格式
 
     auto outLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
     if (outLayout)
     {
-        av_channel_layout_default(outLayout, 2); // 默认立体声
+        av_channel_layout_default(outLayout, 2); // 立体声
         params.SetChannelLayout(ST_AVChannelLayout(outLayout));
     }
 
@@ -262,55 +244,126 @@ ST_ResampleSimpleData AudioResampler::GetDefaultOutputParams() const
 
 bool AudioResampler::InitializeResampler(ST_ResampleParams& params)
 {
-    // 自动推导声道布局
-    uint64_t inLayout = params.GetInput().GetChannelLayout().GetRawLayout()->nb_channels;
-    if (inLayout == 0)
+    try
     {
-        inLayout = params.GetInput().GetChannels();
-    }
-
-    uint64_t outLayout = params.GetOutput().GetChannelLayout().GetRawLayout()->nb_channels;
-    if (outLayout == 0)
-    {
-        outLayout = params.GetOutput().GetChannels();
-    }
-
-    // 检查是否需要重新初始化
-    if (!m_swrCtx.GetRawContext() || inLayout != m_lastInLayout.GetRawLayout()->nb_channels || outLayout != m_lastOutLayout.GetRawLayout()->nb_channels || params.GetInput().GetSampleRate() != m_lastInRate || params.GetOutput().GetSampleRate() != m_lastOutRate || params.GetInput().GetSampleFormat().sampleFormat != m_lastInFmt.sampleFormat || params.GetOutput().GetSampleFormat().sampleFormat != m_lastOutFmt.sampleFormat)
-    {
-        SwrContext* p = m_swrCtx.GetRawContext();
-        // 释放旧上下文
-        if (m_swrCtx.GetRawContext())
+        // 验证输入参数
+        if (!params.GetInput().GetChannelLayout().GetRawLayout() || 
+            !params.GetOutput().GetChannelLayout().GetRawLayout())
         {
-            swr_free(&p);
-        }
-
-        // 创建新上下文
-        SwrContext** ctx = &p;
-        int ret = swr_alloc_set_opts2(ctx, params.GetOutput().GetChannelLayout().GetRawLayout(), params.GetOutput().GetSampleFormat().sampleFormat, params.GetOutput().GetSampleRate(), params.GetInput().GetChannelLayout().GetRawLayout(), params.GetInput().GetSampleFormat().sampleFormat, params.GetInput().GetSampleRate(), 0, nullptr);
-
-        if (ret < 0)
-        {
-            LOG_WARN("InitializeResampler() : Failed to allocate resampler context");
-            return false;
-        }
-        m_swrCtx.SetRawContext(p);
-        // 初始化
-        ret = m_swrCtx.SwrContextInit();
-        if (ret < 0)
-        {
-            LOG_WARN("InitializeResampler() : Failed to initialize resampler context");
+            LOG_ERROR("InitializeResampler() : Invalid channel layout");
             return false;
         }
 
-        // 保存当前参数
-        m_lastInLayout = ST_AVChannelLayout(params.GetInput().GetChannelLayout().GetRawLayout());
-        m_lastOutLayout = ST_AVChannelLayout(params.GetOutput().GetChannelLayout().GetRawLayout());
-        m_lastInRate = params.GetInput().GetSampleRate();
-        m_lastOutRate = params.GetOutput().GetSampleRate();
-        m_lastInFmt = params.GetInput().GetSampleFormat();
-        m_lastOutFmt = params.GetOutput().GetSampleFormat();
-    }
+        // 获取通道布局
+        uint64_t inChannels = params.GetInput().GetChannelLayout().GetRawLayout()->nb_channels;
+        uint64_t outChannels = params.GetOutput().GetChannelLayout().GetRawLayout()->nb_channels;
 
-    return true;
+        // 验证通道数
+        if (inChannels == 0 || inChannels > 8 || outChannels == 0 || outChannels > 8)
+        {
+            LOG_ERROR("InitializeResampler() : Invalid channel count - in: " + 
+                     std::to_string(inChannels) + ", out: " + std::to_string(outChannels));
+            return false;
+        }
+
+        // 验证采样率
+        if (params.GetInput().GetSampleRate() <= 0 || params.GetInput().GetSampleRate() > 192000 ||
+            params.GetOutput().GetSampleRate() <= 0 || params.GetOutput().GetSampleRate() > 192000)
+        {
+            LOG_ERROR("InitializeResampler() : Invalid sample rate - in: " + 
+                     std::to_string(params.GetInput().GetSampleRate()) + 
+                     ", out: " + std::to_string(params.GetOutput().GetSampleRate()));
+            return false;
+        }
+
+        // 检查是否需要重新初始化
+        bool needReinit = !m_swrCtx.GetRawContext() || 
+                         inChannels != m_lastInLayout.GetRawLayout()->nb_channels || 
+                         outChannels != m_lastOutLayout.GetRawLayout()->nb_channels || 
+                         params.GetInput().GetSampleRate() != m_lastInRate || 
+                         params.GetOutput().GetSampleRate() != m_lastOutRate || 
+                         params.GetInput().GetSampleFormat().sampleFormat != m_lastInFmt.sampleFormat || 
+                         params.GetOutput().GetSampleFormat().sampleFormat != m_lastOutFmt.sampleFormat;
+
+        if (needReinit)
+        {
+            SwrContext* p = m_swrCtx.GetRawContext();
+            // 释放旧上下文
+            if (p)
+            {
+                swr_free(&p);
+                m_swrCtx.SetRawContext(nullptr);
+            }
+
+            // 创建新上下文
+            SwrContext** ctx = &p;
+            int ret = swr_alloc_set_opts2(ctx, 
+                                         params.GetOutput().GetChannelLayout().GetRawLayout(), 
+                                         params.GetOutput().GetSampleFormat().sampleFormat, 
+                                         params.GetOutput().GetSampleRate(), 
+                                         params.GetInput().GetChannelLayout().GetRawLayout(), 
+                                         params.GetInput().GetSampleFormat().sampleFormat, 
+                                         params.GetInput().GetSampleRate(), 
+                                         0, nullptr);
+
+            if (ret < 0)
+            {
+                char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+                av_strerror(ret, errbuf, sizeof(errbuf));
+                LOG_ERROR("InitializeResampler() : Failed to allocate resampler context: " + std::string(errbuf));
+                return false;
+            }
+            
+            if (!p)
+            {
+                LOG_ERROR("InitializeResampler() : Resampler context is null after allocation");
+                return false;
+            }
+            
+            m_swrCtx.SetRawContext(p);
+            
+            // 设置重采样选项，使用高质量但稳定的设置
+            av_opt_set_int(m_swrCtx.GetRawContext(), "resampler", SWR_ENGINE_SWR, 0);
+            av_opt_set_int(m_swrCtx.GetRawContext(), "filter_size", 32, 0);   // 更高质量的滤波器
+            av_opt_set_int(m_swrCtx.GetRawContext(), "phase_shift", 10, 0);   // 更精确的相位偏移
+            av_opt_set_double(m_swrCtx.GetRawContext(), "cutoff", 0.98, 0);   // 高质量截止频率
+            av_opt_set_int(m_swrCtx.GetRawContext(), "linear_interp", 1, 0);  // 启用线性插值
+            
+            // 初始化
+            ret = m_swrCtx.SwrContextInit();
+            if (ret < 0)
+            {
+                char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+                av_strerror(ret, errbuf, sizeof(errbuf));
+                LOG_ERROR("InitializeResampler() : Failed to initialize resampler context: " + std::string(errbuf));
+                swr_free(&p);
+                m_swrCtx.SetRawContext(nullptr);
+                return false;
+            }
+
+            // 保存当前参数
+            m_lastInLayout = ST_AVChannelLayout(params.GetInput().GetChannelLayout().GetRawLayout());
+            m_lastOutLayout = ST_AVChannelLayout(params.GetOutput().GetChannelLayout().GetRawLayout());
+            m_lastInRate = params.GetInput().GetSampleRate();
+            m_lastOutRate = params.GetOutput().GetSampleRate();
+            m_lastInFmt = params.GetInput().GetSampleFormat();
+            m_lastOutFmt = params.GetOutput().GetSampleFormat();
+            
+            LOG_INFO("Resampler initialized successfully");
+            LOG_INFO("Input: " + std::to_string(m_lastInRate) + "Hz, " + std::to_string(inChannels) + " channels, format: " + std::to_string(m_lastInFmt.sampleFormat));
+            LOG_INFO("Output: " + std::to_string(m_lastOutRate) + "Hz, " + std::to_string(outChannels) + " channels, format: " + std::to_string(m_lastOutFmt.sampleFormat));
+        }
+
+        return true;
+    }
+    catch (const std::exception& e)
+    {
+        LOG_ERROR("Exception in InitializeResampler: " + std::string(e.what()));
+        return false;
+    }
+    catch (...)
+    {
+        LOG_ERROR("Unknown exception in InitializeResampler");
+        return false;
+    }
 }

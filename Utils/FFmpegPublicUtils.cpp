@@ -309,10 +309,10 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
         result.sampleRate = frame->sample_rate;
         result.format = static_cast<AVSampleFormat>(frame->format);
 
-        // 分配对齐的缓冲区
+        // 分配对齐的缓冲区，增加额外的padding
         size_t currentSize = result.audioData.size();
         size_t newSize = currentSize + frameSize;
-        result.audioData.resize(newSize + AV_INPUT_BUFFER_PADDING_SIZE);
+        result.audioData.resize(newSize + AV_INPUT_BUFFER_PADDING_SIZE + 32);
 
         // 对于平面格式（FLTP等），需要交错复制数据
         if (av_sample_fmt_is_planar(result.format))
@@ -320,25 +320,59 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
             int bytesPerSample = av_get_bytes_per_sample(result.format);
             uint8_t* dst = result.audioData.data() + currentSize;
 
-            // 优化的平面格式到交错格式的转换
+            // 优化的平面格式到交错格式的转换，减少音频失真
             for (int s = 0; s < frame->nb_samples; s++)
             {
                 for (int ch = 0; ch < result.channels; ch++)
                 {
                     const uint8_t* src = frame->data[ch] + s * bytesPerSample;
-                    memcpy(dst, src, bytesPerSample);
+                    
+                    // 对于浮点格式，进行软限幅处理避免爆音
+                    if (result.format == AV_SAMPLE_FMT_FLTP)
+                    {
+                        float* srcFloat = reinterpret_cast<float*>(const_cast<uint8_t*>(src));
+                        float* dstFloat = reinterpret_cast<float*>(dst);
+                        
+                        // 软限幅处理，避免音频失真
+                        float sample = *srcFloat;
+                        if (sample > 0.95f) sample = 0.95f;
+                        else if (sample < -0.95f) sample = -0.95f;
+                        
+                        *dstFloat = sample;
+                    }
+                    else
+                    {
+                        memcpy(dst, src, bytesPerSample);
+                    }
+                    
                     dst += bytesPerSample;
                 }
             }
         }
         else
         {
-            // 对于已经交错的格式，直接复制
-            memcpy(result.audioData.data() + currentSize, frame->data[0], frameSize);
+            // 对于已经交错的格式，直接复制，但也进行软限幅处理
+            if (result.format == AV_SAMPLE_FMT_FLT)
+            {
+                float* src = reinterpret_cast<float*>(frame->data[0]);
+                float* dst = reinterpret_cast<float*>(result.audioData.data() + currentSize);
+                
+                for (int i = 0; i < frame->nb_samples * result.channels; i++)
+                {
+                    float sample = src[i];
+                    if (sample > 0.95f) sample = 0.95f;
+                    else if (sample < -0.95f) sample = -0.95f;
+                    dst[i] = sample;
+                }
+            }
+            else
+            {
+                memcpy(result.audioData.data() + currentSize, frame->data[0], frameSize);
+            }
         }
 
         // 清零padding区域
-        memset(result.audioData.data() + newSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+        memset(result.audioData.data() + newSize, 0, AV_INPUT_BUFFER_PADDING_SIZE + 32);
     }
 
     // 释放资源

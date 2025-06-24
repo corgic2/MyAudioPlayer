@@ -10,6 +10,8 @@
 #include "DataDefine/ST_AudioPlayInfo.h"
 #include "DataDefine/ST_AudioPlayState.h"
 #include "DataDefine/ST_OpenAudioDevice.h"
+#include "DataDefine/ST_OpenFileResult.h"
+#include "AudioResampler.h"
 
 extern "C"
 {
@@ -204,6 +206,14 @@ private:
     void ProcessInt32Samples(AVFrame* frame, QVector<float>& waveformData,
                            int samplesPerPixel, float& currentSum,
                            int& sampleCount, float& maxSample);
+
+    /// <summary>
+    /// 处理音频数据流
+    /// </summary>
+    /// <param name="openFileResult">打开文件结果</param>
+    /// <param name="resampler">重采样器</param>
+    /// <param name="resampleParams">重采样参数</param>
+    void ProcessAudioData(ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams);
 
 private:
     QString m_currentInputDevice;                       /// 当前选择的FFmpeg输入设备
