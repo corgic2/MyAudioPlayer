@@ -18,6 +18,7 @@ extern "C"
 #include <libavutil/frame.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/time.h>
+#include <libavutil/pixdesc.h>
 }
 /// <summary>
 /// 视频录制状态枚举
@@ -129,10 +130,10 @@ public:
     /// 初始化播放器
     /// </summary>
     /// <param name="filePath">视频文件路径</param>
-    /// <param name="renderer">SDL渲染器</param>
-    /// <param name="texture">SDL纹理</param>
+    /// <param name="renderer">SDL渲染器（可选，可为nullptr表示仅使用Qt显示）</param>
+    /// <param name="texture">SDL纹理（可选，可为nullptr表示仅使用Qt显示）</param>
     /// <returns>是否初始化成功</returns>
-    bool InitPlayer(const QString& filePath, ST_SDL_Renderer* renderer, ST_SDL_Texture* texture);
+    bool InitPlayer(const QString& filePath, ST_SDL_Renderer* renderer = nullptr, ST_SDL_Texture* texture = nullptr);
 
     /// <summary>
     /// 清理资源
@@ -229,6 +230,21 @@ private:
     /// <param name="pts">帧的时间戳</param>
     /// <returns>延迟时间（毫秒）</returns>
     int CalculateFrameDelay(int64_t pts);
+
+    /// <summary>
+    /// 创建安全的图像转换上下文
+    /// </summary>
+    /// <param name="srcFormat">源像素格式</param>
+    /// <param name="dstFormat">目标像素格式</param>
+    /// <returns>转换上下文指针，失败返回nullptr</returns>
+    SwsContext* CreateSafeSwsContext(AVPixelFormat srcFormat, AVPixelFormat dstFormat);
+
+    /// <summary>
+    /// 获取安全的像素格式
+    /// </summary>
+    /// <param name="format">原始格式</param>
+    /// <returns>安全的像素格式</returns>
+    AVPixelFormat GetSafePixelFormat(AVPixelFormat format);
 
 private:
     /// <summary>

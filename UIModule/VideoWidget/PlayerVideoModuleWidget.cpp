@@ -65,10 +65,11 @@ void PlayerVideoModuleWidget::InitializeWidget()
     m_mainLayout->addWidget(m_videoDisplayLabel);
     setLayout(m_mainLayout);
 
-    // 创建更新定时器
-    m_updateTimer = new QTimer(this);
-    m_updateTimer->setInterval(33); // 约30fps
-    connect(m_updateTimer, &QTimer::timeout, this, &PlayerVideoModuleWidget::SlotVideoFrameUpdated);
+    // 设置显示控件到VideoFFmpegUtils
+    if (m_videoFFmpeg)
+    {
+        m_videoFFmpeg->SetVideoDisplayWidget(this);
+    }
 }
 
 void PlayerVideoModuleWidget::ConnectSignals()
@@ -134,13 +135,12 @@ void PlayerVideoModuleWidget::SlotVideoPlayStateChanged(EM_VideoPlayState state)
     switch (state)
     {
         case EM_VideoPlayState::Playing:
-            m_updateTimer->start();
+            // 播放状态不需要定时器，直接通过信号更新
             break;
         case EM_VideoPlayState::Paused:
-            m_updateTimer->stop();
+            // 暂停状态
             break;
         case EM_VideoPlayState::Stopped:
-            m_updateTimer->stop();
             ClearVideoDisplay();
             break;
     }
@@ -155,8 +155,7 @@ void PlayerVideoModuleWidget::SlotVideoProgressUpdated(double currentTime, doubl
 
 void PlayerVideoModuleWidget::SlotVideoFrameUpdated()
 {
-    // 从视频工具类获取当前帧并显示
-    // 这里需要VideoFFmpegUtils提供获取当前帧的接口
+    // 这个槽函数现在不需要特殊处理，帧数据直接通过SetVideoFrame设置
 }
 
 void PlayerVideoModuleWidget::SlotVideoError(const QString& errorMsg)

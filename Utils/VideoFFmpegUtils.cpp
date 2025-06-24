@@ -77,7 +77,7 @@ void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition,
         connect(this, &VideoFFmpegUtils::destroyed, m_pPlayWorker, &VideoPlayWorker::deleteLater);
         connect(m_pPlayThread, &QThread::finished, m_pPlayThread, &QThread::deleteLater);
 
-        // 初始化播放器
+        // 初始化播放器 - 不传入SDL参数，仅使用Qt显示
         if (!m_pPlayWorker->InitPlayer(videoPath, nullptr, nullptr))
         {
             LOG_WARN("VideoFFmpegUtils::StartPlay() : Failed to initialize player");

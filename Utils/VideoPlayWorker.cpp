@@ -6,7 +6,11 @@
 #include "LogSystem/LogSystem.h"
 
 VideoPlayWorker::VideoPlayWorker(QObject* parent)
-    : QObject(parent), m_pFormatCtx(nullptr), m_pCodecCtx(nullptr), m_videoStreamIndex(-1), m_pPacket(nullptr), m_pVideoFrame(nullptr), m_pRGBFrame(nullptr), m_pSwsCtx(nullptr), m_pRenderer(nullptr), m_pTexture(nullptr), m_playState(EM_VideoPlayState::Stopped), m_bNeedStop(false), m_startTime(0), m_pauseStartTime(0), m_totalPauseTime(0), m_currentTime(0.0), m_bSeekRequested(false), m_seekTarget(0.0)
+    : QObject(parent), m_pFormatCtx(nullptr), m_pCodecCtx(nullptr), m_videoStreamIndex(-1), 
+      m_pPacket(nullptr), m_pVideoFrame(nullptr), m_pRGBFrame(nullptr), m_pSwsCtx(nullptr), 
+      m_pRenderer(nullptr), m_pTexture(nullptr), m_playState(EM_VideoPlayState::Stopped), 
+      m_bNeedStop(false), m_startTime(0), m_pauseStartTime(0), m_totalPauseTime(0), 
+      m_currentTime(0.0), m_bSeekRequested(false), m_seekTarget(0.0)
 {
     // 初始化FFmpeg包
     m_pPacket = av_packet_alloc();
@@ -19,14 +23,152 @@ VideoPlayWorker::~VideoPlayWorker()
     Cleanup();
 }
 
+AVPixelFormat VideoPlayWorker::GetSafePixelFormat(AVPixelFormat format)
+{
+    // 检查格式是否有效
+    if (format == AV_PIX_FMT_NONE)
+    {
+        LOG_WARN("Invalid pixel format: AV_PIX_FMT_NONE, using YUV420P");
+        return AV_PIX_FMT_YUV420P;
+    }
+
+    // 获取像素格式描述
+    const AVPixFmtDescriptor* desc = av_pix_fmt_desc_get(format);
+    if (!desc)
+    {
+        LOG_WARN("Cannot get pixel format descriptor for format: " + std::to_string(static_cast<int>(format)) + ", using YUV420P");
+        return AV_PIX_FMT_YUV420P;
+    }
+
+    // 检查是否为硬件加速格式
+    if (desc->flags & AV_PIX_FMT_FLAG_HWACCEL)
+    {
+        LOG_INFO("Hardware accelerated format detected: " + std::string(av_get_pix_fmt_name(format)) + ", converting to YUV420P");
+        return AV_PIX_FMT_YUV420P;
+    }
+
+    // 检查一些不支持的格式
+    switch (format)
+    {
+        case AV_PIX_FMT_DXVA2_VLD:
+        case AV_PIX_FMT_D3D11VA_VLD:
+        case AV_PIX_FMT_VAAPI:
+        case AV_PIX_FMT_VDPAU:
+        case AV_PIX_FMT_VIDEOTOOLBOX:
+        case AV_PIX_FMT_CUDA:
+        case AV_PIX_FMT_QSV:
+            LOG_INFO("Unsupported hardware format: " + std::string(av_get_pix_fmt_name(format)) + ", using YUV420P");
+            return AV_PIX_FMT_YUV420P;
+        default:
+            return format;
+    }
+}
+
+SwsContext* VideoPlayWorker::CreateSafeSwsContext(AVPixelFormat srcFormat, AVPixelFormat dstFormat)
+{
+    // 验证输入参数
+    if (m_videoInfo.m_width <= 0 || m_videoInfo.m_height <= 0)
+    {
+        LOG_WARN("Invalid video dimensions: " + std::to_string(m_videoInfo.m_width) + "x" + std::to_string(m_videoInfo.m_height));
+        return nullptr;
+    }
+
+    if (m_videoInfo.m_width > 4096 || m_videoInfo.m_height > 4096)
+    {
+        LOG_WARN("Video dimensions too large: " + std::to_string(m_videoInfo.m_width) + "x" + std::to_string(m_videoInfo.m_height));
+        return nullptr;
+    }
+
+    // 获取安全的像素格式
+    AVPixelFormat safeSrcFormat = GetSafePixelFormat(srcFormat);
+    
+    LOG_INFO("Creating swscale context:");
+    LOG_INFO("  Source: " + std::to_string(m_videoInfo.m_width) + "x" + std::to_string(m_videoInfo.m_height) + 
+            " format=" + std::string(av_get_pix_fmt_name(safeSrcFormat)));
+    LOG_INFO("  Target: " + std::to_string(m_videoInfo.m_width) + "x" + std::to_string(m_videoInfo.m_height) + 
+            " format=" + std::string(av_get_pix_fmt_name(dstFormat)));
+
+    // 尝试创建转换上下文
+    SwsContext* swsCtx = nullptr;
+    
+    try 
+    {
+        swsCtx = sws_getContext(
+            m_videoInfo.m_width, m_videoInfo.m_height, safeSrcFormat,
+            m_videoInfo.m_width, m_videoInfo.m_height, dstFormat,
+            SWS_BILINEAR, nullptr, nullptr, nullptr
+        );
+    }
+    catch (...)
+    {
+        LOG_WARN("Exception occurred while creating swscale context");
+        return nullptr;
+    }
+
+    if (!swsCtx)
+    {
+        LOG_WARN("Failed to create swscale context with format: " + std::string(av_get_pix_fmt_name(safeSrcFormat)));
+        
+        // 尝试使用YUV420P格式
+        if (safeSrcFormat != AV_PIX_FMT_YUV420P)
+        {
+            LOG_INFO("Trying with YUV420P format...");
+            try 
+            {
+                swsCtx = sws_getContext(
+                    m_videoInfo.m_width, m_videoInfo.m_height, AV_PIX_FMT_YUV420P,
+                    m_videoInfo.m_width, m_videoInfo.m_height, dstFormat,
+                    SWS_BILINEAR, nullptr, nullptr, nullptr
+                );
+            }
+            catch (...)
+            {
+                LOG_WARN("Exception occurred while creating swscale context with YUV420P");
+                return nullptr;
+            }
+        }
+        
+        // 如果还是失败，尝试RGB24格式
+        if (!swsCtx && dstFormat != AV_PIX_FMT_RGB24)
+        {
+            LOG_INFO("Trying with RGB24 output format...");
+            try 
+            {
+                swsCtx = sws_getContext(
+                    m_videoInfo.m_width, m_videoInfo.m_height, AV_PIX_FMT_YUV420P,
+                    m_videoInfo.m_width, m_videoInfo.m_height, AV_PIX_FMT_RGB24,
+                    SWS_BILINEAR, nullptr, nullptr, nullptr
+                );
+            }
+            catch (...)
+            {
+                LOG_WARN("Exception occurred while creating swscale context with RGB24");
+                return nullptr;
+            }
+        }
+    }
+
+    if (swsCtx)
+    {
+        LOG_INFO("Successfully created swscale context");
+    }
+    else
+    {
+        LOG_WARN("Failed to create any working swscale context");
+    }
+
+    return swsCtx;
+}
+
 bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* renderer, ST_SDL_Texture* texture)
 {
-    if (filePath.isEmpty() || !renderer || !texture)
+    if (filePath.isEmpty())
     {
-        LOG_WARN("VideoPlayWorker::InitPlayer() : Invalid parameters");
+        LOG_WARN("VideoPlayWorker::InitPlayer() : Invalid file path");
         return false;
     }
 
+    // renderer和texture可以为nullptr，表示仅使用Qt显示
     m_pRenderer = renderer;
     m_pTexture = texture;
 
@@ -97,6 +239,18 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
         m_videoInfo.m_height = codecPar->height;
         m_videoInfo.m_pixelFormat = static_cast<AVPixelFormat>(codecPar->format);
 
+        // 验证视频信息
+        if (m_videoInfo.m_width <= 0 || m_videoInfo.m_height <= 0)
+        {
+            LOG_WARN("Invalid video dimensions: " + std::to_string(m_videoInfo.m_width) + "x" + std::to_string(m_videoInfo.m_height));
+            return false;
+        }
+
+        //LOG_INFO("Original video info - Width: " + std::to_string(m_videoInfo.m_width) + 
+        //        ", Height: " + std::to_string(m_videoInfo.m_height) + 
+        //        ", Format: " + std::to_string((int)(m_videoInfo.m_pixelFormat)) + 
+        //        " (" + std::string(av_get_pix_fmt_name(m_videoInfo.m_pixelFormat)) + ")");
+
         // 计算帧率
         if (videoStream->avg_frame_rate.num != 0 && videoStream->avg_frame_rate.den != 0)
         {
@@ -124,17 +278,22 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
         // 计算总帧数
         m_videoInfo.m_totalFrames = static_cast<int64_t>(m_videoInfo.m_duration * m_videoInfo.m_frameRate);
 
-        // 初始化图像转换上下文
-        m_pSwsCtx = sws_getContext(m_videoInfo.m_width, m_videoInfo.m_height, m_videoInfo.m_pixelFormat, m_videoInfo.m_width, m_videoInfo.m_height, AV_PIX_FMT_RGBA, SWS_BILINEAR, nullptr, nullptr, nullptr);
-
+        // 创建安全的图像转换上下文
+        m_pSwsCtx = CreateSafeSwsContext(m_videoInfo.m_pixelFormat, AV_PIX_FMT_RGBA);
         if (!m_pSwsCtx)
         {
-            LOG_WARN("Failed to initialize image conversion context");
+            LOG_WARN("Failed to create swscale context");
             return false;
         }
 
         // 为RGB帧分配缓冲区
         int bufferSize = av_image_get_buffer_size(AV_PIX_FMT_RGBA, m_videoInfo.m_width, m_videoInfo.m_height, 1);
+        if (bufferSize <= 0)
+        {
+            LOG_WARN("Invalid buffer size: " + std::to_string(bufferSize));
+            return false;
+        }
+
         auto buffer = static_cast<uint8_t*>(av_malloc(bufferSize));
         if (!buffer)
         {
@@ -142,22 +301,42 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
             return false;
         }
 
-        av_image_fill_arrays(m_pRGBFrame->data, m_pRGBFrame->linesize, buffer, AV_PIX_FMT_RGBA, m_videoInfo.m_width, m_videoInfo.m_height, 1);
-
-        // 创建SDL纹理
-        if (!m_pTexture->CreateTexture(m_pRenderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, m_videoInfo.m_width, m_videoInfo.m_height))
+        ret = av_image_fill_arrays(m_pRGBFrame->data, m_pRGBFrame->linesize, buffer, AV_PIX_FMT_RGBA, m_videoInfo.m_width, m_videoInfo.m_height, 1);
+        if (ret < 0)
         {
-            LOG_WARN("Failed to create SDL texture");
+            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            LOG_WARN("Failed to fill RGB frame arrays: " + std::string(errbuf));
+            av_free(buffer);
             return false;
         }
 
+        // 仅在有SDL渲染器和纹理时创建SDL纹理
+        if (m_pRenderer && m_pTexture)
+        {
+            if (!m_pTexture->CreateTexture(m_pRenderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, m_videoInfo.m_width, m_videoInfo.m_height))
+            {
+                LOG_WARN("Failed to create SDL texture");
+                return false;
+            }
+        }
+
         LOG_INFO("Video player initialized successfully");
-        LOG_INFO("Video info - Width: " + std::to_string(m_videoInfo.m_width) + ", Height: " + std::to_string(m_videoInfo.m_height) + ", FPS: " + std::to_string(m_videoInfo.m_frameRate) + ", Duration: " + std::to_string(m_videoInfo.m_duration));
+        LOG_INFO("Video info - Width: " + std::to_string(m_videoInfo.m_width) + 
+                ", Height: " + std::to_string(m_videoInfo.m_height) + 
+                ", FPS: " + std::to_string(m_videoInfo.m_frameRate) + 
+                ", Duration: " + std::to_string(m_videoInfo.m_duration));
 
         return true;
-    } catch (const std::exception& e)
+    } 
+    catch (const std::exception& e)
     {
         LOG_WARN("Exception in InitPlayer: " + std::string(e.what()));
+        return false;
+    }
+    catch (...)
+    {
+        LOG_WARN("Unknown exception in InitPlayer");
         return false;
     }
 }
@@ -419,47 +598,65 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
         return;
     }
 
-    // 转换图像格式到RGBA
-    sws_scale(m_pSwsCtx, frame->data, frame->linesize, 0, m_videoInfo.m_height, m_pRGBFrame->data, m_pRGBFrame->linesize);
-
-    // 计算RGBA数据大小
-    int dataSize = m_videoInfo.m_width * m_videoInfo.m_height * 4; // RGBA = 4 bytes per pixel
-
-    // 确保缓冲区大小足够
-    if (m_rgbBuffer.size() != dataSize)
+    try
     {
-        m_rgbBuffer.resize(dataSize);
-    }
-
-    // 复制RGBA数据到缓冲区
-    memcpy(m_rgbBuffer.data(), m_pRGBFrame->data[0], dataSize);
-
-    // 发送帧数据给Qt显示
-    emit SigFrameDataUpdated(m_rgbBuffer.data(), m_videoInfo.m_width, m_videoInfo.m_height);
-
-    // 如果有SDL纹理，也更新SDL显示
-    if (m_pTexture && m_pTexture->GetTexture())
-    {
-        void* pixels = nullptr;
-        int pitch = 0;
-
-        if (m_pTexture->LockTexture(nullptr, &pixels, &pitch))
+        // 转换图像格式到RGBA
+        int result = sws_scale(m_pSwsCtx, frame->data, frame->linesize, 0, m_videoInfo.m_height, 
+                              m_pRGBFrame->data, m_pRGBFrame->linesize);
+        
+        if (result <= 0)
         {
-            uint8_t* src = m_pRGBFrame->data[0];
-            auto dst = static_cast<uint8_t*>(pixels);
-
-            for (int y = 0; y < m_videoInfo.m_height; y++)
-            {
-                memcpy(dst, src, m_videoInfo.m_width * 4);
-                src += m_pRGBFrame->linesize[0];
-                dst += pitch;
-            }
-
-            m_pTexture->UnlockTexture();
+            LOG_WARN("Failed to scale frame, result: " + std::to_string(result));
+            return;
         }
-    }
 
-    emit SigFrameUpdated();
+        // 计算RGBA数据大小
+        int dataSize = m_videoInfo.m_width * m_videoInfo.m_height * 4; // RGBA = 4 bytes per pixel
+
+        // 确保缓冲区大小足够
+        if (m_rgbBuffer.size() != dataSize)
+        {
+            m_rgbBuffer.resize(dataSize);
+        }
+
+        // 复制RGBA数据到缓冲区
+        memcpy(m_rgbBuffer.data(), m_pRGBFrame->data[0], dataSize);
+
+        // 发送帧数据给Qt显示
+        emit SigFrameDataUpdated(m_rgbBuffer.data(), m_videoInfo.m_width, m_videoInfo.m_height);
+
+        // 仅在有SDL纹理时更新SDL显示
+        if (m_pTexture && m_pTexture->GetTexture())
+        {
+            void* pixels = nullptr;
+            int pitch = 0;
+
+            if (m_pTexture->LockTexture(nullptr, &pixels, &pitch))
+            {
+                uint8_t* src = m_pRGBFrame->data[0];
+                auto dst = static_cast<uint8_t*>(pixels);
+
+                for (int y = 0; y < m_videoInfo.m_height; y++)
+                {
+                    memcpy(dst, src, m_videoInfo.m_width * 4);
+                    src += m_pRGBFrame->linesize[0];
+                    dst += pitch;
+                }
+
+                m_pTexture->UnlockTexture();
+            }
+        }
+
+        emit SigFrameUpdated();
+    }
+    catch (const std::exception& e)
+    {
+        LOG_WARN("Exception in RenderFrame: " + std::string(e.what()));
+    }
+    catch (...)
+    {
+        LOG_WARN("Unknown exception in RenderFrame");
+    }
 }
 
 int VideoPlayWorker::CalculateFrameDelay(int64_t pts)
