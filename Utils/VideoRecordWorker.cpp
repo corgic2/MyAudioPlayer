@@ -1,20 +1,17 @@
 ﻿#include "VideoRecordWorker.h"
 #include <QMutexLocker>
 #include <QThread>
-#include "LogSystem/LogSystem.h"
 #include "FFmpegPublicUtils.h"
 #include "FileSystem/FileSystem.h"
+#include "LogSystem/LogSystem.h"
 
 VideoRecordWorker::VideoRecordWorker(QObject* parent)
-    : QObject(parent), m_pInputFormatCtx(nullptr), m_pOutputFormatCtx(nullptr),
-      m_pInputCodecCtx(nullptr), m_pOutputCodecCtx(nullptr), m_videoStreamIndex(-1),
-      m_pInputPacket(nullptr), m_pOutputPacket(nullptr), m_bNeedStop(false),
-      m_recordState(EM_VideoRecordState::Stopped)
+    : QObject(parent), m_pInputFormatCtx(nullptr), m_pOutputFormatCtx(nullptr), m_pInputCodecCtx(nullptr), m_pOutputCodecCtx(nullptr), m_videoStreamIndex(-1), m_pInputPacket(nullptr), m_pOutputPacket(nullptr), m_bNeedStop(false), m_recordState(EM_VideoRecordState::Stopped)
 {
     // 初始化FFmpeg包
     m_pInputPacket = av_packet_alloc();
     m_pOutputPacket = av_packet_alloc();
-    
+
     // 注册设备
     avdevice_register_all();
 }
@@ -74,7 +71,7 @@ bool VideoRecordWorker::InitRecorder(const QString& outputPath)
 
         // 创建输入格式上下文（录制设备）
         m_pInputFormatCtx = std::make_unique<ST_AVFormatContext>();
-        
+
         // 查找输入格式
         const AVInputFormat* inputFormat = av_find_input_format("dshow"); // Windows设备
         if (!inputFormat)
@@ -211,8 +208,7 @@ bool VideoRecordWorker::InitRecorder(const QString& outputPath)
 
         LOG_INFO("Video recorder initialized successfully");
         return true;
-    }
-    catch (const std::exception& e)
+    } catch (const std::exception& e)
     {
         LOG_WARN("Exception in InitRecorder: " + std::string(e.what()));
         return false;
@@ -351,4 +347,4 @@ QString VideoRecordWorker::GetDefaultVideoDevice()
 
     avdevice_free_list_devices(&deviceList);
     return deviceName;
-} 
+}

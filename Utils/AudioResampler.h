@@ -5,7 +5,8 @@
 #include "DataDefine/ST_ResampleParams.h"
 #include "DataDefine/ST_ResampleResult.h"
 
-extern "C" {
+extern "C"
+{
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswresample/swresample.h>
@@ -68,12 +69,11 @@ private:
     bool InitializeResampler(ST_ResampleParams& params);
 
 private:
-    ST_SwrContext m_swrCtx;               /// 重采样上下文
-    ST_AVChannelLayout m_lastInLayout;    /// 上次输入通道布局
-    ST_AVChannelLayout m_lastOutLayout;   /// 上次输出通道布局
-    int m_lastInRate = 0;                 /// 上次输入采样率
-    int m_lastOutRate = 0;                /// 上次输出采样率
-    ST_AVSampleFormat m_lastInFmt;        /// 上次输入格式
-    ST_AVSampleFormat m_lastOutFmt;       /// 上次输出格式
+    ST_SwrContext m_swrCtx;             /// 重采样上下文
+    ST_AVChannelLayout m_lastInLayout;  /// 上次输入通道布局
+    ST_AVChannelLayout m_lastOutLayout; /// 上次输出通道布局
+    int m_lastInRate = 0;               /// 上次输入采样率
+    int m_lastOutRate = 0;              /// 上次输出采样率
+    ST_AVSampleFormat m_lastInFmt;      /// 上次输入格式
+    ST_AVSampleFormat m_lastOutFmt;     /// 上次输出格式
 };
-

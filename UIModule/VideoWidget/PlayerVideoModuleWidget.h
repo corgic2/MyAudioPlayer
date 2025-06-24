@@ -1,9 +1,9 @@
 ﻿#pragma once
 
-#include <QWidget>
 #include <QLabel>
-#include <QVBoxLayout>
 #include <QTimer>
+#include <QVBoxLayout>
+#include <QWidget>
 #include "ui_PlayerVideoModuleWidget.h"
 #include "BaseWidget/BaseModuleWidegt.h"
 
@@ -24,9 +24,7 @@ QT_END_NAMESPACE
 /// </summary>
 class PlayerVideoModuleWidget : public BaseModuleWidegt
 {
-    Q_OBJECT
-
-public:
+    Q_OBJECT public:
     /// <summary>
     /// 构造函数
     /// </summary>
@@ -106,9 +104,9 @@ private:
 
 private:
     Ui::PlayerVideoModuleWidgetClass* ui;
-    VideoFFmpegUtils* m_videoFFmpeg;      /// 视频FFmpeg工具类（使用指针避免循环包含）
-    QLabel* m_videoDisplayLabel;          /// 视频显示标签
-    QVBoxLayout* m_mainLayout;            /// 主布局
+    VideoFFmpegUtils* m_videoFFmpeg;       /// 视频FFmpeg工具类（使用指针避免循环包含）
+    QLabel* m_videoDisplayLabel;           /// 视频显示标签
+    QVBoxLayout* m_mainLayout;             /// 主布局
     ST_VideoFrameInfo* m_currentVideoInfo; /// 当前视频信息（使用指针）
-    QTimer* m_updateTimer;                /// 更新定时器
+    QTimer* m_updateTimer;                 /// 更新定时器
 };

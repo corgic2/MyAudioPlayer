@@ -6,12 +6,12 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include "AudioResampler.h"
 #include "BaseFFmpegUtils.h"
 #include "DataDefine/ST_AudioPlayInfo.h"
 #include "DataDefine/ST_AudioPlayState.h"
 #include "DataDefine/ST_OpenAudioDevice.h"
 #include "DataDefine/ST_OpenFileResult.h"
-#include "AudioResampler.h"
 
 extern "C"
 {
@@ -182,30 +182,22 @@ private:
     /// <param name="currentSum">当前累计值</param>
     /// <param name="sampleCount">当前采样计数</param>
     /// <param name="maxSample">最大采样值</param>
-    void ProcessAudioFrame(AVFrame* frame, QVector<float>& waveformData, 
-                          int samplesPerPixel, float& currentSum, 
-                          int& sampleCount, float& maxSample);
+    void ProcessAudioFrame(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample);
 
     /// <summary>
     /// 处理浮点采样格式
     /// </summary>
-    void ProcessFloatSamples(AVFrame* frame, QVector<float>& waveformData,
-                           int samplesPerPixel, float& currentSum,
-                           int& sampleCount, float& maxSample);
+    void ProcessFloatSamples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample);
 
     /// <summary>
     /// 处理16位整数采样格式
     /// </summary>
-    void ProcessInt16Samples(AVFrame* frame, QVector<float>& waveformData,
-                           int samplesPerPixel, float& currentSum,
-                           int& sampleCount, float& maxSample);
+    void ProcessInt16Samples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample);
 
     /// <summary>
     /// 处理32位整数采样格式
     /// </summary>
-    void ProcessInt32Samples(AVFrame* frame, QVector<float>& waveformData,
-                           int samplesPerPixel, float& currentSum,
-                           int& sampleCount, float& maxSample);
+    void ProcessInt32Samples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample);
 
     /// <summary>
     /// 处理音频数据流

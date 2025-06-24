@@ -6,11 +6,7 @@
 #include "LogSystem/LogSystem.h"
 
 VideoPlayWorker::VideoPlayWorker(QObject* parent)
-    : QObject(parent), m_pFormatCtx(nullptr), m_pCodecCtx(nullptr), m_videoStreamIndex(-1), 
-      m_pPacket(nullptr), m_pVideoFrame(nullptr), m_pRGBFrame(nullptr), m_pSwsCtx(nullptr), 
-      m_pRenderer(nullptr), m_pTexture(nullptr), m_playState(EM_VideoPlayState::Stopped), 
-      m_bNeedStop(false), m_startTime(0), m_pauseStartTime(0), m_totalPauseTime(0), 
-      m_currentTime(0.0), m_bSeekRequested(false), m_seekTarget(0.0)
+    : QObject(parent), m_pFormatCtx(nullptr), m_pCodecCtx(nullptr), m_videoStreamIndex(-1), m_pPacket(nullptr), m_pVideoFrame(nullptr), m_pRGBFrame(nullptr), m_pSwsCtx(nullptr), m_pRenderer(nullptr), m_pTexture(nullptr), m_playState(EM_VideoPlayState::Stopped), m_bNeedStop(false), m_startTime(0), m_pauseStartTime(0), m_totalPauseTime(0), m_currentTime(0.0), m_bSeekRequested(false), m_seekTarget(0.0)
 {
     // 初始化FFmpeg包
     m_pPacket = av_packet_alloc();
@@ -56,8 +52,7 @@ AVPixelFormat VideoPlayWorker::GetSafePixelFormat(AVPixelFormat format)
         case AV_PIX_FMT_VDPAU:
         case AV_PIX_FMT_VIDEOTOOLBOX:
         case AV_PIX_FMT_CUDA:
-        case AV_PIX_FMT_QSV:
-            LOG_INFO("Unsupported hardware format: " + std::string(av_get_pix_fmt_name(format)) + ", using YUV420P");
+        case AV_PIX_FMT_QSV: LOG_INFO("Unsupported hardware format: " + std::string(av_get_pix_fmt_name(format)) + ", using YUV420P");
             return AV_PIX_FMT_YUV420P;
         default:
             return format;
@@ -81,25 +76,18 @@ SwsContext* VideoPlayWorker::CreateSafeSwsContext(AVPixelFormat srcFormat, AVPix
 
     // 获取安全的像素格式
     AVPixelFormat safeSrcFormat = GetSafePixelFormat(srcFormat);
-    
+
     LOG_INFO("Creating swscale context:");
-    LOG_INFO("  Source: " + std::to_string(m_videoInfo.m_width) + "x" + std::to_string(m_videoInfo.m_height) + 
-            " format=" + std::string(av_get_pix_fmt_name(safeSrcFormat)));
-    LOG_INFO("  Target: " + std::to_string(m_videoInfo.m_width) + "x" + std::to_string(m_videoInfo.m_height) + 
-            " format=" + std::string(av_get_pix_fmt_name(dstFormat)));
+    LOG_INFO("  Source: " + std::to_string(m_videoInfo.m_width) + "x" + std::to_string(m_videoInfo.m_height) + " format=" + std::string(av_get_pix_fmt_name(safeSrcFormat)));
+    LOG_INFO("  Target: " + std::to_string(m_videoInfo.m_width) + "x" + std::to_string(m_videoInfo.m_height) + " format=" + std::string(av_get_pix_fmt_name(dstFormat)));
 
     // 尝试创建转换上下文
     SwsContext* swsCtx = nullptr;
-    
-    try 
+
+    try
     {
-        swsCtx = sws_getContext(
-            m_videoInfo.m_width, m_videoInfo.m_height, safeSrcFormat,
-            m_videoInfo.m_width, m_videoInfo.m_height, dstFormat,
-            SWS_BILINEAR, nullptr, nullptr, nullptr
-        );
-    }
-    catch (...)
+        swsCtx = sws_getContext(m_videoInfo.m_width, m_videoInfo.m_height, safeSrcFormat, m_videoInfo.m_width, m_videoInfo.m_height, dstFormat, SWS_BILINEAR, nullptr, nullptr, nullptr);
+    } catch (...)
     {
         LOG_WARN("Exception occurred while creating swscale context");
         return nullptr;
@@ -108,39 +96,29 @@ SwsContext* VideoPlayWorker::CreateSafeSwsContext(AVPixelFormat srcFormat, AVPix
     if (!swsCtx)
     {
         LOG_WARN("Failed to create swscale context with format: " + std::string(av_get_pix_fmt_name(safeSrcFormat)));
-        
+
         // 尝试使用YUV420P格式
         if (safeSrcFormat != AV_PIX_FMT_YUV420P)
         {
             LOG_INFO("Trying with YUV420P format...");
-            try 
+            try
             {
-                swsCtx = sws_getContext(
-                    m_videoInfo.m_width, m_videoInfo.m_height, AV_PIX_FMT_YUV420P,
-                    m_videoInfo.m_width, m_videoInfo.m_height, dstFormat,
-                    SWS_BILINEAR, nullptr, nullptr, nullptr
-                );
-            }
-            catch (...)
+                swsCtx = sws_getContext(m_videoInfo.m_width, m_videoInfo.m_height, AV_PIX_FMT_YUV420P, m_videoInfo.m_width, m_videoInfo.m_height, dstFormat, SWS_BILINEAR, nullptr, nullptr, nullptr);
+            } catch (...)
             {
                 LOG_WARN("Exception occurred while creating swscale context with YUV420P");
                 return nullptr;
             }
         }
-        
+
         // 如果还是失败，尝试RGB24格式
         if (!swsCtx && dstFormat != AV_PIX_FMT_RGB24)
         {
             LOG_INFO("Trying with RGB24 output format...");
-            try 
+            try
             {
-                swsCtx = sws_getContext(
-                    m_videoInfo.m_width, m_videoInfo.m_height, AV_PIX_FMT_YUV420P,
-                    m_videoInfo.m_width, m_videoInfo.m_height, AV_PIX_FMT_RGB24,
-                    SWS_BILINEAR, nullptr, nullptr, nullptr
-                );
-            }
-            catch (...)
+                swsCtx = sws_getContext(m_videoInfo.m_width, m_videoInfo.m_height, AV_PIX_FMT_YUV420P, m_videoInfo.m_width, m_videoInfo.m_height, AV_PIX_FMT_RGB24, SWS_BILINEAR, nullptr, nullptr, nullptr);
+            } catch (...)
             {
                 LOG_WARN("Exception occurred while creating swscale context with RGB24");
                 return nullptr;
@@ -322,19 +300,14 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
         }
 
         LOG_INFO("Video player initialized successfully");
-        LOG_INFO("Video info - Width: " + std::to_string(m_videoInfo.m_width) + 
-                ", Height: " + std::to_string(m_videoInfo.m_height) + 
-                ", FPS: " + std::to_string(m_videoInfo.m_frameRate) + 
-                ", Duration: " + std::to_string(m_videoInfo.m_duration));
+        LOG_INFO("Video info - Width: " + std::to_string(m_videoInfo.m_width) + ", Height: " + std::to_string(m_videoInfo.m_height) + ", FPS: " + std::to_string(m_videoInfo.m_frameRate) + ", Duration: " + std::to_string(m_videoInfo.m_duration));
 
         return true;
-    } 
-    catch (const std::exception& e)
+    } catch (const std::exception& e)
     {
         LOG_WARN("Exception in InitPlayer: " + std::string(e.what()));
         return false;
-    }
-    catch (...)
+    } catch (...)
     {
         LOG_WARN("Unknown exception in InitPlayer");
         return false;
@@ -601,9 +574,8 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
     try
     {
         // 转换图像格式到RGBA
-        int result = sws_scale(m_pSwsCtx, frame->data, frame->linesize, 0, m_videoInfo.m_height, 
-                              m_pRGBFrame->data, m_pRGBFrame->linesize);
-        
+        int result = sws_scale(m_pSwsCtx, frame->data, frame->linesize, 0, m_videoInfo.m_height, m_pRGBFrame->data, m_pRGBFrame->linesize);
+
         if (result <= 0)
         {
             LOG_WARN("Failed to scale frame, result: " + std::to_string(result));
@@ -648,12 +620,10 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
         }
 
         emit SigFrameUpdated();
-    }
-    catch (const std::exception& e)
+    } catch (const std::exception& e)
     {
         LOG_WARN("Exception in RenderFrame: " + std::string(e.what()));
-    }
-    catch (...)
+    } catch (...)
     {
         LOG_WARN("Unknown exception in RenderFrame");
     }

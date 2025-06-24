@@ -8,10 +8,7 @@
 #include "VideoWidget/PlayerVideoModuleWidget.h"
 
 VideoFFmpegUtils::VideoFFmpegUtils(QObject* parent)
-    : BaseFFmpegUtils(parent), m_playState(EM_VideoPlayState::Stopped), 
-      m_recordState(EM_VideoRecordState::Stopped), m_pPlayThread(nullptr), 
-      m_pPlayWorker(nullptr), m_pRecordThread(nullptr), m_pRecordWorker(nullptr),
-      m_currentTime(0.0), m_pVideoDisplayWidget(nullptr)
+    : BaseFFmpegUtils(parent), m_playState(EM_VideoPlayState::Stopped), m_recordState(EM_VideoRecordState::Stopped), m_pPlayThread(nullptr), m_pPlayWorker(nullptr), m_pRecordThread(nullptr), m_pRecordWorker(nullptr), m_currentTime(0.0), m_pVideoDisplayWidget(nullptr)
 {
 }
 
@@ -65,14 +62,10 @@ void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition,
         m_pPlayWorker->moveToThread(m_pPlayThread);
 
         // 连接信号槽
-        connect(m_pPlayWorker, &VideoPlayWorker::SigPlayStateChanged, 
-                this, &VideoFFmpegUtils::SigPlayStateChanged);
-        connect(m_pPlayWorker, &VideoPlayWorker::SigPlayProgressUpdated, 
-                this, &VideoFFmpegUtils::SigPlayProgressUpdated);
-        connect(m_pPlayWorker, &VideoPlayWorker::SigFrameDataUpdated, 
-                this, &VideoFFmpegUtils::SlotHandleFrameUpdate);
-        connect(m_pPlayWorker, &VideoPlayWorker::SigError, 
-                this, &VideoFFmpegUtils::SigError);
+        connect(m_pPlayWorker, &VideoPlayWorker::SigPlayStateChanged, this, &VideoFFmpegUtils::SigPlayStateChanged);
+        connect(m_pPlayWorker, &VideoPlayWorker::SigPlayProgressUpdated, this, &VideoFFmpegUtils::SigPlayProgressUpdated);
+        connect(m_pPlayWorker, &VideoPlayWorker::SigFrameDataUpdated, this, &VideoFFmpegUtils::SlotHandleFrameUpdate);
+        connect(m_pPlayWorker, &VideoPlayWorker::SigError, this, &VideoFFmpegUtils::SigError);
 
         connect(this, &VideoFFmpegUtils::destroyed, m_pPlayWorker, &VideoPlayWorker::deleteLater);
         connect(m_pPlayThread, &QThread::finished, m_pPlayThread, &QThread::deleteLater);
@@ -103,16 +96,14 @@ void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition,
         // 处理跳转
         if (startPosition > 0.0)
         {
-            QMetaObject::invokeMethod(m_pPlayWorker, "SlotSeekPlay", 
-                                    Qt::QueuedConnection, Q_ARG(double, startPosition));
+            QMetaObject::invokeMethod(m_pPlayWorker, "SlotSeekPlay", Qt::QueuedConnection, Q_ARG(double, startPosition));
         }
 
         m_playState = EM_VideoPlayState::Playing;
         emit SigPlayStateChanged(m_playState);
 
         LOG_INFO("Video playback started successfully: " + videoPath.toStdString());
-    } 
-    catch (const std::exception& e)
+    } catch (const std::exception& e)
     {
         LOG_WARN("Exception in StartPlay: " + std::string(e.what()));
         emit SigError("播放启动异常");
@@ -192,10 +183,8 @@ void VideoFFmpegUtils::StartRecording(const QString& outputPath)
         m_pRecordWorker->moveToThread(m_pRecordThread);
 
         // 连接录制信号槽
-        connect(m_pRecordWorker, &VideoRecordWorker::SigRecordStateChanged, 
-                this, &VideoFFmpegUtils::SigRecordStateChanged);
-        connect(m_pRecordWorker, &VideoRecordWorker::SigError, 
-                this, &VideoFFmpegUtils::SigError);
+        connect(m_pRecordWorker, &VideoRecordWorker::SigRecordStateChanged, this, &VideoFFmpegUtils::SigRecordStateChanged);
+        connect(m_pRecordWorker, &VideoRecordWorker::SigError, this, &VideoFFmpegUtils::SigError);
         connect(this, &VideoFFmpegUtils::destroyed, m_pRecordWorker, &VideoRecordWorker::deleteLater);
         connect(m_pRecordThread, &QThread::finished, m_pRecordThread, &QThread::deleteLater);
 
@@ -203,15 +192,13 @@ void VideoFFmpegUtils::StartRecording(const QString& outputPath)
         m_pRecordThread->start();
 
         // 开始录制
-        QMetaObject::invokeMethod(m_pRecordWorker, "SlotStartRecord", 
-                                Qt::QueuedConnection, Q_ARG(QString, outputPath));
+        QMetaObject::invokeMethod(m_pRecordWorker, "SlotStartRecord", Qt::QueuedConnection, Q_ARG(QString, outputPath));
 
         m_recordState = EM_VideoRecordState::Recording;
         emit SigRecordStateChanged(m_recordState);
 
         LOG_INFO("Video recording started: " + outputPath.toStdString());
-    }
-    catch (const std::exception& e)
+    } catch (const std::exception& e)
     {
         LOG_WARN("Exception in StartRecording: " + std::string(e.what()));
         emit SigError("录制启动异常");
@@ -253,8 +240,7 @@ void VideoFFmpegUtils::SeekPlay(double seconds)
 {
     if (m_pPlayWorker && m_playState != EM_VideoPlayState::Stopped)
     {
-        QMetaObject::invokeMethod(m_pPlayWorker, "SlotSeekPlay", 
-                                Qt::QueuedConnection, Q_ARG(double, seconds));
+        QMetaObject::invokeMethod(m_pPlayWorker, "SlotSeekPlay", Qt::QueuedConnection, Q_ARG(double, seconds));
         LOG_INFO("Video seek to: " + std::to_string(seconds) + " seconds");
     }
 }

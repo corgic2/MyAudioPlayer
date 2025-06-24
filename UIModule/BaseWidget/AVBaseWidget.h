@@ -126,7 +126,7 @@ private:
     /// 连接信号槽
     /// </summary>
     void ConnectSignals();
-    ~AVBaseWidget();
+    ~AVBaseWidget() override;
 
     /// <summary>
     /// 初始化界面
@@ -163,19 +163,19 @@ private:
 
     void ShowAVWidget(bool bAudio = true);
 
-  private:
+private:
     Ui::AVBaseWidgetClass* ui;
     BaseFFmpegUtils* m_ffmpeg = nullptr;
-    PlayerAudioModuleWidget *m_audioPlayerWidget = nullptr; /// 音频播放器模块控件
-    PlayerVideoModuleWidget *m_videoPlayerWidget = nullptr; /// 视频播放器模块控件
-    QString m_currentAVFile;                     /// 当前播放的音视频文件
-    bool m_isRecording = false;                     /// 是否正在录制
-    bool m_isPlaying = false;                       /// 是否正在播放
-    bool m_isPaused = false;                        /// 是否已暂停
-    QTimer* m_playTimer = nullptr;                  /// 播放定时器
-    size_t m_playThreadId;                          /// 音视频播放线程ID
-    std::atomic<bool> m_playThreadRunning{false};   /// 音视频播放线程运行标志
-    size_t m_recordThreadId;                        /// 音视频录制线程ID
-    std::atomic<bool> m_recordThreadRunning{false}; /// 音视频录制线程运行标志
-    double m_currentPosition{0.0};                  /// 当前播放位置（秒）
+    PlayerAudioModuleWidget* m_audioPlayerWidget = nullptr; /// 音频播放器模块控件
+    PlayerVideoModuleWidget* m_videoPlayerWidget = nullptr; /// 视频播放器模块控件
+    QString m_currentAVFile;                                /// 当前播放的音视频文件
+    bool m_isRecording = false;                             /// 是否正在录制
+    bool m_isPlaying = false;                               /// 是否正在播放
+    bool m_isPaused = false;                                /// 是否已暂停
+    QTimer* m_playTimer = nullptr;                          /// 播放定时器
+    size_t m_playThreadId;                                  /// 音视频播放线程ID
+    std::atomic<bool> m_playThreadRunning{false};           /// 音视频播放线程运行标志
+    size_t m_recordThreadId;                                /// 音视频录制线程ID
+    std::atomic<bool> m_recordThreadRunning{false};         /// 音视频录制线程运行标志
+    double m_currentPosition{0.0};                          /// 当前播放位置（秒）
 };

@@ -5,14 +5,14 @@
 #include <QMessageBox>
 #include <QTimer>
 
-#include "../AVFileSystem/AVFileSystem.h"
-#include "FileSystem/FileSystem.h"
 #include "ControlButtonWidget.h"
 #include "CoreServerGlobal.h"
+#include "../AVFileSystem/AVFileSystem.h"
+#include "CommonDefine/UIWidgetColorDefine.h"
 #include "CoreWidget/CustomComboBox.h"
 #include "CoreWidget/CustomLabel.h"
 #include "DomainWidget/FilePathIconListWidget.h"
-#include "CommonDefine/UIWidgetColorDefine.h"
+#include "FileSystem/FileSystem.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
 AVBaseWidget::AVBaseWidget(QWidget* parent)
@@ -171,7 +171,7 @@ void AVBaseWidget::StartAVPlayThread()
     {
         StopAVPlayThread();
     }
-    
+
     if (AV_player::AVFileSystem::IsAudioFile(m_currentAVFile.toStdString()))
     {
         m_ffmpeg = m_audioPlayerWidget->GetFFMpegUtils();
@@ -181,11 +181,11 @@ void AVBaseWidget::StartAVPlayThread()
     else if (AV_player::AVFileSystem::IsVideoFile(m_currentAVFile.toStdString()))
     {
         m_ffmpeg = m_videoPlayerWidget->GetFFMpegUtils();
-        
+
         // 设置视频显示控件
-        VideoFFmpegUtils* videoUtils = static_cast<VideoFFmpegUtils*>(m_ffmpeg);
+        auto videoUtils = static_cast<VideoFFmpegUtils*>(m_ffmpeg);
         videoUtils->SetVideoDisplayWidget(m_videoPlayerWidget);
-        
+
         ShowAVWidget(false);
     }
     else
@@ -213,8 +213,7 @@ void AVBaseWidget::StartAVPlayThread()
             {
                 emit SigAVPlayFinished();
             }
-        } 
-        catch (const std::exception& e)
+        } catch (const std::exception& e)
         {
             qDebug() << "AV playback error:" << e.what();
             emit SigAVPlayFinished();

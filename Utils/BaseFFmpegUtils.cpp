@@ -1,9 +1,10 @@
 ﻿#include "BaseFFmpegUtils.h"
 
-BaseFFmpegUtils::BaseFFmpegUtils(QObject *parent)
+BaseFFmpegUtils::BaseFFmpegUtils(QObject* parent)
     : QObject(parent)
-{}
+{
+}
 
 BaseFFmpegUtils::~BaseFFmpegUtils()
-{}
-
+{
+}

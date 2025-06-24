@@ -1,14 +1,14 @@
 ﻿#pragma once
 
-#include <QObject>
-#include <QString>
-#include <QMutex>
 #include <atomic>
 #include <memory>
+#include <QMutex>
+#include <QObject>
+#include <QString>
+#include "BaseDataDefine/ST_AVCodecContext.h"
+#include "BaseDataDefine/ST_AVFormatContext.h"
 #include "DataDefine/ST_SDL_Renderer.h"
 #include "DataDefine/ST_SDL_Texture.h"
-#include "BaseDataDefine/ST_AVFormatContext.h"
-#include "BaseDataDefine/ST_AVCodecContext.h"
 
 extern "C"
 {
@@ -20,6 +20,7 @@ extern "C"
 #include <libavutil/time.h>
 #include <libavutil/pixdesc.h>
 }
+
 /// <summary>
 /// 视频录制状态枚举
 /// </summary>
@@ -101,8 +102,7 @@ struct ST_VideoFrameInfo
     /// 构造函数
     /// </summary>
     ST_VideoFrameInfo()
-        : m_width(0), m_height(0), m_frameRate(0.0), m_totalFrames(0), 
-          m_duration(0.0), m_pixelFormat(AV_PIX_FMT_NONE)
+        : m_width(0), m_height(0), m_frameRate(0.0), m_totalFrames(0), m_duration(0.0), m_pixelFormat(AV_PIX_FMT_NONE)
     {
     }
 };
@@ -112,9 +112,7 @@ struct ST_VideoFrameInfo
 /// </summary>
 class VideoPlayWorker : public QObject
 {
-    Q_OBJECT
-
-public:
+    Q_OBJECT public:
     /// <summary>
     /// 构造函数
     /// </summary>
@@ -124,7 +122,7 @@ public:
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~VideoPlayWorker();
+    ~VideoPlayWorker() override;
 
     /// <summary>
     /// 初始化播放器
@@ -144,7 +142,10 @@ public:
     /// 获取视频信息
     /// </summary>
     /// <returns>视频帧信息</returns>
-    ST_VideoFrameInfo GetVideoInfo() const { return m_videoInfo; }
+    ST_VideoFrameInfo GetVideoInfo() const
+    {
+        return m_videoInfo;
+    }
 
 public slots:
     /// <summary>
@@ -347,4 +348,3 @@ private:
     /// </summary>
     std::vector<uint8_t> m_rgbBuffer;
 };
-

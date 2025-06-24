@@ -326,25 +326,31 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
                 for (int ch = 0; ch < result.channels; ch++)
                 {
                     const uint8_t* src = frame->data[ch] + s * bytesPerSample;
-                    
+
                     // 对于浮点格式，进行软限幅处理避免爆音
                     if (result.format == AV_SAMPLE_FMT_FLTP)
                     {
-                        float* srcFloat = reinterpret_cast<float*>(const_cast<uint8_t*>(src));
-                        float* dstFloat = reinterpret_cast<float*>(dst);
-                        
+                        auto srcFloat = reinterpret_cast<float*>(const_cast<uint8_t*>(src));
+                        auto dstFloat = reinterpret_cast<float*>(dst);
+
                         // 软限幅处理，避免音频失真
                         float sample = *srcFloat;
-                        if (sample > 0.95f) sample = 0.95f;
-                        else if (sample < -0.95f) sample = -0.95f;
-                        
+                        if (sample > 0.95f)
+                        {
+                            sample = 0.95f;
+                        }
+                        else if (sample < -0.95f)
+                        {
+                            sample = -0.95f;
+                        }
+
                         *dstFloat = sample;
                     }
                     else
                     {
                         memcpy(dst, src, bytesPerSample);
                     }
-                    
+
                     dst += bytesPerSample;
                 }
             }
@@ -354,14 +360,20 @@ ST_AudioDecodeResult FFmpegPublicUtils::DecodeAudioPacket(const AVPacket* packet
             // 对于已经交错的格式，直接复制，但也进行软限幅处理
             if (result.format == AV_SAMPLE_FMT_FLT)
             {
-                float* src = reinterpret_cast<float*>(frame->data[0]);
-                float* dst = reinterpret_cast<float*>(result.audioData.data() + currentSize);
-                
+                auto src = reinterpret_cast<float*>(frame->data[0]);
+                auto dst = reinterpret_cast<float*>(result.audioData.data() + currentSize);
+
                 for (int i = 0; i < frame->nb_samples * result.channels; i++)
                 {
                     float sample = src[i];
-                    if (sample > 0.95f) sample = 0.95f;
-                    else if (sample < -0.95f) sample = -0.95f;
+                    if (sample > 0.95f)
+                    {
+                        sample = 0.95f;
+                    }
+                    else if (sample < -0.95f)
+                    {
+                        sample = -0.95f;
+                    }
                     dst[i] = sample;
                 }
             }

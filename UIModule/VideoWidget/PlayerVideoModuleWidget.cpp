@@ -1,23 +1,21 @@
 ﻿#include "PlayerVideoModuleWidget.h"
+#include <QDebug>
+#include <QPainter>
 #include <QPixmap>
 #include <QResizeEvent>
-#include <QPainter>
-#include <QDebug>
 #include "VideoFFmpegUtils.h"  // 在cpp文件中包含具体实现
-#include "SDKCommonDefine/SDKCommonDefine.h"
 #include "CommonDefine/UIWidgetColorDefine.h"
+#include "SDKCommonDefine/SDKCommonDefine.h"
 
 PlayerVideoModuleWidget::PlayerVideoModuleWidget(QWidget* parent)
-    : BaseModuleWidegt(parent), ui(new Ui::PlayerVideoModuleWidgetClass()),
-      m_videoFFmpeg(nullptr), m_videoDisplayLabel(nullptr), m_mainLayout(nullptr), 
-      m_currentVideoInfo(nullptr), m_updateTimer(nullptr)
+    : BaseModuleWidegt(parent), ui(new Ui::PlayerVideoModuleWidgetClass()), m_videoFFmpeg(nullptr), m_videoDisplayLabel(nullptr), m_mainLayout(nullptr), m_currentVideoInfo(nullptr), m_updateTimer(nullptr)
 {
     ui->setupUi(this);
-    
+
     // 创建VideoFFmpegUtils实例
     m_videoFFmpeg = new VideoFFmpegUtils(this);
     m_currentVideoInfo = new ST_VideoFrameInfo();
-    
+
     InitializeWidget();
     ConnectSignals();
 }
@@ -54,9 +52,7 @@ void PlayerVideoModuleWidget::InitializeWidget()
     // 创建视频显示标签
     m_videoDisplayLabel = new QLabel(this);
     m_videoDisplayLabel->setMinimumSize(1080, 720);
-    m_videoDisplayLabel->setStyleSheet(QString("background-color: %1; border: 1px solid %2;")
-                                     .arg(UIColorDefine::color_convert::ToCssString(UIColorDefine::background_color::Dark))
-                                     .arg(UIColorDefine::color_convert::ToCssString(UIColorDefine::border_color::Default)));
+    m_videoDisplayLabel->setStyleSheet(QString("background-color: %1; border: 1px solid %2;").arg(UIColorDefine::color_convert::ToCssString(UIColorDefine::background_color::Dark)).arg(UIColorDefine::color_convert::ToCssString(UIColorDefine::border_color::Default)));
     m_videoDisplayLabel->setAlignment(Qt::AlignCenter);
     m_videoDisplayLabel->setText("选择视频文件开始播放");
     m_videoDisplayLabel->setScaledContents(true);
@@ -75,14 +71,10 @@ void PlayerVideoModuleWidget::InitializeWidget()
 void PlayerVideoModuleWidget::ConnectSignals()
 {
     // 连接视频FFmpeg工具类的信号
-    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigPlayStateChanged, 
-            this, &PlayerVideoModuleWidget::SlotVideoPlayStateChanged);
-    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigPlayProgressUpdated, 
-            this, &PlayerVideoModuleWidget::SlotVideoProgressUpdated);
-    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigFrameUpdated, 
-            this, &PlayerVideoModuleWidget::SlotVideoFrameUpdated);
-    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigError, 
-            this, &PlayerVideoModuleWidget::SlotVideoError);
+    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigPlayStateChanged, this, &PlayerVideoModuleWidget::SlotVideoPlayStateChanged);
+    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigPlayProgressUpdated, this, &PlayerVideoModuleWidget::SlotVideoProgressUpdated);
+    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigFrameUpdated, this, &PlayerVideoModuleWidget::SlotVideoFrameUpdated);
+    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigError, this, &PlayerVideoModuleWidget::SlotVideoError);
 }
 
 void PlayerVideoModuleWidget::SetVideoFrame(const uint8_t* frameData, int width, int height)
@@ -106,7 +98,7 @@ void PlayerVideoModuleWidget::SetVideoFrame(const uint8_t* frameData, int width,
         // 计算保持纵横比的缩放尺寸
         QSize labelSize = m_videoDisplayLabel->size();
         QSize scaledSize = pixmap.size().scaled(labelSize, Qt::KeepAspectRatio);
-        
+
         QPixmap scaledPixmap = pixmap.scaled(scaledSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         m_videoDisplayLabel->setPixmap(scaledPixmap);
     }

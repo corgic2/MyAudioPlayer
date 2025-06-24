@@ -1,13 +1,13 @@
 ﻿#pragma once
 
-#include <QObject>
-#include <QString>
-#include <QMutex>
 #include <atomic>
 #include <memory>
+#include <QMutex>
+#include <QObject>
+#include <QString>
 #include "VideoPlayWorker.h"
-#include "BaseDataDefine/ST_AVFormatContext.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
+#include "BaseDataDefine/ST_AVFormatContext.h"
 
 extern "C"
 {
@@ -22,9 +22,7 @@ extern "C"
 /// </summary>
 class VideoRecordWorker : public QObject
 {
-    Q_OBJECT
-
-public:
+    Q_OBJECT public:
     /// <summary>
     /// 构造函数
     /// </summary>
@@ -34,7 +32,7 @@ public:
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~VideoRecordWorker();
+    ~VideoRecordWorker() override;
 
 public slots:
     /// <summary>
@@ -140,4 +138,4 @@ private:
     /// 输出文件路径
     /// </summary>
     QString m_outputPath;
-}; 
+};

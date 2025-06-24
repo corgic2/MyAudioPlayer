@@ -7,14 +7,14 @@ PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
     : BaseModuleWidegt(parent), ui(new Ui::PlayerAudioModuleWidgetClass())
 {
     ui->setupUi(this);
-    
+
     // 创建波形控件
     m_waveformWidget = new AudioWaveformWidget(this);
     ui->verticalLayout->addWidget(m_waveformWidget);
-    
+
     // 连接信号槽
     ConnectSignals();
-    
+
     // 初始化播放进度定时器
     m_progressTimer = new QTimer(this);
     m_progressTimer->setInterval(100); // 100ms更新一次
@@ -49,7 +49,7 @@ void PlayerAudioModuleWidget::StartPlay(const QString& filePath, double startPos
     {
         LoadWaveWidegt(filePath);
     }
-    
+
     m_audioFFmpeg.StartPlay(filePath, startPosition);
     m_progressTimer->start();
 }
@@ -87,28 +87,25 @@ void PlayerAudioModuleWidget::SeekTo(double position)
 void PlayerAudioModuleWidget::ConnectSignals()
 {
     // 连接音频播放器信号
-    connect(&m_audioFFmpeg, &AudioFFmpegUtils::SigPlayStateChanged,
-            this, &PlayerAudioModuleWidget::SigPlayStateChanged);
-    
-    connect(&m_audioFFmpeg, &AudioFFmpegUtils::SigProgressChanged,
-            this, &PlayerAudioModuleWidget::SlotProgressChanged);
-    
+    connect(&m_audioFFmpeg, &AudioFFmpegUtils::SigPlayStateChanged, this, &PlayerAudioModuleWidget::SigPlayStateChanged);
+
+    connect(&m_audioFFmpeg, &AudioFFmpegUtils::SigProgressChanged, this, &PlayerAudioModuleWidget::SlotProgressChanged);
+
     // 连接波形控件信号
-    connect(m_waveformWidget, &AudioWaveformWidget::SigSeekPosition,
-            this, &PlayerAudioModuleWidget::SeekTo);
+    connect(m_waveformWidget, &AudioWaveformWidget::SigSeekPosition, this, &PlayerAudioModuleWidget::SeekTo);
 }
 
 void PlayerAudioModuleWidget::SlotProgressChanged(qint64 position, qint64 duration)
 {
     m_currentPosition = position;
     m_totalDuration = duration;
-    
+
     if (duration > 0)
     {
         double progress = static_cast<double>(position) / duration;
         m_waveformWidget->SetPlaybackPosition(progress);
     }
-    
+
     emit SigProgressChanged(position, duration);
 }
 
@@ -119,7 +116,7 @@ void PlayerAudioModuleWidget::SlotUpdateProgress()
         // 定期更新播放进度
         double currentPos = m_audioFFmpeg.GetCurrentPosition();
         double duration = m_audioFFmpeg.GetDuration();
-        
+
         if (duration > 0)
         {
             double progress = currentPos / duration;

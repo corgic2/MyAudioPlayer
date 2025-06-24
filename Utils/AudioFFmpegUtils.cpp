@@ -244,28 +244,28 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
     // 创建重采样器并获取实际的音频参数
     AudioResampler resampler;
     QString format = QString::fromStdString(my_sdk::FileSystem::GetExtension(inputFilePath.toStdString()));
-    
+
     // 根据实际文件获取音频参数
     AVStream* audioStream = openFileResult.m_formatCtx->GetRawContext()->streams[openFileResult.m_audioStreamIdx];
     AVCodecParameters* codecpar = audioStream->codecpar;
-    
+
     ST_ResampleParams resampleParams;
-    
+
     // 设置实际的输入参数
     resampleParams.GetInput().SetSampleRate(codecpar->sample_rate);
     resampleParams.GetInput().SetSampleFormat(ST_AVSampleFormat(static_cast<AVSampleFormat>(codecpar->format)));
-    
+
     auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
     if (inLayout)
     {
         av_channel_layout_copy(inLayout, &codecpar->ch_layout);
         resampleParams.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
     }
-    
+
     // 设置标准的输出参数
     resampleParams.GetOutput().SetSampleRate(44100);                                  // 标准采样率
     resampleParams.GetOutput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S16)); // 16位整数格式，兼容性最好
-    
+
     auto outLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
     if (outLayout)
     {
@@ -273,22 +273,19 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
         resampleParams.GetOutput().SetChannelLayout(ST_AVChannelLayout(outLayout));
     }
 
-    LOG_INFO("Audio parameters - Input: " + std::to_string(codecpar->sample_rate) + "Hz, " + 
-             std::to_string(codecpar->ch_layout.nb_channels) + " channels, format: " + std::to_string(codecpar->format));
+    LOG_INFO("Audio parameters - Input: " + std::to_string(codecpar->sample_rate) + "Hz, " + std::to_string(codecpar->ch_layout.nb_channels) + " channels, format: " + std::to_string(codecpar->format));
     LOG_INFO("Audio parameters - Output: 44100Hz, 2 channels, S16 format");
 
     // 优化SDL音频规格配置
     SDL_AudioSpec wantedSpec;
     memset(&wantedSpec, 0, sizeof(wantedSpec));
-    
+
     // 使用重采样器的输出参数配置SDL
     wantedSpec.freq = resampleParams.GetOutput().GetSampleRate();
     wantedSpec.format = FFmpegPublicUtils::FFmpegToSDLFormat(resampleParams.GetOutput().GetSampleFormat().sampleFormat);
     wantedSpec.channels = resampleParams.GetOutput().GetChannelLayout().GetRawLayout()->nb_channels;
 
-    LOG_INFO("SDL Audio Spec - Freq: " + std::to_string(wantedSpec.freq) + 
-             ", Format: " + std::to_string(wantedSpec.format) + 
-             ", Channels: " + std::to_string(wantedSpec.channels));
+    LOG_INFO("SDL Audio Spec - Freq: " + std::to_string(wantedSpec.freq) + ", Format: " + std::to_string(wantedSpec.format) + ", Channels: " + std::to_string(wantedSpec.channels));
 
     m_playInfo->InitAudioSpec(true, static_cast<int>(wantedSpec.freq), wantedSpec.format, static_cast<int>(wantedSpec.channels));
     m_playInfo->InitAudioSpec(false, static_cast<int>(wantedSpec.freq), wantedSpec.format, static_cast<int>(wantedSpec.channels));
@@ -339,7 +336,7 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
     const int BUFFER_SIZE = 8192;
     std::vector<uint8_t> audioBuffer;
     audioBuffer.reserve(BUFFER_SIZE * 4);
-    
+
     int processedPackets = 0;
     AVFrame* frame = av_frame_alloc();
     if (!frame)
@@ -347,7 +344,7 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
         LOG_ERROR("Failed to allocate frame for audio processing");
         return;
     }
-    
+
     try
     {
         while (pkt.ReadPacket(openFileResult.m_formatCtx->GetRawContext()) >= 0)
@@ -370,14 +367,14 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                 {
                     // 直接使用AVFrame进行重采样，避免数据格式转换问题
                     ST_ResampleResult resampleResult;
-                    
+
                     // 准备输入数据指针数组
                     const uint8_t* inputDataPtrs[AV_NUM_DATA_POINTERS] = {0};
-                    
+
                     // 检查是否为平面格式
                     bool isPlanar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(frame->format));
                     int channels = frame->ch_layout.nb_channels;
-                    
+
                     if (isPlanar)
                     {
                         // 平面格式：每个通道分别存储
@@ -391,21 +388,21 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                         // 交错格式：所有通道数据交错存储
                         inputDataPtrs[0] = frame->data[0];
                     }
-                    
+
                     // 执行重采样
                     resampler.Resample(inputDataPtrs, frame->nb_samples, resampleResult, resampleParams);
-                    
+
                     // 将重采样后的数据添加到缓冲区
                     if (!resampleResult.GetData().empty())
                     {
                         audioBuffer.insert(audioBuffer.end(), resampleResult.GetData().begin(), resampleResult.GetData().end());
-                        
+
                         // 当缓冲区达到一定大小时才传输
                         if (audioBuffer.size() >= BUFFER_SIZE)
                         {
                             m_playInfo->PutDataToStream(audioBuffer.data(), audioBuffer.size());
                             audioBuffer.clear();
-                            
+
                             // 定期检查是否需要停止
                             if (!m_playState.IsPlaying())
                             {
@@ -413,24 +410,24 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                             }
                         }
                     }
-                    
+
                     // 更新播放位置
                     if (frame->pts != AV_NOPTS_VALUE)
                     {
                         AVStream* audioStream = openFileResult.m_formatCtx->GetRawContext()->streams[openFileResult.m_audioStreamIdx];
                         double timeStamp = static_cast<double>(frame->pts) * av_q2d(audioStream->time_base);
                         m_currentPosition = timeStamp;
-                        
+
                         // 定期发送进度更新信号
                         if (processedPackets % 25 == 0)
                         {
                             emit SigProgressChanged(static_cast<qint64>(m_currentPosition), static_cast<qint64>(m_duration));
                         }
                     }
-                    
+
                     processedPackets++;
                 }
-                
+
                 if (ret == AVERROR(EAGAIN))
                 {
                     // 需要更多输入数据
@@ -449,9 +446,9 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                     LOG_WARN("Error receiving frame from decoder: " + std::string(errbuf));
                 }
             }
-            
+
             pkt.UnrefPacket();
-            
+
             // 定期检查是否需要停止
             if (processedPackets % 50 == 0 && !m_playState.IsPlaying())
             {
@@ -472,18 +469,16 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
         {
             m_playInfo->PutDataToStream(flushResult.GetData().data(), flushResult.GetData().size());
         }
-        
+
         LOG_INFO("Audio data processing completed, processed " + std::to_string(processedPackets) + " packets");
-    }
-    catch (const std::exception& e)
+    } catch (const std::exception& e)
     {
         LOG_ERROR("Exception in audio processing: " + std::string(e.what()));
-    }
-    catch (...)
+    } catch (...)
     {
         LOG_ERROR("Unknown exception in audio processing");
     }
-    
+
     av_frame_free(&frame);
 }
 
@@ -714,8 +709,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
         }
 
         LOG_INFO("LoadAudioWaveform() : Successfully loaded waveform with " + std::to_string(waveformData.size()) + " data points");
-    } 
-    catch (...)
+    } catch (...)
     {
         LOG_ERROR("LoadAudioWaveform() : Exception occurred during waveform loading");
         av_frame_free(&frame);

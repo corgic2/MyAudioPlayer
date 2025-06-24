@@ -34,12 +34,12 @@ public:
     /// 获取FFMpegUtils
     /// </summary>
     /// <returns>FFmpeg工具类指针</returns>
-    BaseFFmpegUtils *GetFFMpegUtils() override;
+    BaseFFmpegUtils* GetFFMpegUtils() override;
     /// <summary>
     /// 加载波形图
     /// </summary>
     /// <param name="inputFilePath">音频文件路径</param>
-    void LoadWaveWidegt(const QString &inputFilePath);
+    void LoadWaveWidegt(const QString& inputFilePath);
     /// <summary>
     /// 开始播放
     /// </summary>
@@ -98,7 +98,7 @@ private:
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;
     AudioFFmpegUtils m_audioFFmpeg;
-    AudioWaveformWidget *m_waveformWidget = nullptr;
+    AudioWaveformWidget* m_waveformWidget = nullptr;
     QTimer* m_progressTimer = nullptr;
     QString m_currentFilePath;
     qint64 m_currentPosition = 0;

@@ -22,9 +22,7 @@ class PlayerVideoModuleWidget;
 /// </summary>
 class VideoFFmpegUtils : public BaseFFmpegUtils
 {
-    Q_OBJECT
-
-public:
+    Q_OBJECT public:
     /// <summary>
     /// 构造函数
     /// </summary>
