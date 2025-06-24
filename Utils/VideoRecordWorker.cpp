@@ -1,6 +1,7 @@
 ﻿#include "VideoRecordWorker.h"
 #include <QMutexLocker>
 #include <QThread>
+#include <chrono>
 #include "FFmpegPublicUtils.h"
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
@@ -59,17 +60,25 @@ void VideoRecordWorker::SlotStopRecord()
 
 bool VideoRecordWorker::InitRecorder(const QString& outputPath)
 {
+    auto startTime = std::chrono::high_resolution_clock::now();
+    LOG_INFO("=== Initializing video recorder for: " + outputPath.toStdString() + " ===");
+    
     try
     {
         // 获取默认视频设备
+        auto deviceFindStartTime = std::chrono::high_resolution_clock::now();
         QString deviceName = GetDefaultVideoDevice();
         if (deviceName.isEmpty())
         {
-            LOG_WARN("No video recording device available");
+            LOG_ERROR("No video recording device available");
             return false;
         }
+        auto deviceFindEndTime = std::chrono::high_resolution_clock::now();
+        auto deviceFindDuration = std::chrono::duration_cast<std::chrono::milliseconds>(deviceFindEndTime - deviceFindStartTime).count();
+        LOG_INFO("Video recording device found: " + deviceName.toStdString() + " (search took " + std::to_string(deviceFindDuration) + " ms)");
 
         // 创建输入格式上下文（录制设备）
+        auto inputCtxStartTime = std::chrono::high_resolution_clock::now();
         m_pInputFormatCtx = std::make_unique<ST_AVFormatContext>();
 
         // 查找输入格式
@@ -104,7 +113,12 @@ bool VideoRecordWorker::InitRecorder(const QString& outputPath)
         AVStream* inputStream = inputCtx->streams[m_videoStreamIndex];
         AVCodecParameters* inputCodecPar = inputStream->codecpar;
 
+        auto inputCtxEndTime = std::chrono::high_resolution_clock::now();
+        auto inputCtxDuration = std::chrono::duration_cast<std::chrono::milliseconds>(inputCtxEndTime - inputCtxStartTime).count();
+        LOG_INFO("Input video context initialized in " + std::to_string(inputCtxDuration) + " ms");
+
         // 创建输出格式上下文
+        auto outputCtxStartTime = std::chrono::high_resolution_clock::now();
         m_pOutputFormatCtx = std::make_unique<ST_AVFormatContext>();
         QString format = QString::fromStdString(my_sdk::FileSystem::GetExtension(outputPath.toStdString()));
         ret = m_pOutputFormatCtx->OpenOutputFilePath(nullptr, format.toStdString().c_str(), outputPath.toUtf8().constData());
@@ -206,11 +220,19 @@ bool VideoRecordWorker::InitRecorder(const QString& outputPath)
             return false;
         }
 
-        LOG_INFO("Video recorder initialized successfully");
+        auto outputCtxEndTime = std::chrono::high_resolution_clock::now();
+        auto outputCtxDuration = std::chrono::duration_cast<std::chrono::milliseconds>(outputCtxEndTime - outputCtxStartTime).count();
+        LOG_INFO("Output video context initialized in " + std::to_string(outputCtxDuration) + " ms");
+
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        LOG_INFO("=== Video recorder initialized successfully in " + std::to_string(totalDuration) + " ms ===");
         return true;
     } catch (const std::exception& e)
     {
-        LOG_WARN("Exception in InitRecorder: " + std::string(e.what()));
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        LOG_ERROR("Exception in InitRecorder after " + std::to_string(duration) + " ms: " + std::string(e.what()));
         return false;
     }
 }
@@ -255,15 +277,32 @@ void VideoRecordWorker::Cleanup()
 
 void VideoRecordWorker::RecordLoop()
 {
-    LOG_INFO("Video recording loop started");
+    auto startTime = std::chrono::high_resolution_clock::now();
+    LOG_INFO("=== Video recording loop started ===");
 
     int frameCount = 0;
     const int maxFrames = 1500; // 录制约60秒（25fps）
+    auto lastLogTime = startTime;
 
     while (!m_bNeedStop && frameCount < maxFrames)
     {
+        // 每录制50帧记录一次进度
+        if (frameCount % 50 == 0 && frameCount > 0)
+        {
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastLogTime).count();
+            double fps = frameCount > 0 ? (50.0 * 1000.0 / duration) : 0.0;
+            LOG_INFO("Recorded " + std::to_string(frameCount) + " frames, current FPS: " + std::to_string(fps) + " (last 50 frames in " + std::to_string(duration) + " ms)");
+            lastLogTime = currentTime;
+        }
+
         // 读取输入数据包
+        auto readStartTime = std::chrono::high_resolution_clock::now();
         int ret = av_read_frame(m_pInputFormatCtx->GetRawContext(), m_pInputPacket);
+        auto readEndTime = std::chrono::high_resolution_clock::now();
+        
+        auto readDuration = std::chrono::duration_cast<std::chrono::microseconds>(readEndTime - readStartTime).count();
+        
         if (ret < 0)
         {
             if (ret == AVERROR(EAGAIN))
@@ -275,14 +314,22 @@ void VideoRecordWorker::RecordLoop()
             {
                 char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
                 av_strerror(ret, errbuf, sizeof(errbuf));
-                LOG_WARN("Error reading input frame: " + std::string(errbuf));
+                LOG_WARN("Error reading input frame after " + std::to_string(readDuration) + " μs: " + std::string(errbuf));
                 break;
             }
+        }
+
+        // 只在读取耗时较长时记录
+        if (readDuration > 1000) // 大于1ms
+        {
+            LOG_DEBUG("Frame read took " + std::to_string(readDuration) + " μs");
         }
 
         // 只处理视频流的数据包
         if (m_pInputPacket->stream_index == m_videoStreamIndex)
         {
+            auto writeStartTime = std::chrono::high_resolution_clock::now();
+            
             // 重新计算时间戳
             AVStream* inputStream = m_pInputFormatCtx->GetRawContext()->streams[m_videoStreamIndex];
             AVStream* outputStream = m_pOutputFormatCtx->GetRawContext()->streams[0];
@@ -292,15 +339,23 @@ void VideoRecordWorker::RecordLoop()
 
             // 写入输出文件
             ret = av_interleaved_write_frame(m_pOutputFormatCtx->GetRawContext(), m_pInputPacket);
+            auto writeEndTime = std::chrono::high_resolution_clock::now();
+            auto writeDuration = std::chrono::duration_cast<std::chrono::microseconds>(writeEndTime - writeStartTime).count();
+            
             if (ret < 0)
             {
                 char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
                 av_strerror(ret, errbuf, sizeof(errbuf));
-                LOG_WARN("Error writing output frame: " + std::string(errbuf));
+                LOG_WARN("Error writing output frame after " + std::to_string(writeDuration) + " μs: " + std::string(errbuf));
             }
             else
             {
                 frameCount++;
+                // 只在写入耗时较长时记录
+                if (writeDuration > 5000) // 大于5ms
+                {
+                    LOG_DEBUG("Frame write took " + std::to_string(writeDuration) + " μs");
+                }
             }
         }
 
@@ -308,7 +363,9 @@ void VideoRecordWorker::RecordLoop()
         QThread::msleep(40); // 约25fps
     }
 
-    LOG_INFO("Video recording loop finished, recorded " + std::to_string(frameCount) + " frames");
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+    LOG_INFO("=== Video recording loop finished in " + std::to_string(totalDuration) + " ms, recorded " + std::to_string(frameCount) + " frames ===");
 
     // 录制完成
     m_recordState = EM_VideoRecordState::Stopped;

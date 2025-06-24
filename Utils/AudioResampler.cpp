@@ -2,6 +2,7 @@
 #include <memory>
 #include <QDebug>
 #include <vector>
+#include <chrono>
 #include <libavutil/avutil.h>
 #include <libavutil/mathematics.h>
 #include <libavutil/opt.h>
@@ -16,8 +17,8 @@ AudioResampler::AudioResampler()
 
 void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_ResampleResult& output, ST_ResampleParams& params)
 {
-    LOG_INFO("Starting audio resampling, input samples: " + std::to_string(inputSamples));
-
+    auto startTime = std::chrono::high_resolution_clock::now();
+    
     // 验证输入
     if (!inputData || inputSamples <= 0)
     {
@@ -29,12 +30,16 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     // 验证重采样器上下文
     if (!m_swrCtx.GetRawContext())
     {
+        auto initStartTime = std::chrono::high_resolution_clock::now();
         if (!InitializeResampler(params))
         {
             LOG_ERROR("Failed to initialize resampler");
             output.SetData(std::vector<uint8_t>());
             return;
         }
+        auto initEndTime = std::chrono::high_resolution_clock::now();
+        auto initDuration = std::chrono::duration_cast<std::chrono::milliseconds>(initEndTime - initStartTime).count();
+        LOG_INFO("Resampler context initialized in " + std::to_string(initDuration) + " ms");
     }
 
     // 验证输入数据
@@ -106,18 +111,27 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     try
     {
         // 执行重采样
+        auto resampleStartTime = std::chrono::high_resolution_clock::now();
         int realOutSamples = swr_convert(m_swrCtx.GetRawContext(), &alignedBuffer, outSamples, inputData, inputSamples);
+        auto resampleEndTime = std::chrono::high_resolution_clock::now();
+        
+        auto resampleDuration = std::chrono::duration_cast<std::chrono::microseconds>(resampleEndTime - resampleStartTime).count();
+        
         if (realOutSamples < 0)
         {
             char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
             av_strerror(realOutSamples, errbuf, sizeof(errbuf));
-            LOG_ERROR("Resample Failed with error: " + std::to_string(realOutSamples) + " - " + std::string(errbuf));
+            LOG_ERROR("Resample Failed with error: " + std::to_string(realOutSamples) + " - " + std::string(errbuf) + " (took " + std::to_string(resampleDuration) + " μs)");
             av_free(alignedBuffer);
             output.SetData(std::vector<uint8_t>());
             return;
         }
 
-        LOG_INFO("Resampling completed, input samples: " + std::to_string(inputSamples) + ", output samples: " + std::to_string(realOutSamples));
+        // 只在耗时较长时记录详细信息
+        if (resampleDuration > 500) // 大于0.5ms
+        {
+            LOG_DEBUG("Resampling " + std::to_string(inputSamples) + " samples took " + std::to_string(resampleDuration) + " μs, output: " + std::to_string(realOutSamples) + " samples");
+        }
 
         // 计算实际使用的缓冲区大小
         int realBufSize = av_samples_get_buffer_size(&linesize, outChannels, realOutSamples, outFormat, 1);
@@ -140,7 +154,9 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
         }
     } catch (const std::exception& e)
     {
-        LOG_ERROR("Exception during resampling: " + std::string(e.what()));
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
+        LOG_ERROR("Exception during resampling after " + std::to_string(duration) + " μs: " + std::string(e.what()));
         output.SetData(std::vector<uint8_t>());
     } catch (...)
     {
@@ -238,6 +254,9 @@ ST_ResampleSimpleData AudioResampler::GetDefaultOutputParams() const
 
 bool AudioResampler::InitializeResampler(ST_ResampleParams& params)
 {
+    auto startTime = std::chrono::high_resolution_clock::now();
+    LOG_INFO("Initializing audio resampler...");
+    
     try
     {
         // 验证输入参数
@@ -266,10 +285,18 @@ bool AudioResampler::InitializeResampler(ST_ResampleParams& params)
         }
 
         // 检查是否需要重新初始化
-        bool needReinit = !m_swrCtx.GetRawContext() || inChannels != m_lastInLayout.GetRawLayout()->nb_channels || outChannels != m_lastOutLayout.GetRawLayout()->nb_channels || params.GetInput().GetSampleRate() != m_lastInRate || params.GetOutput().GetSampleRate() != m_lastOutRate || params.GetInput().GetSampleFormat().sampleFormat != m_lastInFmt.sampleFormat || params.GetOutput().GetSampleFormat().sampleFormat != m_lastOutFmt.sampleFormat;
+        bool needReinit = !m_swrCtx.GetRawContext() || 
+                         inChannels != m_lastInLayout.GetRawLayout()->nb_channels || 
+                         outChannels != m_lastOutLayout.GetRawLayout()->nb_channels || 
+                         params.GetInput().GetSampleRate() != m_lastInRate || 
+                         params.GetOutput().GetSampleRate() != m_lastOutRate || 
+                         params.GetInput().GetSampleFormat().sampleFormat != m_lastInFmt.sampleFormat || 
+                         params.GetOutput().GetSampleFormat().sampleFormat != m_lastOutFmt.sampleFormat;
 
         if (needReinit)
         {
+            auto contextCreateStartTime = std::chrono::high_resolution_clock::now();
+            
             SwrContext* p = m_swrCtx.GetRawContext();
             // 释放旧上下文
             if (p)
@@ -280,7 +307,14 @@ bool AudioResampler::InitializeResampler(ST_ResampleParams& params)
 
             // 创建新上下文
             SwrContext** ctx = &p;
-            int ret = swr_alloc_set_opts2(ctx, params.GetOutput().GetChannelLayout().GetRawLayout(), params.GetOutput().GetSampleFormat().sampleFormat, params.GetOutput().GetSampleRate(), params.GetInput().GetChannelLayout().GetRawLayout(), params.GetInput().GetSampleFormat().sampleFormat, params.GetInput().GetSampleRate(), 0, nullptr);
+            int ret = swr_alloc_set_opts2(ctx, 
+                                        params.GetOutput().GetChannelLayout().GetRawLayout(), 
+                                        params.GetOutput().GetSampleFormat().sampleFormat, 
+                                        params.GetOutput().GetSampleRate(), 
+                                        params.GetInput().GetChannelLayout().GetRawLayout(), 
+                                        params.GetInput().GetSampleFormat().sampleFormat, 
+                                        params.GetInput().GetSampleRate(), 
+                                        0, nullptr);
 
             if (ret < 0)
             {
@@ -325,19 +359,30 @@ bool AudioResampler::InitializeResampler(ST_ResampleParams& params)
             m_lastInFmt = params.GetInput().GetSampleFormat();
             m_lastOutFmt = params.GetOutput().GetSampleFormat();
 
-            LOG_INFO("Resampler initialized successfully");
+            auto contextCreateEndTime = std::chrono::high_resolution_clock::now();
+            auto contextCreateDuration = std::chrono::duration_cast<std::chrono::milliseconds>(contextCreateEndTime - contextCreateStartTime).count();
+            
+            auto endTime = std::chrono::high_resolution_clock::now();
+            auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+            LOG_INFO("Resampler context created and initialized successfully in " + std::to_string(totalDuration) + " ms (context creation: " + std::to_string(contextCreateDuration) + " ms)");
             LOG_INFO("Input: " + std::to_string(m_lastInRate) + "Hz, " + std::to_string(inChannels) + " channels, format: " + std::to_string(m_lastInFmt.sampleFormat));
             LOG_INFO("Output: " + std::to_string(m_lastOutRate) + "Hz, " + std::to_string(outChannels) + " channels, format: " + std::to_string(m_lastOutFmt.sampleFormat));
         }
 
         return true;
-    } catch (const std::exception& e)
+    } 
+    catch (const std::exception& e)
     {
-        LOG_ERROR("Exception in InitializeResampler: " + std::string(e.what()));
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        LOG_ERROR("Exception in InitializeResampler after " + std::to_string(duration) + " ms: " + std::string(e.what()));
         return false;
-    } catch (...)
+    } 
+    catch (...)
     {
-        LOG_ERROR("Unknown exception in InitializeResampler");
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        LOG_ERROR("Unknown exception in InitializeResampler after " + std::to_string(duration) + " ms");
         return false;
     }
 }

@@ -4,6 +4,7 @@
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
 #include "LogSystem/LogSystem.h"
+#include <chrono>
 
 VideoPlayWorker::VideoPlayWorker(QObject* parent)
     : QObject(parent), m_pFormatCtx(nullptr), m_pCodecCtx(nullptr), m_videoStreamIndex(-1), m_pPacket(nullptr), m_pVideoFrame(nullptr), m_pRGBFrame(nullptr), m_pSwsCtx(nullptr), m_pRenderer(nullptr), m_pTexture(nullptr), m_playState(EM_VideoPlayState::Stopped), m_bNeedStop(false), m_startTime(0), m_pauseStartTime(0), m_totalPauseTime(0), m_currentTime(0.0), m_bSeekRequested(false), m_seekTarget(0.0)
@@ -140,6 +141,9 @@ SwsContext* VideoPlayWorker::CreateSafeSwsContext(AVPixelFormat srcFormat, AVPix
 
 bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* renderer, ST_SDL_Texture* texture)
 {
+    auto startTime = std::chrono::high_resolution_clock::now();
+    LOG_INFO("=== Initializing video player for: " + filePath.toStdString() + " ===");
+    
     if (filePath.isEmpty())
     {
         LOG_WARN("VideoPlayWorker::InitPlayer() : Invalid file path");
@@ -153,23 +157,31 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
     try
     {
         // 创建格式上下文
+        auto formatCtxStartTime = std::chrono::high_resolution_clock::now();
         m_pFormatCtx = std::make_unique<ST_AVFormatContext>();
         int ret = m_pFormatCtx->OpenInputFilePath(filePath.toLocal8Bit().constData());
         if (ret < 0)
         {
             char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
             av_strerror(ret, errbuf, sizeof(errbuf));
-            LOG_WARN("Failed to open input file: " + std::string(errbuf));
+            LOG_ERROR("Failed to open input file: " + std::string(errbuf));
             return false;
         }
+        auto formatCtxEndTime = std::chrono::high_resolution_clock::now();
+        auto formatCtxDuration = std::chrono::duration_cast<std::chrono::milliseconds>(formatCtxEndTime - formatCtxStartTime).count();
+        LOG_INFO("Video format context opened in " + std::to_string(formatCtxDuration) + " ms");
 
         // 查找视频流
+        auto streamFindStartTime = std::chrono::high_resolution_clock::now();
         m_videoStreamIndex = m_pFormatCtx->FindBestStream(AVMEDIA_TYPE_VIDEO);
         if (m_videoStreamIndex < 0)
         {
-            LOG_WARN("No video stream found in file");
+            LOG_ERROR("No video stream found in file");
             return false;
         }
+        auto streamFindEndTime = std::chrono::high_resolution_clock::now();
+        auto streamFindDuration = std::chrono::duration_cast<std::chrono::milliseconds>(streamFindEndTime - streamFindStartTime).count();
+        LOG_INFO("Video stream found (index: " + std::to_string(m_videoStreamIndex) + ") in " + std::to_string(streamFindDuration) + " ms");
 
         // 获取视频流信息
         AVFormatContext* rawCtx = m_pFormatCtx->GetRawContext();
@@ -185,6 +197,7 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
         }
 
         // 创建解码器上下文
+        auto codecSetupStartTime = std::chrono::high_resolution_clock::now();
         m_pCodecCtx = std::make_unique<ST_AVCodecContext>(decoder);
         if (!m_pCodecCtx->GetRawContext())
         {
@@ -211,6 +224,9 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
             LOG_WARN("Failed to open codec: " + std::string(errbuf));
             return false;
         }
+        auto codecSetupEndTime = std::chrono::high_resolution_clock::now();
+        auto codecSetupDuration = std::chrono::duration_cast<std::chrono::milliseconds>(codecSetupEndTime - codecSetupStartTime).count();
+        LOG_INFO("Video codec initialized in " + std::to_string(codecSetupDuration) + " ms");
 
         // 初始化视频信息
         m_videoInfo.m_width = codecPar->width;
@@ -223,11 +239,6 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
             LOG_WARN("Invalid video dimensions: " + std::to_string(m_videoInfo.m_width) + "x" + std::to_string(m_videoInfo.m_height));
             return false;
         }
-
-        //LOG_INFO("Original video info - Width: " + std::to_string(m_videoInfo.m_width) + 
-        //        ", Height: " + std::to_string(m_videoInfo.m_height) + 
-        //        ", Format: " + std::to_string((int)(m_videoInfo.m_pixelFormat)) + 
-        //        " (" + std::string(av_get_pix_fmt_name(m_videoInfo.m_pixelFormat)) + ")");
 
         // 计算帧率
         if (videoStream->avg_frame_rate.num != 0 && videoStream->avg_frame_rate.den != 0)
@@ -257,12 +268,16 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
         m_videoInfo.m_totalFrames = static_cast<int64_t>(m_videoInfo.m_duration * m_videoInfo.m_frameRate);
 
         // 创建安全的图像转换上下文
+        auto swsStartTime = std::chrono::high_resolution_clock::now();
         m_pSwsCtx = CreateSafeSwsContext(m_videoInfo.m_pixelFormat, AV_PIX_FMT_RGBA);
         if (!m_pSwsCtx)
         {
-            LOG_WARN("Failed to create swscale context");
+            LOG_ERROR("Failed to create swscale context");
             return false;
         }
+        auto swsEndTime = std::chrono::high_resolution_clock::now();
+        auto swsDuration = std::chrono::duration_cast<std::chrono::milliseconds>(swsEndTime - swsStartTime).count();
+        LOG_INFO("Video scaler context created in " + std::to_string(swsDuration) + " ms");
 
         // 为RGB帧分配缓冲区
         int bufferSize = av_image_get_buffer_size(AV_PIX_FMT_RGBA, m_videoInfo.m_width, m_videoInfo.m_height, 1);
@@ -299,17 +314,17 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
             }
         }
 
-        LOG_INFO("Video player initialized successfully");
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        LOG_INFO("=== Video player initialized successfully in " + std::to_string(totalDuration) + " ms ===");
         LOG_INFO("Video info - Width: " + std::to_string(m_videoInfo.m_width) + ", Height: " + std::to_string(m_videoInfo.m_height) + ", FPS: " + std::to_string(m_videoInfo.m_frameRate) + ", Duration: " + std::to_string(m_videoInfo.m_duration));
 
         return true;
     } catch (const std::exception& e)
     {
-        LOG_WARN("Exception in InitPlayer: " + std::string(e.what()));
-        return false;
-    } catch (...)
-    {
-        LOG_WARN("Unknown exception in InitPlayer");
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+        LOG_ERROR("Exception in InitPlayer after " + std::to_string(duration) + " ms: " + std::string(e.what()));
         return false;
     }
 }
@@ -435,12 +450,30 @@ void VideoPlayWorker::SlotSeekPlay(double seconds)
 
 void VideoPlayWorker::PlayLoop()
 {
+    auto startTime = std::chrono::high_resolution_clock::now();
+    LOG_INFO("=== Starting video playback loop ===");
+    
+    int frameCount = 0;
+    auto lastLogTime = startTime;
+    
     while (!m_bNeedStop && m_playState != EM_VideoPlayState::Stopped)
     {
+        // 每播放100帧记录一次进度
+        if (frameCount % 100 == 0 && frameCount > 0)
+        {
+            auto currentTime = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastLogTime).count();
+            double fps = frameCount > 0 ? (100.0 * 1000.0 / duration) : 0.0;
+            LOG_INFO("Played " + std::to_string(frameCount) + " frames, current FPS: " + std::to_string(fps) + " (last 100 frames in " + std::to_string(duration) + " ms)");
+            lastLogTime = currentTime;
+        }
+
         // 检查跳转请求
         if (m_bSeekRequested)
         {
+            auto seekStartTime = std::chrono::high_resolution_clock::now();
             double seekTime = m_seekTarget.load();
+            LOG_INFO("Processing seek request to " + std::to_string(seekTime) + " seconds");
 
             if (m_pFormatCtx->SeekFrame(m_videoStreamIndex, seekTime) >= 0)
             {
@@ -448,6 +481,14 @@ void VideoPlayWorker::PlayLoop()
                 m_currentTime = seekTime;
                 m_startTime = av_gettime_relative() - static_cast<int64_t>(seekTime * 1000000);
                 m_totalPauseTime = 0;
+                
+                auto seekEndTime = std::chrono::high_resolution_clock::now();
+                auto seekDuration = std::chrono::duration_cast<std::chrono::milliseconds>(seekEndTime - seekStartTime).count();
+                LOG_INFO("Video seek completed in " + std::to_string(seekDuration) + " ms");
+            }
+            else
+            {
+                LOG_WARN("Video seek failed for position " + std::to_string(seekTime));
             }
 
             m_bSeekRequested = false;
@@ -463,13 +504,17 @@ void VideoPlayWorker::PlayLoop()
         // 解码并渲染帧
         if (!DecodeVideoFrame())
         {
-            // 到达文件末尾或发生错误
             break;
         }
-
-        QThread::msleep(1); // 避免过度占用CPU
+        
+        frameCount++;
+        QThread::msleep(1);
     }
 
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
+    LOG_INFO("=== Video playback loop ended after " + std::to_string(totalDuration) + " ms, played " + std::to_string(frameCount) + " frames ===");
+    
     // 播放结束
     m_playState = EM_VideoPlayState::Stopped;
     emit SigPlayStateChanged(m_playState);
@@ -571,15 +616,27 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
         return;
     }
 
+    auto startTime = std::chrono::high_resolution_clock::now();
+
     try
     {
         // 转换图像格式到RGBA
+        auto scaleStartTime = std::chrono::high_resolution_clock::now();
         int result = sws_scale(m_pSwsCtx, frame->data, frame->linesize, 0, m_videoInfo.m_height, m_pRGBFrame->data, m_pRGBFrame->linesize);
-
+        auto scaleEndTime = std::chrono::high_resolution_clock::now();
+        
         if (result <= 0)
         {
-            LOG_WARN("Failed to scale frame, result: " + std::to_string(result));
+            auto scaleDuration = std::chrono::duration_cast<std::chrono::microseconds>(scaleEndTime - scaleStartTime).count();
+            LOG_WARN("Failed to scale frame, result: " + std::to_string(result) + " (took " + std::to_string(scaleDuration) + " μs)");
             return;
+        }
+
+        // 只在缩放耗时较长时记录
+        auto scaleDuration = std::chrono::duration_cast<std::chrono::microseconds>(scaleEndTime - scaleStartTime).count();
+        if (scaleDuration > 5000) // 大于5ms
+        {
+            LOG_DEBUG("Frame scaling took " + std::to_string(scaleDuration) + " μs");
         }
 
         // 计算RGBA数据大小
@@ -620,12 +677,20 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
         }
 
         emit SigFrameUpdated();
+
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto totalDuration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
+        
+        // 只在渲染耗时较长时记录
+        if (totalDuration > 10000) // 大于10ms
+        {
+            LOG_DEBUG("Frame rendering took " + std::to_string(totalDuration) + " μs");
+        }
     } catch (const std::exception& e)
     {
-        LOG_WARN("Exception in RenderFrame: " + std::string(e.what()));
-    } catch (...)
-    {
-        LOG_WARN("Unknown exception in RenderFrame");
+        auto endTime = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count();
+        LOG_ERROR("Exception in RenderFrame after " + std::to_string(duration) + " μs: " + std::string(e.what()));
     }
 }
 
