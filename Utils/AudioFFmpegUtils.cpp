@@ -468,56 +468,267 @@ void AudioFFmpegUtils::SetInputDevice(const QString& deviceName)
 
 bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData)
 {
+    if (filePath.isEmpty() || !my_sdk::FileSystem::Exists(filePath.toStdString()))
+    {
+        LOG_WARN("LoadAudioWaveform() : Invalid file path");
+        return false;
+    }
+
     ST_OpenFileResult openFileResult;
     openFileResult.OpenFilePath(filePath);
+
+    if (!openFileResult.m_formatCtx || !openFileResult.m_codecCtx)
+    {
+        LOG_WARN("LoadAudioWaveform() : Failed to open audio file");
+        return false;
+    }
+
+    // 清空之前的数据
+    waveformData.clear();
+
     // 读取音频数据并计算波形
     ST_AVPacket packet;
     AVFrame* frame = av_frame_alloc();
-    const int SAMPLES_PER_PIXEL = 256; // 每个像素点对应的采样数
-    float maxSample = 0;
-    float currentSum = 0;
+    if (!frame)
+    {
+        LOG_WARN("LoadAudioWaveform() : Failed to allocate frame");
+        return false;
+    }
+
+    const int SAMPLES_PER_PIXEL = 1024; // 每个像素点对应的采样数
+    float maxSample = 0.0f;
+    float currentSum = 0.0f;
     int sampleCount = 0;
 
-    while (packet.ReadPacket(openFileResult.m_formatCtx->GetRawContext()) >= 0)
+    try
     {
-        if (packet.GetStreamIndex() == openFileResult.m_audioStreamIdx)
+        while (packet.ReadPacket(openFileResult.m_formatCtx->GetRawContext()) >= 0)
         {
-            if (packet.SendPacket(openFileResult.m_codecCtx->GetRawContext()) >= 0)
+            if (packet.GetStreamIndex() == openFileResult.m_audioStreamIdx)
             {
-                while (avcodec_receive_frame(openFileResult.m_codecCtx->GetRawContext(), frame) >= 0)
+                if (packet.SendPacket(openFileResult.m_codecCtx->GetRawContext()) >= 0)
                 {
-                    // 处理音频帧数据
-                    auto samples = (float*)frame->data[0];
-                    for (int i = 0; i < frame->nb_samples; i++)
+                    while (avcodec_receive_frame(openFileResult.m_codecCtx->GetRawContext(), frame) >= 0)
                     {
-                        float sample = std::abs(samples[i]);
-                        currentSum += sample;
-                        sampleCount++;
-
-                        if (sampleCount >= SAMPLES_PER_PIXEL)
-                        {
-                            float average = currentSum / sampleCount;
-                            waveformData.append(average);
-                            maxSample = std::max(maxSample, average);
-                            currentSum = 0;
-                            sampleCount = 0;
-                        }
+                        // 处理不同的采样格式
+                        ProcessAudioFrame(frame, waveformData, SAMPLES_PER_PIXEL, currentSum, sampleCount, maxSample);
                     }
                 }
             }
+            packet.UnrefPacket();
         }
-        packet.UnrefPacket();
+
+        // 处理剩余的样本
+        if (sampleCount > 0)
+        {
+            float average = currentSum / sampleCount;
+            waveformData.append(average);
+            maxSample = std::max(maxSample, average);
+        }
+
+        // 归一化波形数据
+        if (maxSample > 0.0f)
+        {
+            for (float& sample : waveformData)
+            {
+                sample /= maxSample;
+            }
+        }
+
+        LOG_INFO("LoadAudioWaveform() : Successfully loaded waveform with " + std::to_string(waveformData.size()) + " data points");
+    } catch (...)
+    {
+        LOG_ERROR("LoadAudioWaveform() : Exception occurred during waveform loading");
+        av_frame_free(&frame);
+        return false;
     }
 
-    // 归一化波形数据
-    if (maxSample > 0)
+    av_frame_free(&frame);
+    return !waveformData.isEmpty();
+}
+
+void AudioFFmpegUtils::ProcessAudioFrame(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample)
+{
+    if (!frame || frame->nb_samples <= 0)
     {
-        for (float& sample : waveformData)
+        return;
+    }
+
+    auto format = static_cast<AVSampleFormat>(frame->format);
+    int channels = frame->ch_layout.nb_channels;
+    int samples = frame->nb_samples;
+
+    // 根据不同的采样格式处理
+    switch (format)
+    {
+        case AV_SAMPLE_FMT_FLT:  // 浮点格式，交错
+        case AV_SAMPLE_FMT_FLTP: // 浮点格式，平面
         {
-            sample /= maxSample;
+            ProcessFloatSamples(frame, waveformData, samplesPerPixel, currentSum, sampleCount, maxSample);
+            break;
+        }
+        case AV_SAMPLE_FMT_S16:  // 16位整数，交错
+        case AV_SAMPLE_FMT_S16P: // 16位整数，平面
+        {
+            ProcessInt16Samples(frame, waveformData, samplesPerPixel, currentSum, sampleCount, maxSample);
+            break;
+        }
+        case AV_SAMPLE_FMT_S32:  // 32位整数，交错
+        case AV_SAMPLE_FMT_S32P: // 32位整数，平面
+        {
+            ProcessInt32Samples(frame, waveformData, samplesPerPixel, currentSum, sampleCount, maxSample);
+            break;
+        }
+        default:
+        {
+            LOG_WARN("ProcessAudioFrame() : Unsupported sample format: " + std::to_string(format));
+            break;
         }
     }
-    return true;
+}
+
+void AudioFFmpegUtils::ProcessFloatSamples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample)
+{
+    bool isPlanar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(frame->format));
+    int channels = frame->ch_layout.nb_channels;
+
+    for (int i = 0; i < frame->nb_samples; i++)
+    {
+        float sample = 0.0f;
+
+        if (isPlanar)
+        {
+            // 平面格式：每个通道分别存储
+            for (int ch = 0; ch < channels; ch++)
+            {
+                auto* data = reinterpret_cast<float*>(frame->data[ch]);
+                sample += std::abs(data[i]);
+            }
+            sample /= channels; // 取平均值
+        }
+        else
+        {
+            // 交错格式：所有通道交错存储
+            auto* data = reinterpret_cast<float*>(frame->data[0]);
+            for (int ch = 0; ch < channels; ch++)
+            {
+                sample += std::abs(data[i * channels + ch]);
+            }
+            sample /= channels; // 取平均值
+        }
+
+        currentSum += sample;
+        sampleCount++;
+
+        if (sampleCount >= samplesPerPixel)
+        {
+            float average = currentSum / sampleCount;
+            waveformData.append(average);
+            maxSample = std::max(maxSample, average);
+            currentSum = 0.0f;
+            sampleCount = 0;
+        }
+    }
+}
+
+void AudioFFmpegUtils::ProcessInt16Samples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample)
+{
+    bool isPlanar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(frame->format));
+    int channels = frame->ch_layout.nb_channels;
+    const float scale = 1.0f / 32768.0f; // 16位整数的归一化因子
+
+    for (int i = 0; i < frame->nb_samples; i++)
+    {
+        float sample = 0.0f;
+
+        if (isPlanar)
+        {
+            // 平面格式
+            for (int ch = 0; ch < channels; ch++)
+            {
+                auto* data = reinterpret_cast<int16_t*>(frame->data[ch]);
+                sample += std::abs(data[i]) * scale;
+            }
+            sample /= channels;
+        }
+        else
+        {
+            // 交错格式
+            auto* data = reinterpret_cast<int16_t*>(frame->data[0]);
+            for (int ch = 0; ch < channels; ch++)
+            {
+                sample += std::abs(data[i * channels + ch]) * scale;
+            }
+            sample /= channels;
+        }
+
+        currentSum += sample;
+        sampleCount++;
+
+        if (sampleCount >= samplesPerPixel)
+        {
+            float average = currentSum / sampleCount;
+            waveformData.append(average);
+            maxSample = std::max(maxSample, average);
+            currentSum = 0.0f;
+            sampleCount = 0;
+        }
+    }
+}
+
+void AudioFFmpegUtils::ProcessInt32Samples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample)
+{
+    bool isPlanar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(frame->format));
+    int channels = frame->ch_layout.nb_channels;
+    const float scale = 1.0f / 2147483648.0f; // 32位整数的归一化因子
+
+    for (int i = 0; i < frame->nb_samples; i++)
+    {
+        float sample = 0.0f;
+
+        if (isPlanar)
+        {
+            // 平面格式
+            for (int ch = 0; ch < channels; ch++)
+            {
+                auto* data = reinterpret_cast<int32_t*>(frame->data[ch]);
+                sample += std::abs(data[i]) * scale;
+            }
+            sample /= channels;
+        }
+        else
+        {
+            // 交错格式
+            auto* data = reinterpret_cast<int32_t*>(frame->data[0]);
+            for (int ch = 0; ch < channels; ch++)
+            {
+                sample += std::abs(data[i * channels + ch]) * scale;
+            }
+            sample /= channels;
+        }
+
+        currentSum += sample;
+        sampleCount++;
+
+        if (sampleCount >= samplesPerPixel)
+        {
+            float average = currentSum / sampleCount;
+            waveformData.append(average);
+            maxSample = std::max(maxSample, average);
+            currentSum = 0.0f;
+            sampleCount = 0;
+        }
+    }
+}
+
+double AudioFFmpegUtils::GetCurrentPosition() const
+{
+    return m_currentPosition;
+}
+
+double AudioFFmpegUtils::GetDuration() const
+{
+    return m_duration;
 }
 
 bool AudioFFmpegUtils::IsPlaying()

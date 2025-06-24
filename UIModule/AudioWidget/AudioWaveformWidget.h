@@ -2,6 +2,7 @@
 
 #include <QWidget>
 #include <QVector>
+#include <QMouseEvent>
 #include "CommonDefine/UIWidgetColorDefine.h"
 
 /// <summary>
@@ -25,9 +26,22 @@ public:
     void SetWaveformData(const QVector<float>& samples);
 
     /// <summary>
+    /// 设置播放位置
+    /// </summary>
+    /// <param name="position">播放位置(0.0-1.0)</param>
+    void SetPlaybackPosition(double position);
+
+    /// <summary>
     /// 清除波形数据
     /// </summary>
     void ClearWaveform();
+
+signals:
+    /// <summary>
+    /// 波形点击定位信号
+    /// </summary>
+    /// <param name="position">目标位置(0.0-1.0)</param>
+    void SigSeekPosition(double position);
 
 protected:
     /// <summary>
@@ -35,6 +49,12 @@ protected:
     /// </summary>
     /// <param name="event">绘制事件指针</param>
     void paintEvent(QPaintEvent* event) override;
+
+    /// <summary>
+    /// 鼠标按下事件
+    /// </summary>
+    /// <param name="event">鼠标事件指针</param>
+    void mousePressEvent(QMouseEvent* event) override;
 
 private:
     /// <summary>
@@ -53,7 +73,8 @@ private:
     float NormalizeValue(float value) const;
 
 private:
-    QVector<float> m_samples;           /// 音频采样数据
-    static const int SAMPLE_WIDTH = 2;  /// 采样点宽度
-    static const int SAMPLE_SPACING = 1;/// 采样点间距
+    QVector<float> m_samples;               /// 音频采样数据
+    double m_playbackPosition = 0.0;        /// 当前播放位置(0.0-1.0)
+    static const int SAMPLE_WIDTH = 2;      /// 采样点宽度
+    static const int SAMPLE_SPACING = 1;    /// 采样点间距
 };

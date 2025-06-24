@@ -111,6 +111,18 @@ public:
     /// <returns>true表示正在录制，false表示已停止录制</returns>
     bool IsRecording() override;
 
+    /// <summary>
+    /// 获取当前播放位置
+    /// </summary>
+    /// <returns>当前播放位置（秒）</returns>
+    double GetCurrentPosition() const;
+
+    /// <summary>
+    /// 获取音频总时长
+    /// </summary>
+    /// <returns>音频总时长（秒）</returns>
+    double GetDuration() const;
+
 signals:
     /// <summary>
     /// 播放状态改变信号
@@ -158,6 +170,40 @@ private:
     /// <param name="seconds">定位时间（秒），正数表示前进，负数表示后退</param>
     /// <returns>是否定位成功</returns>
     bool SeekAudio(double seconds);
+
+    /// <summary>
+    /// 处理音频帧以生成波形数据
+    /// </summary>
+    /// <param name="frame">音频帧</param>
+    /// <param name="waveformData">波形数据输出</param>
+    /// <param name="samplesPerPixel">每像素采样数</param>
+    /// <param name="currentSum">当前累计值</param>
+    /// <param name="sampleCount">当前采样计数</param>
+    /// <param name="maxSample">最大采样值</param>
+    void ProcessAudioFrame(AVFrame* frame, QVector<float>& waveformData, 
+                          int samplesPerPixel, float& currentSum, 
+                          int& sampleCount, float& maxSample);
+
+    /// <summary>
+    /// 处理浮点采样格式
+    /// </summary>
+    void ProcessFloatSamples(AVFrame* frame, QVector<float>& waveformData,
+                           int samplesPerPixel, float& currentSum,
+                           int& sampleCount, float& maxSample);
+
+    /// <summary>
+    /// 处理16位整数采样格式
+    /// </summary>
+    void ProcessInt16Samples(AVFrame* frame, QVector<float>& waveformData,
+                           int samplesPerPixel, float& currentSum,
+                           int& sampleCount, float& maxSample);
+
+    /// <summary>
+    /// 处理32位整数采样格式
+    /// </summary>
+    void ProcessInt32Samples(AVFrame* frame, QVector<float>& waveformData,
+                           int samplesPerPixel, float& currentSum,
+                           int& sampleCount, float& maxSample);
 
 private:
     QString m_currentInputDevice;                       /// 当前选择的FFmpeg输入设备

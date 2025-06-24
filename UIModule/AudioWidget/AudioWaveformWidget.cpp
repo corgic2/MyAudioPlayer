@@ -14,6 +14,10 @@ AudioWaveformWidget::AudioWaveformWidget(QWidget* parent)
     QPalette pal = palette();
     pal.setColor(QPalette::Window, UIColorDefine::background_color::White);
     setPalette(pal);
+
+    // 设置最小尺寸
+    setMinimumHeight(100);
+    setMinimumWidth(200);
 }
 
 void AudioWaveformWidget::SetWaveformData(const QVector<float>& samples)
@@ -23,9 +27,19 @@ void AudioWaveformWidget::SetWaveformData(const QVector<float>& samples)
     update(); // 触发重绘
 }
 
+void AudioWaveformWidget::SetPlaybackPosition(double position)
+{
+    if (position != m_playbackPosition)
+    {
+        m_playbackPosition = position;
+        update();
+    }
+}
+
 void AudioWaveformWidget::ClearWaveform()
 {
     m_samples.clear();
+    m_playbackPosition = 0.0;
     update();
 }
 
@@ -66,6 +80,9 @@ void AudioWaveformWidget::paintEvent(QPaintEvent* event)
 
     if (m_samples.isEmpty())
     {
+        // 绘制空白状态提示
+        painter.setPen(UIColorDefine::font_color::Secondary);
+        painter.drawText(rect(), Qt::AlignCenter, "点击加载音频文件以显示波形");
         return;
     }
 
@@ -94,10 +111,39 @@ void AudioWaveformWidget::paintEvent(QPaintEvent* event)
         int rmsHeight = static_cast<int>(rms * centerY * 0.8f);   // 使用80%的高度显示RMS
         int peakHeight = static_cast<int>(peak * centerY * 0.9f); // 使用90%的高度显示峰值
 
-        // 绘制RMS区域
-        painter.drawRect(x, centerY - rmsHeight, SAMPLE_WIDTH, rmsHeight * 2);
+        // 绘制RMS区域（填充）
+        QColor fillColor = UIColorDefine::theme_color::Primary;
+        fillColor.setAlpha(128); // 半透明
+        painter.fillRect(x, centerY - rmsHeight, SAMPLE_WIDTH, rmsHeight * 2, fillColor);
 
         // 绘制峰值线
+        painter.setPen(QPen(UIColorDefine::theme_color::Primary, 1));
         painter.drawLine(x, centerY - peakHeight, x, centerY + peakHeight);
     }
+
+    // 绘制播放位置指示器
+    if (m_playbackPosition > 0.0 && !m_samples.isEmpty())
+    {
+        int positionX = static_cast<int>(m_playbackPosition * width);
+        if (positionX >= 0 && positionX < width)
+        {
+            painter.setPen(QPen(UIColorDefine::theme_color::Error, 2));
+            painter.drawLine(positionX, 0, positionX, height);
+        }
+    }
+
+    // 绘制中心线
+    painter.setPen(QPen(UIColorDefine::border_color::Default, 1));
+    painter.drawLine(0, centerY, width, centerY);
+}
+
+void AudioWaveformWidget::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::LeftButton && !m_samples.isEmpty())
+    {
+        // 计算点击位置对应的播放位置
+        double position = static_cast<double>(event->x()) / width();
+        emit SigSeekPosition(position);
+    }
+    QWidget::mousePressEvent(event);
 }
