@@ -179,8 +179,12 @@ void AudioFFmpegUtils::StopRecording()
 
 void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosition, const QStringList& args)
 {
-    std::lock_guard<std::recursive_mutex> lock(m_mutex); // 在播放时，频繁快进或后退，出现中途释放m_playerInfo导致空指针
     PlayerStateReSet();
+    if (startPosition > m_duration)
+    {
+        m_playState.Reset();
+        return;
+    }
     auto startTime = std::chrono::high_resolution_clock::now();
     LOG_INFO("=== Starting audio playback: " + inputFilePath.toStdString() + ", start position: " + std::to_string(startPosition) + " seconds ===");
     m_playInfo = std::make_unique<ST_AudioPlayInfo>();
@@ -233,8 +237,6 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
         auto seekDuration = std::chrono::duration_cast<std::chrono::milliseconds>(seekEndTime - seekStartTime).count();
         LOG_INFO("Audio seek completed in " + std::to_string(seekDuration) + " ms");
     }
-
-    m_currentPosition = startPosition;
 
     // 创建重采样器并获取实际的音频参数
     AudioResampler resampler;
@@ -322,9 +324,6 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
 
     // 改进音频数据处理流程
     ProcessAudioData(openFileResult, resampler, resampleParams);
-
-    // 发送进度更新信号
-    emit SigProgressChanged(static_cast<qint64>(m_currentPosition), static_cast<qint64>(m_duration));
 
     auto endTime = std::chrono::high_resolution_clock::now();
     auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
@@ -437,20 +436,6 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                             }
                         }
                     }
-
-                    // 更新播放位置
-                    if (frame->pts != AV_NOPTS_VALUE)
-                    {
-                        AVStream* audioStream = openFileResult.m_formatCtx->GetRawContext()->streams[openFileResult.m_audioStreamIdx];
-                        double timeStamp = static_cast<double>(frame->pts) * av_q2d(audioStream->time_base);
-                        m_currentPosition = timeStamp;
-
-                        // 定期发送进度更新信号
-                        if (processedPackets % 25 == 0)
-                        {
-                            emit SigProgressChanged(static_cast<qint64>(m_currentPosition), static_cast<qint64>(m_duration));
-                        }
-                    }
                 }
 
                 if (ret == AVERROR(EAGAIN))
@@ -515,19 +500,6 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
 
 void AudioFFmpegUtils::PlayerStateReSet()
 {
-    // 先停止当前播放并等待资源释放
-    if (m_playState.IsPlaying())
-    {
-        auto stopStartTime = std::chrono::high_resolution_clock::now();
-        LOG_INFO("Stopping current playback, waiting for resource release");
-        SDL_Delay(50);
-        auto stopEndTime = std::chrono::high_resolution_clock::now();
-        auto stopDuration = std::chrono::duration_cast<std::chrono::milliseconds>(stopEndTime - stopStartTime).count();
-        LOG_INFO("Current playback stopped in " + std::to_string(stopDuration) + " ms");
-    }
-
-    m_playState.Reset();
-
     // 确保之前的资源被完全释放
     if (m_playInfo)
     {
@@ -566,8 +538,8 @@ void AudioFFmpegUtils::ResumePlay()
 
 void AudioFFmpegUtils::StopPlay()
 {
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     PlayerStateReSet();
+    m_playState.Reset();
     emit SigPlayStateChanged(false);
 }
 
@@ -578,37 +550,14 @@ bool AudioFFmpegUtils::SeekAudio(double seconds)
         return false;
     }
 
-    // 计算目标位置
-    double targetPosition = m_currentPosition + seconds;
-
-    // 确保不会超出音频范围
-    if (targetPosition < 0)
-    {
-        targetPosition = 0;
-    }
-    else if (targetPosition > m_duration)
-    {
-        targetPosition = m_duration;
-    }
-
-    // 如果位置没有变化，直接返回
-    if (qFuzzyCompare(targetPosition, m_currentPosition))
-    {
-        return false;
-    }
-
     // 暂停当前播放
     bool wasPlaying = m_playState.IsPlaying() && !m_playState.IsPaused();
     if (wasPlaying)
     {
         m_playInfo->PauseAudio();
     }
-
-    // 保存当前设备ID
-    SDL_AudioDeviceID currentDeviceId = m_playInfo->GetAudioDevice();
-
     // 重新初始化播放
-    StartPlay(m_currentFilePath, targetPosition);
+    StartPlay(m_currentFilePath, seconds);
 
     return true;
 }
@@ -947,11 +896,6 @@ void AudioFFmpegUtils::ProcessInt32Samples(AVFrame* frame, QVector<float>& wavef
             sampleCount = 0;
         }
     }
-}
-
-double AudioFFmpegUtils::GetCurrentPosition() const
-{
-    return m_currentPosition;
 }
 
 double AudioFFmpegUtils::GetDuration() const

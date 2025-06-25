@@ -115,12 +115,6 @@ public:
     bool IsRecording() override;
 
     /// <summary>
-    /// 获取当前播放位置
-    /// </summary>
-    /// <returns>当前播放位置（秒）</returns>
-    double GetCurrentPosition() const;
-
-    /// <summary>
     /// 获取音频总时长
     /// </summary>
     /// <returns>音频总时长（秒）</returns>
@@ -218,8 +212,6 @@ private:
     ST_AudioPlayState m_playState;                      /// 播放状态
     std::atomic<bool> m_isRecording{false};             /// 录制状态标志
     QString m_currentFilePath;                          /// 当前播放的文件路径
-    double m_currentPosition{0.0};                      /// 当前播放位置（秒）
     double m_duration{0.0};                             /// 音频总时长（秒）
     QStringList m_inputAudioDevices; /// 音频输入设备列表
-    std::recursive_mutex m_mutex;
 };

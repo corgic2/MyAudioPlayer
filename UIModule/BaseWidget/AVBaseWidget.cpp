@@ -32,11 +32,11 @@ AVBaseWidget::AVBaseWidget(QWidget* parent)
 
 AVBaseWidget::~AVBaseWidget()
 {
-    if (m_isRecording)
+    if (GetIsRecording())
     {
         StopAVRecordThread();
     }
-    if (m_isPlaying)
+    if (GetIsPlaying())
     {
         StopAVPlayThread();
     }
@@ -117,13 +117,12 @@ void AVBaseWidget::SlotBtnRecordClicked()
     // 立即禁用录制按钮，防止快速点击
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Record, false);
     
-    if (!m_isRecording)
+    if (!GetIsRecording())
     {
         QString filePath = QFileDialog::getSaveFileName(this, tr("保存录音文件"), QDir::currentPath(), tr("Wave Files (*.wav)"));
 
         if (!filePath.isEmpty())
         {
-            m_isRecording = true;
             ui->ControlButtons->UpdateRecordState(true);
 
             // 启动录制线程
@@ -132,7 +131,6 @@ void AVBaseWidget::SlotBtnRecordClicked()
     }
     else
     {
-        m_isRecording = false;
         ui->ControlButtons->UpdateRecordState(false);
         StopAVRecordThread();
     }
@@ -145,12 +143,10 @@ void AVBaseWidget::SlotBtnPlayClicked()
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Play, false);
     if (!m_currentAVFile.isEmpty())
     {
-        if (!m_isPlaying)
+        if (!GetIsPlaying())
         {
             LOG_INFO("恢复播放");
 
-            m_isPlaying = true;
-            m_isPaused = false;
             ui->ControlButtons->UpdatePlayState(true);
             StartAVPlayThread();
         }
@@ -158,8 +154,6 @@ void AVBaseWidget::SlotBtnPlayClicked()
         {
             LOG_INFO("暂停播放");
 
-            m_isPlaying = false;
-            m_isPaused = false;
             ui->ControlButtons->UpdatePlayState(false);
             StopAVPlayThread();
         }
@@ -246,45 +240,36 @@ void AVBaseWidget::StopAVPlayThread()
 
 void AVBaseWidget::SlotAVPlayFinished()
 {
-    m_isPlaying = false;
-    m_isPaused = false;
+    StopAVPlayThread();
     ui->ControlButtons->UpdatePlayState(false);
     m_playThreadRunning = false;
 
     // 播放完成后重置播放位置
     m_currentPosition = 0.0;
-
     LOG_INFO("音频播放完成，状态已重置");
 }
 
 void AVBaseWidget::SlotBtnForwardClicked()
 {
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Forward, false);
-    if (m_isPlaying)
+    if (GetIsPlaying())
     {
-        // 停止当前播放线程
-        StopAVPlayThread();
-
-        // 启动新的播放线程，从新位置开始播放
+        // 从新位置开始播放
         m_currentPosition += 15;
-        StartAVPlayThread();
+        m_ffmpeg->SeekPlay(m_currentPosition);
     }
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Forward, true);
-
 }
 
 void AVBaseWidget::SlotBtnBackwardClicked()
 {
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Backward, false);
 
-    if (m_isPlaying)
+    if (GetIsPlaying())
     {
-        // 停止当前播放线程
-        StopAVPlayThread();
-
-        // 启动新的播放线程，从新位置开始播放
+        // 从新位置开始播放
         m_currentPosition = std::max(0.0, m_currentPosition - 15.0);
-        StartAVPlayThread();
+        m_ffmpeg->SeekPlay(m_currentPosition);
     }
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Backward, true);
 }
@@ -319,12 +304,13 @@ void AVBaseWidget::SlotBtnNextClicked()
                 // 重置播放位置为从头开始
                 m_currentPosition = 0.0;
 
-                if (m_isPlaying)
+                if (GetIsPlaying())
                 {
                     StopAVPlayThread();
-                    StartAVPlayThread();
                 }
                 ui->audioFileList->setCurrentItem(nextItem);
+                StartAVPlayThread();
+                ui->ControlButtons->UpdatePlayState(true);
             }
         }
     }
@@ -361,12 +347,13 @@ void AVBaseWidget::SlotBtnPreviousClicked()
                 // 重置播放位置为从头开始
                 m_currentPosition = 0.0;
 
-                if (m_isPlaying)
+                if (GetIsPlaying())
                 {
                     StopAVPlayThread();
-                    StartAVPlayThread();
                 }
                 ui->audioFileList->setCurrentItem(prevItem);
+                StartAVPlayThread();
+                ui->ControlButtons->UpdatePlayState(true);
             }
         }
     }
@@ -437,10 +424,9 @@ void AVBaseWidget::RemoveAVFile(const QString& filePath)
     if (index != -1)
     {
         // 如果正在播放这个文件，先停止播放
-        if (m_currentAVFile == filePath && m_isPlaying)
+        if (m_currentAVFile == filePath && GetIsPlaying())
         {
             StopAVPlayThread();
-            m_isPlaying = false;
             ui->ControlButtons->UpdatePlayState(false);
         }
 
@@ -458,10 +444,9 @@ void AVBaseWidget::RemoveAVFile(const QString& filePath)
 void AVBaseWidget::ClearAVFiles()
 {
     // 如果正在播放，先停止播放
-    if (m_isPlaying)
+    if (GetIsPlaying())
     {
         StopAVPlayThread();
-        m_isPlaying = false;
         ui->ControlButtons->UpdatePlayState(false);
     }
 
@@ -569,7 +554,22 @@ void AVBaseWidget::ShowAVWidget(bool bAudio)
 
 void AVBaseWidget::SlotAVRecordFinished()
 {
-    m_isRecording = false;
     ui->ControlButtons->UpdateRecordState(false);
     m_recordThreadRunning = false;
+    StopAVRecordThread();
+}
+
+bool AVBaseWidget::GetIsPlaying() const
+{
+    return m_ffmpeg && m_ffmpeg->IsPlaying();
+}
+
+bool AVBaseWidget::GetIsPaused() const
+{
+    return m_ffmpeg && m_ffmpeg->IsPaused();
+}
+
+bool AVBaseWidget::GetIsRecording() const
+{
+    return m_ffmpeg && m_ffmpeg->IsRecording();
 }

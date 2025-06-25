@@ -16,11 +16,6 @@ PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
 
     // 连接信号槽
     ConnectSignals();
-
-    // 初始化播放进度定时器
-    m_progressTimer = new QTimer(this);
-    m_progressTimer->setInterval(100); // 100ms更新一次
-    connect(m_progressTimer, &QTimer::timeout, this, &PlayerAudioModuleWidget::SlotUpdateProgress);
 }
 
 
@@ -75,21 +70,4 @@ void PlayerAudioModuleWidget::SlotProgressChanged(qint64 position, qint64 durati
     }
 
     emit SigProgressChanged(position, duration);
-}
-
-void PlayerAudioModuleWidget::SlotUpdateProgress()
-{
-    if (m_audioFFmpeg.IsPlaying() && !m_audioFFmpeg.IsPaused())
-    {
-        // 定期更新播放进度
-        double currentPos = m_audioFFmpeg.GetCurrentPosition();
-        double duration = m_audioFFmpeg.GetDuration();
-
-        if (duration > 0)
-        {
-            double progress = currentPos / duration;
-            m_waveformWidget->SetPlaybackPosition(progress);
-            emit SigProgressChanged(static_cast<qint64>(currentPos), static_cast<qint64>(duration));
-        }
-    }
 }

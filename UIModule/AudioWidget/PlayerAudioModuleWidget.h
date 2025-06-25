@@ -64,11 +64,6 @@ private slots:
     /// <param name="position">当前位置</param>
     /// <param name="duration">总时长</param>
     void SlotProgressChanged(qint64 position, qint64 duration);
-    /// <summary>
-    /// 更新播放进度
-    /// </summary>
-    void SlotUpdateProgress();
-
 private:
     /// <summary>
     /// 连接信号槽
@@ -79,7 +74,6 @@ private:
     Ui::PlayerAudioModuleWidgetClass* ui;
     AudioFFmpegUtils m_audioFFmpeg;
     AudioWaveformWidget* m_waveformWidget = nullptr;
-    QTimer* m_progressTimer = nullptr;
     QString m_currentFilePath;
     qint64 m_currentPosition = 0;
     qint64 m_totalDuration = 0;
