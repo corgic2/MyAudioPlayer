@@ -179,30 +179,10 @@ void AudioFFmpegUtils::StopRecording()
 
 void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosition, const QStringList& args)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex); // 在播放时，频繁快进或后退，出现中途释放m_playerInfo导致空指针
+    PlayerStateReSet();
     auto startTime = std::chrono::high_resolution_clock::now();
     LOG_INFO("=== Starting audio playback: " + inputFilePath.toStdString() + ", start position: " + std::to_string(startPosition) + " seconds ===");
-
-    // 先停止当前播放并等待资源释放
-    if (m_playState.IsPlaying())
-    {
-        auto stopStartTime = std::chrono::high_resolution_clock::now();
-        LOG_INFO("Stopping current playback, waiting for resource release");
-        StopPlay();
-        SDL_Delay(200);
-        auto stopEndTime = std::chrono::high_resolution_clock::now();
-        auto stopDuration = std::chrono::duration_cast<std::chrono::milliseconds>(stopEndTime - stopStartTime).count();
-        LOG_INFO("Current playback stopped in " + std::to_string(stopDuration) + " ms");
-    }
-
-    // 确保之前的资源被完全释放
-    if (m_playInfo)
-    {
-        m_playInfo->StopAudio();
-        m_playInfo->UnbindStreamAndDevice();
-        m_playInfo.reset();
-        SDL_Delay(100); // 等待资源释放
-    }
-
     m_playInfo = std::make_unique<ST_AudioPlayInfo>();
     m_currentFilePath = inputFilePath;
 
@@ -257,7 +237,6 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
     m_currentPosition = startPosition;
 
     // 创建重采样器并获取实际的音频参数
-    auto resamplerInitStartTime = std::chrono::high_resolution_clock::now();
     AudioResampler resampler;
     QString format = QString::fromStdString(my_sdk::FileSystem::GetExtension(inputFilePath.toStdString()));
 
@@ -534,6 +513,31 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
     av_frame_free(&frame);
 }
 
+void AudioFFmpegUtils::PlayerStateReSet()
+{
+    // 先停止当前播放并等待资源释放
+    if (m_playState.IsPlaying())
+    {
+        auto stopStartTime = std::chrono::high_resolution_clock::now();
+        LOG_INFO("Stopping current playback, waiting for resource release");
+        SDL_Delay(50);
+        auto stopEndTime = std::chrono::high_resolution_clock::now();
+        auto stopDuration = std::chrono::duration_cast<std::chrono::milliseconds>(stopEndTime - stopStartTime).count();
+        LOG_INFO("Current playback stopped in " + std::to_string(stopDuration) + " ms");
+    }
+
+    m_playState.Reset();
+
+    // 确保之前的资源被完全释放
+    if (m_playInfo)
+    {
+        m_playInfo->StopAudio();
+        m_playInfo->UnbindStreamAndDevice();
+        m_playInfo.reset();
+        SDL_Delay(10); // 等待资源释放
+    }
+}
+
 void AudioFFmpegUtils::PausePlay()
 {
     if (!m_playState.IsPlaying() || !m_playInfo)
@@ -562,22 +566,8 @@ void AudioFFmpegUtils::ResumePlay()
 
 void AudioFFmpegUtils::StopPlay()
 {
-    if (!m_playState.IsPlaying())
-    {
-        LOG_WARN("Stop failed: No audio is currently playing");
-        return;
-    }
-
-    LOG_INFO("Stopping audio playback");
-    m_playState.Reset();
-
-    if (m_playInfo)
-    {
-        m_playInfo->StopAudio();
-        SDL_Delay(50);
-        m_playInfo.reset();
-    }
-
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
+    PlayerStateReSet();
     emit SigPlayStateChanged(false);
 }
 

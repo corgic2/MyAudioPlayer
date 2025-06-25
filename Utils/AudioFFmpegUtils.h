@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <QDebug>
 #include <QObject>
 #include <QString>
@@ -206,7 +207,10 @@ private:
     /// <param name="resampler">重采样器</param>
     /// <param name="resampleParams">重采样参数</param>
     void ProcessAudioData(ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams);
-
+    /// <summary>
+    /// 清除播放状态操作
+    /// </summary>
+    void PlayerStateReSet();
 private:
     QString m_currentInputDevice;                       /// 当前选择的FFmpeg输入设备
     std::unique_ptr<ST_OpenAudioDevice> m_recordDevice; /// 录制设备
@@ -216,6 +220,6 @@ private:
     QString m_currentFilePath;                          /// 当前播放的文件路径
     double m_currentPosition{0.0};                      /// 当前播放位置（秒）
     double m_duration{0.0};                             /// 音频总时长（秒）
-
     QStringList m_inputAudioDevices; /// 音频输入设备列表
+    std::recursive_mutex m_mutex;
 };

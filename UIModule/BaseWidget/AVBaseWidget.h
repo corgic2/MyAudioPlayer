@@ -62,7 +62,6 @@ signals:
     /// 音视频录制完成信号
     /// </summary>
     void SigAVRecordFinished();
-
 protected slots:
     /// <summary>
     /// 录制按钮点击槽函数
@@ -160,7 +159,10 @@ private:
     /// 停止音视频录制线程
     /// </summary>
     void StopAVRecordThread();
-
+    /// <summary>
+    /// 显示音视频控件
+    /// </summary>
+    /// <param name="bAudio"></param>
     void ShowAVWidget(bool bAudio = true);
 
 private:

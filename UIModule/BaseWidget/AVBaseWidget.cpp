@@ -114,6 +114,9 @@ void AVBaseWidget::ConnectSignals()
 
 void AVBaseWidget::SlotBtnRecordClicked()
 {
+    // 立即禁用录制按钮，防止快速点击
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Record, false);
+    
     if (!m_isRecording)
     {
         QString filePath = QFileDialog::getSaveFileName(this, tr("保存录音文件"), QDir::currentPath(), tr("Wave Files (*.wav)"));
@@ -133,11 +136,13 @@ void AVBaseWidget::SlotBtnRecordClicked()
         ui->ControlButtons->UpdateRecordState(false);
         StopAVRecordThread();
     }
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Record, true);
 }
 
 void AVBaseWidget::SlotBtnPlayClicked()
 {
     LOG_INFO("播放按钮被点击");
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Play, false);
     if (!m_currentAVFile.isEmpty())
     {
         if (!m_isPlaying)
@@ -163,6 +168,7 @@ void AVBaseWidget::SlotBtnPlayClicked()
     {
         QMessageBox::information(this, tr("提示"), tr("请先选择要播放的音频文件"));
     }
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Play, true);
 }
 
 void AVBaseWidget::StartAVPlayThread()
@@ -181,11 +187,9 @@ void AVBaseWidget::StartAVPlayThread()
     else if (AV_player::AVFileSystem::IsVideoFile(m_currentAVFile.toStdString()))
     {
         m_ffmpeg = m_videoPlayerWidget->GetFFMpegUtils();
-
         // 设置视频显示控件
         auto videoUtils = static_cast<VideoFFmpegUtils*>(m_ffmpeg);
         videoUtils->SetVideoDisplayWidget(m_videoPlayerWidget);
-
         ShowAVWidget(false);
     }
     else
@@ -226,8 +230,17 @@ void AVBaseWidget::StopAVPlayThread()
     if (m_playThreadRunning)
     {
         m_playThreadRunning = false;
+
+        // 首先停止FFmpeg播放器
+        if (m_ffmpeg)
+        {
+            m_ffmpeg->StopPlay();
+        }
+
+        // 然后停止线程池中的专用线程
         CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_playThreadId);
-        m_ffmpeg->StopPlay();
+
+        LOG_INFO("音频播放线程已停止");
     }
 }
 
@@ -237,10 +250,16 @@ void AVBaseWidget::SlotAVPlayFinished()
     m_isPaused = false;
     ui->ControlButtons->UpdatePlayState(false);
     m_playThreadRunning = false;
+
+    // 播放完成后重置播放位置
+    m_currentPosition = 0.0;
+
+    LOG_INFO("音频播放完成，状态已重置");
 }
 
 void AVBaseWidget::SlotBtnForwardClicked()
 {
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Forward, false);
     if (m_isPlaying)
     {
         // 停止当前播放线程
@@ -250,10 +269,14 @@ void AVBaseWidget::SlotBtnForwardClicked()
         m_currentPosition += 15;
         StartAVPlayThread();
     }
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Forward, true);
+
 }
 
 void AVBaseWidget::SlotBtnBackwardClicked()
 {
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Backward, false);
+
     if (m_isPlaying)
     {
         // 停止当前播放线程
@@ -263,10 +286,12 @@ void AVBaseWidget::SlotBtnBackwardClicked()
         m_currentPosition = std::max(0.0, m_currentPosition - 15.0);
         StartAVPlayThread();
     }
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Backward, true);
 }
 
 void AVBaseWidget::SlotBtnNextClicked()
 {
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Next, false);
     // 获取当前项的索引
     FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
     if (currentItem)
@@ -290,6 +315,10 @@ void AVBaseWidget::SlotBtnNextClicked()
                 QString filePath = nextItem->GetNodeInfo().filePath;
                 m_currentAVFile = filePath;
                 ui->ControlButtons->SetCurrentAudioFile(filePath);
+
+                // 重置播放位置为从头开始
+                m_currentPosition = 0.0;
+
                 if (m_isPlaying)
                 {
                     StopAVPlayThread();
@@ -299,10 +328,12 @@ void AVBaseWidget::SlotBtnNextClicked()
             }
         }
     }
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Next, true);
 }
 
 void AVBaseWidget::SlotBtnPreviousClicked()
 {
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Previous, false);
     // 获取当前项的索引
     FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
     if (currentItem)
@@ -326,6 +357,10 @@ void AVBaseWidget::SlotBtnPreviousClicked()
                 QString filePath = prevItem->GetNodeInfo().filePath;
                 m_currentAVFile = filePath;
                 ui->ControlButtons->SetCurrentAudioFile(filePath);
+
+                // 重置播放位置为从头开始
+                m_currentPosition = 0.0;
+
                 if (m_isPlaying)
                 {
                     StopAVPlayThread();
@@ -335,16 +370,30 @@ void AVBaseWidget::SlotBtnPreviousClicked()
             }
         }
     }
+    ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Previous, true);
 }
 
 void AVBaseWidget::SlotAVFileSelected(const QString& filePath)
 {
+    // 如果切换到不同的文件，重置播放位置
+    if (m_currentAVFile != filePath)
+    {
+        m_currentPosition = 0.0;
+    }
+
     m_currentAVFile = filePath;
     ui->ControlButtons->SetCurrentAudioFile(filePath);
 }
 
 void AVBaseWidget::SlotAVFileDoubleClicked(const QString& filePath)
 {
+    // 如果切换到不同的文件，重置播放位置
+    m_currentPosition = 0.0;
+    if (m_ffmpeg)
+    {
+        //停止播放
+        SlotBtnPlayClicked();
+    }
     m_currentAVFile = filePath;
     ui->ControlButtons->SetCurrentAudioFile(filePath);
     SlotBtnPlayClicked(); // 自动开始播放

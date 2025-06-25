@@ -2,6 +2,7 @@
 
 #include "ControlButtonWidget.h"
 #include "ui_ControlButtonWidget.h"
+#include <QTimer>
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "UtilsWidget/CustomToolTips.h"
 
@@ -121,3 +122,40 @@ void ControlButtonWidget::UpdateButtonStates()
     // 录制按钮始终可用
     ui->btnRecord->setEnabled(true);
 }
+
+void ControlButtonWidget::SetButtonEnabled(EM_ControlButtonType buttonType, bool enabled)
+{
+    CustomToolButton* button = GetButtonByType(buttonType);
+    if (button)
+    {
+        button->setEnabled(enabled);
+    }
+}
+
+bool ControlButtonWidget::IsButtonEnabled(EM_ControlButtonType buttonType) const
+{
+    CustomToolButton* button = GetButtonByType(buttonType);
+    return button ? button->isEnabled() : false;
+}
+
+CustomToolButton* ControlButtonWidget::GetButtonByType(EM_ControlButtonType buttonType) const
+{
+    switch (buttonType)
+    {
+        case EM_ControlButtonType::Record:
+            return ui->btnRecord;
+        case EM_ControlButtonType::Previous:
+            return ui->btnPrevious;
+        case EM_ControlButtonType::Backward:
+            return ui->btnBackward;
+        case EM_ControlButtonType::Play:
+            return ui->btnPlay;
+        case EM_ControlButtonType::Forward:
+            return ui->btnForward;
+        case EM_ControlButtonType::Next:
+            return ui->btnNext;
+        default:
+            return nullptr;
+    }
+}
+

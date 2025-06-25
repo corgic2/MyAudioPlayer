@@ -1,5 +1,7 @@
 ﻿#include "PlayerAudioModuleWidget.h"
 
+#include <QThread>
+#include "CoreServerGlobal.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
 
@@ -34,54 +36,23 @@ BaseFFmpegUtils* PlayerAudioModuleWidget::GetFFMpegUtils()
 
 void PlayerAudioModuleWidget::LoadWaveWidegt(const QString& inputFilePath)
 {
+    m_waveformData.clear();
+    CoreServerGlobal::Instance().GetThreadPool().Submit([&]()
+    {
+        QVector<float> waveData;
+        // 在新线程中加载音频波形数据
+        if (m_audioFFmpeg.LoadAudioWaveform(inputFilePath, waveData))
+        {
+            m_currentFilePath = inputFilePath;
+            m_waveformData.swap(waveData);
+            emit SigThreadExit();
+        }
+    });
     // 在播放前加载音频数据并生成波形
-    QVector<float> waveformData;
-    if (m_audioFFmpeg.LoadAudioWaveform(inputFilePath, waveformData))
+    connect(this, &PlayerAudioModuleWidget::SigThreadExit, [&]()
     {
-        m_waveformWidget->SetWaveformData(waveformData);
-        m_currentFilePath = inputFilePath;
-    }
-}
-
-void PlayerAudioModuleWidget::StartPlay(const QString& filePath, double startPosition)
-{
-    if (filePath != m_currentFilePath)
-    {
-        LoadWaveWidegt(filePath);
-    }
-
-    m_audioFFmpeg.StartPlay(filePath, startPosition);
-    m_progressTimer->start();
-}
-
-void PlayerAudioModuleWidget::PausePlay()
-{
-    m_audioFFmpeg.PausePlay();
-    m_progressTimer->stop();
-}
-
-void PlayerAudioModuleWidget::ResumePlay()
-{
-    m_audioFFmpeg.ResumePlay();
-    m_progressTimer->start();
-}
-
-void PlayerAudioModuleWidget::StopPlay()
-{
-    m_audioFFmpeg.StopPlay();
-    m_progressTimer->stop();
-    m_waveformWidget->SetPlaybackPosition(0.0);
-}
-
-void PlayerAudioModuleWidget::SeekTo(double position)
-{
-    double duration = m_audioFFmpeg.GetDuration();
-    if (duration > 0)
-    {
-        double targetTime = position * duration;
-        m_audioFFmpeg.StartPlay(m_currentFilePath, targetTime);
-        m_waveformWidget->SetPlaybackPosition(position);
-    }
+        m_waveformWidget->SetWaveformData(m_waveformData);
+    });
 }
 
 void PlayerAudioModuleWidget::ConnectSignals()
@@ -90,9 +61,6 @@ void PlayerAudioModuleWidget::ConnectSignals()
     connect(&m_audioFFmpeg, &AudioFFmpegUtils::SigPlayStateChanged, this, &PlayerAudioModuleWidget::SigPlayStateChanged);
 
     connect(&m_audioFFmpeg, &AudioFFmpegUtils::SigProgressChanged, this, &PlayerAudioModuleWidget::SlotProgressChanged);
-
-    // 连接波形控件信号
-    connect(m_waveformWidget, &AudioWaveformWidget::SigSeekPosition, this, &PlayerAudioModuleWidget::SeekTo);
 }
 
 void PlayerAudioModuleWidget::SlotProgressChanged(qint64 position, qint64 duration)

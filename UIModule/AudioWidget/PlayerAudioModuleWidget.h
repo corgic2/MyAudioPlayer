@@ -5,6 +5,7 @@
 #include "AudioWaveformWidget.h"
 #include "ui_PlayerAudioModuleWidget.h"
 #include "BaseWidget/BaseModuleWidegt.h"
+#include "BaseWidget/ControlButtonWidget.h"
 
 QT_BEGIN_NAMESPACE namespace Ui
 {
@@ -38,32 +39,8 @@ public:
     /// <summary>
     /// 加载波形图
     /// </summary>
-    /// <param name="inputFilePath">音频文件路径</param>
+    /// <param name="inputFilePath"></param>
     void LoadWaveWidegt(const QString& inputFilePath);
-    /// <summary>
-    /// 开始播放
-    /// </summary>
-    /// <param name="filePath">文件路径</param>
-    /// <param name="startPosition">开始位置（秒）</param>
-    void StartPlay(const QString& filePath, double startPosition = 0.0);
-    /// <summary>
-    /// 暂停播放
-    /// </summary>
-    void PausePlay();
-    /// <summary>
-    /// 恢复播放
-    /// </summary>
-    void ResumePlay();
-    /// <summary>
-    /// 停止播放
-    /// </summary>
-    void StopPlay();
-    /// <summary>
-    /// 跳转到指定位置
-    /// </summary>
-    /// <param name="position">位置(0.0-1.0)</param>
-    void SeekTo(double position);
-
 signals:
     /// <summary>
     /// 播放状态改变信号
@@ -76,7 +53,10 @@ signals:
     /// <param name="position">当前位置（秒）</param>
     /// <param name="duration">总时长（秒）</param>
     void SigProgressChanged(qint64 position, qint64 duration);
-
+    /// <summary>
+    /// 线程退出函数
+    /// </summary>
+    void SigThreadExit();
 private slots:
     /// <summary>
     /// 播放进度改变槽函数
@@ -103,4 +83,5 @@ private:
     QString m_currentFilePath;
     qint64 m_currentPosition = 0;
     qint64 m_totalDuration = 0;
+    QVector<float> m_waveformData;
 };

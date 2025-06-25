@@ -9,6 +9,7 @@ QT_BEGIN_NAMESPACE namespace Ui
 }
 QT_END_NAMESPACE
 
+
 /// <summary>
 /// 音频控制按钮组件类
 /// </summary>
@@ -17,6 +18,19 @@ class ControlButtonWidget : public QWidget
     Q_OBJECT
 
 public:
+    /// <summary>
+    /// 控制按钮类型枚举
+    /// </summary>
+    enum EM_ControlButtonType
+    {
+        Record = 0,     /// 录制按钮
+        Previous,       /// 上一个按钮
+        Backward,       /// 后退按钮
+        Play,           /// 播放按钮
+        Forward,        /// 前进按钮
+        Next            /// 下一个按钮
+    };
+
     /// <summary>
     /// 构造函数
     /// </summary>
@@ -56,6 +70,20 @@ public:
     /// 更新按钮状态
     /// </summary>
     void UpdateButtonStates();
+
+    /// <summary>
+    /// 设置指定按钮的启用状态
+    /// </summary>
+    /// <param name="buttonType">按钮类型</param>
+    /// <param name="enabled">是否启用</param>
+    void SetButtonEnabled(EM_ControlButtonType buttonType, bool enabled);
+
+    /// <summary>
+    /// 获取指定按钮的启用状态
+    /// </summary>
+    /// <param name="buttonType">按钮类型</param>
+    /// <returns>是否启用</returns>
+    bool IsButtonEnabled(EM_ControlButtonType buttonType) const;
 
 signals:
     /// <summary>
@@ -105,7 +133,14 @@ private:
     /// </summary>
     void ConnectSignals();
 
+    /// <summary>
+    /// 根据按钮类型获取按钮指针
+    /// </summary>
+    /// <param name="buttonType">按钮类型</param>
+    /// <returns>按钮指针，如果类型无效则返回nullptr</returns>
+    CustomToolButton* GetButtonByType(EM_ControlButtonType buttonType) const;
 private:
     Ui::ControlButtonWidget* ui;
-    QString m_currentAudioFile;    /// 当前音频文件路径
+    QString m_currentAudioFile;                              /// 当前音频文件路径
+    QMap<EM_ControlButtonType, bool> m_originalButtonState; /// 按钮原始状态映射
 }; 
