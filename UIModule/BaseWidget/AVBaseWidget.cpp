@@ -370,6 +370,7 @@ void AVBaseWidget::SlotAVFileSelected(const QString& filePath)
 
     m_currentAVFile = filePath;
     ui->ControlButtons->SetCurrentAudioFile(filePath);
+    emit SigAVFileSelected(m_currentAVFile);
 }
 
 void AVBaseWidget::SlotAVFileDoubleClicked(const QString& filePath)
@@ -384,6 +385,7 @@ void AVBaseWidget::SlotAVFileDoubleClicked(const QString& filePath)
     m_currentAVFile = filePath;
     ui->ControlButtons->SetCurrentAudioFile(filePath);
     SlotBtnPlayClicked(); // 自动开始播放
+    emit SigAVFileSelected(m_currentAVFile);
 }
 
 void AVBaseWidget::AddAVFiles(const QStringList& filePaths)
@@ -437,6 +439,7 @@ void AVBaseWidget::RemoveAVFile(const QString& filePath)
         {
             m_currentAVFile.clear();
             ui->ControlButtons->SetCurrentAudioFile(QString());
+            emit SigAVFileSelected(QString());
         }
     }
 }
