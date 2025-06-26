@@ -35,5 +35,9 @@ if defined QT_DIR (
 )
 
 cd %CURDIR%
-
+set OUTPUTDIR=%~dp0\x64\Debug
+cd %OUTPUTDIR%
+for /f %%I in ('dir /b *.exe *.dll') do (
+    %QTDIR%\bin\windeployqt.exe --dir %OUTPUTDIR% --libdir %OUTPUTDIR% --plugindir %OUTPUTDIR% --no-translations %OUTPUTDIR%\%%~nxI
+)
 pause 
