@@ -1,8 +1,8 @@
 ﻿#include "AudioFFmpegUtils.h"
 #include <QFile>
-#include <chrono>
 
 #include "AudioResampler.h"
+#include "TimeSystem/TimeSystem.h"
 #include "FFmpegPublicUtils.h"
 #include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
@@ -185,13 +185,15 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
         m_playState.Reset();
         return;
     }
-    auto startTime = std::chrono::high_resolution_clock::now();
+    
+    // 使用时间系统进行整体计时
+    TIME_START("AudioPlaybackTotal");
     LOG_INFO("=== Starting audio playback: " + inputFilePath.toStdString() + ", start position: " + std::to_string(startPosition) + " seconds ===");
     m_playInfo = std::make_unique<ST_AudioPlayInfo>();
     m_currentFilePath = inputFilePath;
 
     // 打开文件
-    auto fileOpenStartTime = std::chrono::high_resolution_clock::now();
+    TIME_START("AudioFileOpen");
     ST_OpenFileResult openFileResult;
     openFileResult.OpenFilePath(inputFilePath);
     if (!openFileResult.m_formatCtx || !openFileResult.m_formatCtx->GetRawContext())
@@ -199,9 +201,7 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
         LOG_ERROR("Failed to open audio file: " + inputFilePath.toStdString());
         return;
     }
-    auto fileOpenEndTime = std::chrono::high_resolution_clock::now();
-    auto fileOpenDuration = std::chrono::duration_cast<std::chrono::milliseconds>(fileOpenEndTime - fileOpenStartTime).count();
-    LOG_INFO("Audio file opened successfully in " + std::to_string(fileOpenDuration) + " ms");
+    TimeSystem::Instance().StopTimingWithLog("AudioFileOpen", EM_TimingLogLevel::Info);
 
     // Get audio duration
     m_duration = static_cast<double>(openFileResult.m_formatCtx->GetRawContext()->duration) / AV_TIME_BASE;
@@ -210,7 +210,7 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
     // 如果指定了起始位置，执行定位
     if (startPosition > 0.0)
     {
-        auto seekStartTime = std::chrono::high_resolution_clock::now();
+        TIME_START("AudioSeek");
         LOG_INFO("Seeking to position: " + std::to_string(startPosition) + " seconds");
         
         // 确保不会超出音频范围
@@ -233,9 +233,7 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
         // 清空解码器缓冲
         avcodec_flush_buffers(openFileResult.m_codecCtx->GetRawContext());
         
-        auto seekEndTime = std::chrono::high_resolution_clock::now();
-        auto seekDuration = std::chrono::duration_cast<std::chrono::milliseconds>(seekEndTime - seekStartTime).count();
-        LOG_INFO("Audio seek completed in " + std::to_string(seekDuration) + " ms");
+        TimeSystem::Instance().StopTimingWithLog("AudioSeek", EM_TimingLogLevel::Info);
     }
 
     // 创建重采样器并获取实际的音频参数
@@ -289,7 +287,7 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
     m_playInfo->InitAudioStream();
 
     // 打开音频设备
-    auto sdlInitStartTime = std::chrono::high_resolution_clock::now();
+    TIME_START("SDLAudioInit");
     SDL_AudioDeviceID deviceId = SDL_OpenAudioDevice(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &wantedSpec);
     if (deviceId == 0)
     {
@@ -297,9 +295,7 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
         m_playInfo.reset();
         return;
     }
-    auto sdlInitEndTime = std::chrono::high_resolution_clock::now();
-    auto sdlInitDuration = std::chrono::duration_cast<std::chrono::milliseconds>(sdlInitEndTime - sdlInitStartTime).count();
-    LOG_INFO("SDL audio device opened successfully in " + std::to_string(sdlInitDuration) + " ms, Device ID: " + std::to_string(deviceId));
+    TimeSystem::Instance().StopTimingWithLog("SDLAudioInit", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "SDL audio device opened successfully, Device ID: " + std::to_string(deviceId));
 
     m_playInfo->InitAudioDevice(deviceId);
 
@@ -325,14 +321,12 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
     // 改进音频数据处理流程
     ProcessAudioData(openFileResult, resampler, resampleParams);
 
-    auto endTime = std::chrono::high_resolution_clock::now();
-    auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-    LOG_INFO("=== Audio playback initialization completed in " + std::to_string(totalDuration) + " ms ===");
+    TimeSystem::Instance().StopTimingWithLog("AudioPlaybackTotal", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "Audio playback initialization completed");
 }
 
 void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams)
 {
-    auto processStartTime = std::chrono::high_resolution_clock::now();
+    AV_AUTO_TIMER("Audio", "DataProcessing");
     LOG_INFO("=== Starting audio data processing ===");
     
     ST_AVPacket pkt;
@@ -342,7 +336,6 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
     
     int processedPackets = 0;
     int processedFrames = 0;
-    auto lastLogTime = processStartTime;
     
     AVFrame* frame = av_frame_alloc();
     if (!frame)
@@ -350,6 +343,8 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
         LOG_ERROR("Failed to allocate frame for audio processing");
         return;
     }
+
+    AV_TIMER_START("Audio", "ProgressTracking");
 
     try
     {
@@ -360,10 +355,9 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                 // 每处理100个包记录一次进度
                 if (processedPackets % 100 == 0 && processedPackets > 0)
                 {
-                    auto currentTime = std::chrono::high_resolution_clock::now();
-                    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastLogTime).count();
-                    LOG_INFO("Processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames in last " + std::to_string(duration) + " ms");
-                    lastLogTime = currentTime;
+                    AV_TIMER_STOP_LOG("Audio", "ProgressTracking");
+                    LOG_INFO("Processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames");
+                    AV_TIMER_START("Audio", "ProgressTracking");
                 }
 
                 // 发送数据包到解码器
@@ -407,12 +401,11 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                     }
 
                     // 执行重采样
-                    auto resampleStartTime = std::chrono::high_resolution_clock::now();
+                    TIME_START("AudioResample");
                     resampler.Resample(inputDataPtrs, frame->nb_samples, resampleResult, resampleParams);
-                    auto resampleEndTime = std::chrono::high_resolution_clock::now();
+                    double resampleDuration = TimeSystem::Instance().StopTiming("AudioResample", EM_TimeUnit::Microseconds);
                     
                     // 只在耗时较长时记录重采样时间
-                    auto resampleDuration = std::chrono::duration_cast<std::chrono::microseconds>(resampleEndTime - resampleStartTime).count();
                     if (resampleDuration > 1000) // 大于1ms才记录
                     {
                         LOG_DEBUG("Frame resampling took " + std::to_string(resampleDuration) + " μs");
@@ -482,9 +475,7 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
             m_playInfo->PutDataToStream(flushResult.GetData().data(), static_cast<int>(flushResult.GetData().size()));
         }
 
-        auto processEndTime = std::chrono::high_resolution_clock::now();
-        auto totalProcessDuration = std::chrono::duration_cast<std::chrono::milliseconds>(processEndTime - processStartTime).count();
-        LOG_INFO("=== Audio data processing completed in " + std::to_string(totalProcessDuration) + " ms, processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames ===");
+        LOG_INFO("=== Audio data processing completed, processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames ===");
     } 
     catch (const std::exception& e)
     {
@@ -632,7 +623,7 @@ void AudioFFmpegUtils::SetInputDevice(const QString& deviceName)
 
 bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData)
 {
-    auto startTime = std::chrono::high_resolution_clock::now();
+    AV_AUTO_TIMER("Audio", "WaveformLoading");
     LOG_INFO("=== Starting audio waveform loading for: " + filePath.toStdString() + " ===");
     
     if (filePath.isEmpty() || !my_sdk::FileSystem::Exists(filePath.toStdString()))
@@ -641,7 +632,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
         return false;
     }
 
-    auto fileOpenStartTime = std::chrono::high_resolution_clock::now();
+    AV_TIMER_START("Audio", "WaveformFileOpen");
     ST_OpenFileResult openFileResult;
     openFileResult.OpenFilePath(filePath);
 
@@ -650,9 +641,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
         LOG_WARN("LoadAudioWaveform() : Failed to open audio file");
         return false;
     }
-    auto fileOpenEndTime = std::chrono::high_resolution_clock::now();
-    auto fileOpenDuration = std::chrono::duration_cast<std::chrono::milliseconds>(fileOpenEndTime - fileOpenStartTime).count();
-    LOG_INFO("Waveform file opened in " + std::to_string(fileOpenDuration) + " ms");
+    AV_TIMER_STOP_LOG("Audio", "WaveformFileOpen");
 
     // 清空之前的数据
     waveformData.clear();
@@ -709,9 +698,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
             }
         }
 
-        auto endTime = std::chrono::high_resolution_clock::now();
-        auto totalDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-        LOG_INFO("=== Waveform loading completed in " + std::to_string(totalDuration) + " ms, generated " + std::to_string(waveformData.size()) + " data points ===");
+        LOG_INFO("=== Waveform loading completed, generated " + std::to_string(waveformData.size()) + " data points ===");
     } 
     catch (...)
     {

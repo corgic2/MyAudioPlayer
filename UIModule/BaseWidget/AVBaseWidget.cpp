@@ -14,6 +14,7 @@
 #include "DomainWidget/FilePathIconListWidget.h"
 #include "FileSystem/FileSystem.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
+#include "TimeSystem/TimeSystem.h"
 
 AVBaseWidget::AVBaseWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::AVBaseWidgetClass())
@@ -195,6 +196,8 @@ void AVBaseWidget::StartAVPlayThread()
     m_playThreadRunning = true;
     m_playThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AVPlayThread", [this]()
     {
+        AUTO_TIMER_LOG("AVPlayThread", EM_TimingLogLevel::Info);
+        
         try
         {
             // 从指定位置开始播放
@@ -203,7 +206,7 @@ void AVBaseWidget::StartAVPlayThread()
             // 等待播放完成
             while (m_playThreadRunning && m_ffmpeg->IsPlaying())
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                TIME_SLEEP_MS(100);
             }
 
             // 播放完成，发送信号
@@ -505,9 +508,12 @@ void AVBaseWidget::StartAVRecordThread(const QString& filePath)
         qDebug() << "Unsupported file type for playback:" << m_currentAVFile;
         return;
     }
+    
     m_recordThreadRunning = true;
     m_recordThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AudioRecordThread", [this, filePath]()
     {
+        AUTO_TIMER_LOG("AVRecordThread", EM_TimingLogLevel::Info);
+        
         try
         {
             m_ffmpeg->StartRecording(filePath);
@@ -515,7 +521,7 @@ void AVBaseWidget::StartAVRecordThread(const QString& filePath)
             // 等待录制停止
             while (m_recordThreadRunning && m_ffmpeg->IsRecording())
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                TIME_SLEEP_MS(100);
             }
 
             // 录制完成，发送信号

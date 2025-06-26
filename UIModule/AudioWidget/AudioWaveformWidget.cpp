@@ -5,7 +5,7 @@
 #include <QPaintEvent>
 #include <string>
 #include "LogSystem/LogSystem.h"
-#include <chrono>
+#include "TimeSystem/TimeSystem.h"
 
 AudioWaveformWidget::AudioWaveformWidget(QWidget* parent)
     : QWidget(parent)
@@ -23,15 +23,11 @@ AudioWaveformWidget::AudioWaveformWidget(QWidget* parent)
 
 void AudioWaveformWidget::SetWaveformData(const QVector<float>& samples)
 {
-    auto startTime = std::chrono::high_resolution_clock::now();
+    AUTO_TIMER_LOG("AudioWaveform", EM_TimingLogLevel::Info);
     LOG_INFO("Setting audio waveform data, sample count: " + std::to_string(samples.size()));
     
     m_samples = samples;
     update(); // 触发重绘
-    
-    auto endTime = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count();
-    LOG_INFO("Waveform data set in " + std::to_string(duration) + " ms");
 }
 
 void AudioWaveformWidget::SetPlaybackPosition(double position)
@@ -80,7 +76,7 @@ float AudioWaveformWidget::NormalizeValue(float value) const
 
 void AudioWaveformWidget::paintEvent(QPaintEvent* event)
 {
-    auto startTime = std::chrono::high_resolution_clock::now();
+    AUTO_TIMER_LOG("AudioWaveformPaint", EM_TimingLogLevel::Debug);
     
     QWidget::paintEvent(event);
     QPainter painter(this);
@@ -105,7 +101,7 @@ void AudioWaveformWidget::paintEvent(QPaintEvent* event)
     // 计算每个显示块包含的采样点数
     const int samplesPerPixel = std::max(1, m_samples.size() / width);
 
-    auto waveformDrawStartTime = std::chrono::high_resolution_clock::now();
+    TIME_START("WaveformDraw");
     
     // 绘制波形
     for (int x = 0; x < width; ++x)
@@ -131,11 +127,16 @@ void AudioWaveformWidget::paintEvent(QPaintEvent* event)
         painter.drawLine(x, centerY - peakHeight, x, centerY + peakHeight);
     }
     
-    auto waveformDrawEndTime = std::chrono::high_resolution_clock::now();
-    auto waveformDrawDuration = std::chrono::duration_cast<std::chrono::microseconds>(waveformDrawEndTime - waveformDrawStartTime).count();
+    double waveformDrawDuration = TimeSystem::Instance().StopTiming("WaveformDraw", EM_TimeUnit::Microseconds);
+    
+    // 只在绘制耗时较长时记录
+    if (waveformDrawDuration > 1000) // 大于1ms
+    {
+        LOG_DEBUG("Waveform drawing took " + std::to_string(waveformDrawDuration) + " μs");
+    }
 
     // 绘制播放位置指示器
-    auto indicatorDrawStartTime = std::chrono::high_resolution_clock::now();
+    TIME_START("IndicatorDraw");
     if (m_playbackPosition > 0.0 && !m_samples.isEmpty())
     {
         int positionX = static_cast<int>(m_playbackPosition * width);
@@ -148,6 +149,14 @@ void AudioWaveformWidget::paintEvent(QPaintEvent* event)
     // 绘制中心线
     painter.setPen(QPen(UIColorDefine::border_color::Default, 1));
     painter.drawLine(0, centerY, width, centerY);
+    
+    double indicatorDrawDuration = TimeSystem::Instance().StopTiming("IndicatorDraw", EM_TimeUnit::Microseconds);
+    
+    // 只在绘制耗时较长时记录
+    if (indicatorDrawDuration > 500) // 大于0.5ms
+    {
+        LOG_DEBUG("Indicator drawing took " + std::to_string(indicatorDrawDuration) + " μs");
+    }
 }
 
 void AudioWaveformWidget::mousePressEvent(QMouseEvent* event)

@@ -22,10 +22,37 @@ xcopy "%CustomUIDir%\x64\Release\MuCustomUiWidget.dll" "%~dp0x64\Release\" /E /I
 xcopy "%CustomUIDir%\x64\Release\MuCustomUiWidget.lib" "%~dp0x64\Release\" /E /I /Y
 echo Operation completed.
 
+echo ========================================
+echo Starting CMake configuration...
+echo ========================================
+
 md build
 cd build
 cmake -DCMAKE_CONFIGURATION_TYPES=Release .. -G "Visual Studio 17 2022"
+if %ERRORLEVEL% neq 0 (
+    echo ========================================
+    echo ERROR: CMake configuration failed!
+    echo ========================================
+    pause
+    exit /b 1
+)
+
+echo ========================================
+echo Starting compilation...
+echo ========================================
+
 cmake --build . --config Release
+if %ERRORLEVEL% neq 0 (
+    echo ========================================
+    echo ERROR: Compilation failed!
+    echo ========================================
+    pause
+    exit /b 1
+)
+
+echo ========================================
+echo Compilation successful! Running windeployqt...
+echo ========================================
 
 @REM windeployqt
 if defined QT_DIR (
@@ -40,4 +67,8 @@ cd %OUTPUTDIR%
 for /f %%I in ('dir /b *.exe *.dll') do (
     %QTDIR%\bin\windeployqt.exe --dir %OUTPUTDIR% --libdir %OUTPUTDIR% --plugindir %OUTPUTDIR% --no-translations %OUTPUTDIR%\%%~nxI
 )
+
+echo ========================================
+echo Build process completed successfully!
+echo ========================================
 pause 
