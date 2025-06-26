@@ -112,12 +112,12 @@ private:
     /// <summary>
     /// 输入数据包
     /// </summary>
-    AVPacket* m_pInputPacket;
+    ST_AVPacket m_pInputPacket;
 
     /// <summary>
     /// 输出数据包
     /// </summary>
-    AVPacket* m_pOutputPacket;
+    ST_AVPacket m_pOutputPacket;
 
     /// <summary>
     /// 是否需要停止

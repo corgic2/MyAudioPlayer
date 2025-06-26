@@ -19,12 +19,16 @@ class ST_AVCodecContext
     /// <summary>
     /// 绑定参数到上下文
     /// </summary>
-    int BindParamToContext(const AVCodecParameters *parameters);
+    bool BindParamToContext(const AVCodecParameters* parameters);
 
     /// <summary>
     /// 打开编解码器
     /// </summary>
-    int OpenCodec(const AVCodec *codec, AVDictionary **options = nullptr);
+    bool OpenCodec(const AVCodec* codec, AVDictionary** options = nullptr);
+    /// <summary>
+    /// 获取剩余数据
+    /// </summary>
+    void FlushBuffer();
 
     /// <summary>
     /// 获取原始编解码器上下文指针
@@ -33,7 +37,7 @@ class ST_AVCodecContext
     {
         return m_pCodecContext;
     }
-
+    bool CopyParamtersFromContext(AVCodecParameters* parameters);
   private:
     AVCodecContext *m_pCodecContext = nullptr;
 };

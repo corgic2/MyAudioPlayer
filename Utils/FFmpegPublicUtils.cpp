@@ -4,11 +4,6 @@
 #include <unordered_map>
 #include "LogSystem/LogSystem.h"
 
-extern "C"
-{
-#include <libswscale/swscale.h>
-#include <libavutil/imgutils.h>
-}
 
 const AVCodec* FFmpegPublicUtils::FindEncoder(const char* formatName)
 {

@@ -13,6 +13,9 @@ extern "C"
 #include <libavutil/channel_layout.h>
 #include <libavutil/samplefmt.h>
 #include <libavutil/opt.h>
+#include <libavutil/avutil.h>
+#include <libavutil/mathematics.h>
+#include <libavutil/opt.h>
 }
 
 /// <summary>

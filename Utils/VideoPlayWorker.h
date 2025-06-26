@@ -7,6 +7,8 @@
 #include <QString>
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
+#include "BaseDataDefine/ST_AVFrame.h"
+#include "BaseDataDefine/ST_AVPacket.h"
 #include "DataDefine/ST_SDL_Renderer.h"
 #include "DataDefine/ST_SDL_Texture.h"
 
@@ -266,32 +268,32 @@ private:
     /// <summary>
     /// 数据包
     /// </summary>
-    AVPacket* m_pPacket;
+    ST_AVPacket m_pPacket;
 
     /// <summary>
     /// 视频帧
     /// </summary>
-    AVFrame* m_pVideoFrame;
+    ST_AVFrame m_pVideoFrame;
 
     /// <summary>
     /// RGB帧
     /// </summary>
-    AVFrame* m_pRGBFrame;
+    ST_AVFrame m_pRGBFrame;
 
     /// <summary>
     /// 图像转换上下文
     /// </summary>
-    SwsContext* m_pSwsCtx;
+    SwsContext* m_pSwsCtx = nullptr;
 
     /// <summary>
     /// SDL渲染器
     /// </summary>
-    ST_SDL_Renderer* m_pRenderer;
+    ST_SDL_Renderer* m_pRenderer = nullptr;
 
     /// <summary>
     /// SDL纹理
     /// </summary>
-    ST_SDL_Texture* m_pTexture;
+    ST_SDL_Texture* m_pTexture = nullptr;
 
     /// <summary>
     /// 视频信息

@@ -4,7 +4,6 @@
 #include <memory>
 #include <vector>
 #include "DataDefine/ST_AudioDecodeResult.h"
-
 extern "C"
 {
 #include <libavcodec/avcodec.h>
@@ -14,10 +13,13 @@ extern "C"
 #include <libavutil/mem.h>
 #include <libavutil/pixfmt.h>
 #include <libavformat/avformat.h>
+#include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
 }
 
 #include <SDL3/SDL_audio.h>
 #include <SDL3/SDL_pixels.h>
+#define FMT_NAME "dshow"
 
 /// <summary>
 /// 视频解码结果结构体

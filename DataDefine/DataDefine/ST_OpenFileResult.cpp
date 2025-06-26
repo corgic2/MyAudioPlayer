@@ -47,13 +47,13 @@ bool ST_OpenFileResult::OpenFilePath(const QString &filePath)
         return false;
     }
 
-    if (m_codecCtx->BindParamToContext(m_codecParams->GetRawParameters()) < 0)
+    if (!m_codecCtx->BindParamToContext(m_codecParams->GetRawParameters()))
     {
         LOG_WARN("Failed to bind codec parameters");
         return false;
     }
 
-    if (m_codecCtx->OpenCodec(m_codec->GetRawCodec(), nullptr) < 0)
+    if (!m_codecCtx->OpenCodec(m_codec->GetRawCodec(), nullptr))
     {
         LOG_WARN("Failed to open codec");
         return false;

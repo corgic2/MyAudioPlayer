@@ -1,4 +1,6 @@
 ﻿#pragma once
+#include <QString>
+
 extern "C" {
 #include <libavformat/avformat.h>
 #include "libavutil/time.h"
@@ -27,7 +29,7 @@ class ST_AVFormatContext
     /// <param name="fmt">输入格式</param>
     /// <param name="options">选项字典</param>
     /// <returns>成功返回0，失败返回负值</returns>
-    int OpenInputFilePath(const char *url, const AVInputFormat *fmt = nullptr, AVDictionary **options = nullptr);
+    bool OpenInputFilePath(const char* url, const AVInputFormat* fmt = nullptr, AVDictionary** options = nullptr);
 
     /// <summary>
     /// 打开输出文件
@@ -36,7 +38,7 @@ class ST_AVFormatContext
     /// <param name="formatName">格式名称</param>
     /// <param name="filename">文件名</param>
     /// <returns>成功返回0，失败返回负值</returns>
-    int OpenOutputFilePath(const AVOutputFormat *oformat, const char *formatName, const char *filename);
+    bool OpenOutputFilePath(const AVOutputFormat* oformat, const char* formatName, const char* filename);
 
     /// <summary>
     /// 查找最佳流
@@ -52,7 +54,7 @@ class ST_AVFormatContext
     /// <summary>
     /// 写入文件头
     /// </summary>
-    int WriteFileHeader(AVDictionary **options = nullptr);
+    bool WriteFileHeader(AVDictionary** options = nullptr);
 
     /// <summary>
     /// 获取流的总时长（秒）
@@ -67,7 +69,7 @@ class ST_AVFormatContext
     /// <summary>
     /// 获取当前时间戳
     /// </summary>
-    double GetCurrentTimestamp(int streamIndex) const;
+    double GetCurrentTimestamp(unsigned int streamIndex) const;
 
     /// <summary>
     /// 获取原始格式上下文指针
@@ -77,6 +79,32 @@ class ST_AVFormatContext
         return m_pFormatCtx;
     }
 
-  private:
+    /// <summary>
+    /// 打开文件
+    /// </summary>
+    /// <param name="filePath"></param>
+    /// <returns></returns>
+    bool OpenIOFilePath(const QString& filePath);
+    /// <summary>
+    /// 跳转帧
+    /// </summary>
+    /// <param name="stream_index"></param>
+    /// <param name="timestamp"></param>
+    /// <param name="flags"></param>
+    /// <returns></returns>
+    bool SeekFrame(int stream_index, int64_t timestamp, int flags);
+    /// <summary>
+    /// 读取帧
+    /// </summary>
+    /// <param name="packet"></param>
+    /// <returns></returns>
+    bool ReadFrame(AVPacket* packet);
+    /// <summary>
+    ///
+    /// </summary>
+    /// <param name="packet"></param>
+    /// <returns></returns>
+    bool WriteFrame(AVPacket* packet);
+private:
     AVFormatContext *m_pFormatCtx = nullptr;
 };

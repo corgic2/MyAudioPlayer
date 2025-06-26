@@ -26,12 +26,12 @@ class ST_AVPacket
     /// <summary>
     /// 从格式上下文读取一个数据包
     /// </summary>
-    int ReadPacket(AVFormatContext *pFormatContext);
+    bool ReadPacket(AVFormatContext *pFormatContext);
 
     /// <summary>
     /// 发送数据包到解码器
     /// </summary>
-    int SendPacket(AVCodecContext *pCodecContext);
+    bool SendPacket(AVCodecContext *pCodecContext);
 
     /// <summary>
     /// 释放数据包引用

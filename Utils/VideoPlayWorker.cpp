@@ -1,18 +1,17 @@
 ﻿#include "VideoPlayWorker.h"
 #include <QMutexLocker>
 #include <QThread>
+#include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
+#include "BaseDataDefine/ST_Buffer.h"
 #include "LogSystem/LogSystem.h"
 #include "TimeSystem/TimeSystem.h"
 
 VideoPlayWorker::VideoPlayWorker(QObject* parent)
-    : QObject(parent), m_pFormatCtx(nullptr), m_pCodecCtx(nullptr), m_videoStreamIndex(-1), m_pPacket(nullptr), m_pVideoFrame(nullptr), m_pRGBFrame(nullptr), m_pSwsCtx(nullptr), m_pRenderer(nullptr), m_pTexture(nullptr), m_playState(EM_VideoPlayState::Stopped), m_bNeedStop(false), m_startTime(0), m_pauseStartTime(0), m_totalPauseTime(0), m_currentTime(0.0), m_bSeekRequested(false), m_seekTarget(0.0)
+    : QObject(parent), m_pFormatCtx(nullptr), m_pCodecCtx(nullptr), m_videoStreamIndex(-1), m_pSwsCtx(nullptr), m_pRenderer(nullptr), m_pTexture(nullptr), m_playState(EM_VideoPlayState::Stopped), m_bNeedStop(false), m_startTime(0), m_pauseStartTime(0), m_totalPauseTime(0), m_currentTime(0.0), m_bSeekRequested(false), m_seekTarget(0.0)
 {
-    // 初始化FFmpeg包
-    m_pPacket = av_packet_alloc();
-    m_pVideoFrame = av_frame_alloc();
-    m_pRGBFrame = av_frame_alloc();
+
 }
 
 VideoPlayWorker::~VideoPlayWorker()
@@ -143,7 +142,7 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
 {
     AV_AUTO_TIMER("VideoPlayer", "InitPlayer");
     LOG_INFO("=== Initializing video player for: " + filePath.toStdString() + " ===");
-    
+
     if (filePath.isEmpty())
     {
         LOG_WARN("VideoPlayWorker::InitPlayer() : Invalid file path");
@@ -159,14 +158,11 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
         // 创建格式上下文
         TIME_START("VideoFormatCtxOpen");
         m_pFormatCtx = std::make_unique<ST_AVFormatContext>();
-        int ret = m_pFormatCtx->OpenInputFilePath(filePath.toLocal8Bit().constData());
-        if (ret < 0)
+        if (!m_pFormatCtx->OpenInputFilePath(filePath.toLocal8Bit().constData()))
         {
-            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
-            av_strerror(ret, errbuf, sizeof(errbuf));
-            LOG_ERROR("Failed to open input file: " + std::string(errbuf));
             return false;
         }
+
         TimeSystem::Instance().StopTimingWithLog("VideoFormatCtxOpen", EM_TimingLogLevel::Info);
 
         // 查找视频流
@@ -180,13 +176,12 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
         TimeSystem::Instance().StopTimingWithLog("VideoStreamFind", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "Video stream found (index: " + std::to_string(m_videoStreamIndex) + ")");
 
         // 获取视频流信息
-        AVFormatContext* rawCtx = m_pFormatCtx->GetRawContext();
-        AVStream* videoStream = rawCtx->streams[m_videoStreamIndex];
+        AVStream* videoStream = m_pFormatCtx->GetRawContext()->streams[m_videoStreamIndex];
         AVCodecParameters* codecPar = videoStream->codecpar;
 
         // 查找解码器
-        const AVCodec* decoder = avcodec_find_decoder(codecPar->codec_id);
-        if (!decoder)
+        ST_AVCodec decoder((AVCodecID)codecPar->codec_id);
+        if (!decoder.GetRawCodec())
         {
             LOG_WARN("Decoder not found for codec ID: " + std::to_string(codecPar->codec_id));
             return false;
@@ -194,32 +189,19 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
 
         // 创建解码器上下文
         TIME_START("VideoCodecSetup");
-        m_pCodecCtx = std::make_unique<ST_AVCodecContext>(decoder);
-        if (!m_pCodecCtx->GetRawContext())
-        {
-            LOG_WARN("Failed to allocate codec context");
-            return false;
-        }
-
+        m_pCodecCtx = std::make_unique<ST_AVCodecContext>(decoder.GetRawCodec());
         // 绑定参数到上下文
-        ret = m_pCodecCtx->BindParamToContext(codecPar);
-        if (ret < 0)
+        if (!m_pCodecCtx->BindParamToContext(codecPar))
         {
-            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
-            av_strerror(ret, errbuf, sizeof(errbuf));
-            LOG_WARN("Failed to bind parameters: " + std::string(errbuf));
             return false;
         }
 
         // 打开解码器
-        ret = m_pCodecCtx->OpenCodec(decoder);
-        if (ret < 0)
+        if (!m_pCodecCtx->OpenCodec(decoder.GetRawCodec()))
         {
-            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
-            av_strerror(ret, errbuf, sizeof(errbuf));
-            LOG_WARN("Failed to open codec: " + std::string(errbuf));
             return false;
         }
+
         TimeSystem::Instance().StopTimingWithLog("VideoCodecSetup", EM_TimingLogLevel::Info);
 
         // 初始化视频信息
@@ -249,9 +231,9 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
         }
 
         // 计算总时长
-        if (rawCtx->duration != AV_NOPTS_VALUE)
+        if (m_pFormatCtx->GetRawContext()->duration != AV_NOPTS_VALUE)
         {
-            m_videoInfo.m_duration = static_cast<double>(rawCtx->duration) / AV_TIME_BASE;
+            m_videoInfo.m_duration = static_cast<double>(m_pFormatCtx->GetRawContext()->duration) / AV_TIME_BASE;
         }
         else
         {
@@ -278,21 +260,19 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
             LOG_WARN("Invalid buffer size: " + std::to_string(bufferSize));
             return false;
         }
-
-        auto buffer = static_cast<uint8_t*>(av_malloc(bufferSize));
-        if (!buffer)
+        ST_Buffer buffer(bufferSize);
+        if (!buffer.GetRawBuffer())
         {
             LOG_WARN("Failed to allocate RGB frame buffer");
             return false;
         }
 
-        ret = av_image_fill_arrays(m_pRGBFrame->data, m_pRGBFrame->linesize, buffer, AV_PIX_FMT_RGBA, m_videoInfo.m_width, m_videoInfo.m_height, 1);
+        int ret = av_image_fill_arrays(m_pRGBFrame.GetRawFrame()->data, m_pRGBFrame.GetRawFrame()->linesize, buffer.GetRawBuffer(), AV_PIX_FMT_RGBA, m_videoInfo.m_width, m_videoInfo.m_height, 1);
         if (ret < 0)
         {
             char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
             av_strerror(ret, errbuf, sizeof(errbuf));
             LOG_WARN("Failed to fill RGB frame arrays: " + std::string(errbuf));
-            av_free(buffer);
             return false;
         }
 
@@ -329,25 +309,6 @@ void VideoPlayWorker::Cleanup()
     {
         sws_freeContext(m_pSwsCtx);
         m_pSwsCtx = nullptr;
-    }
-
-    if (m_pRGBFrame)
-    {
-        if (m_pRGBFrame->data[0])
-        {
-            av_free(m_pRGBFrame->data[0]);
-        }
-        av_frame_free(&m_pRGBFrame);
-    }
-
-    if (m_pVideoFrame)
-    {
-        av_frame_free(&m_pVideoFrame);
-    }
-
-    if (m_pPacket)
-    {
-        av_packet_free(&m_pPacket);
     }
 
     m_pCodecCtx.reset();
@@ -440,10 +401,10 @@ void VideoPlayWorker::PlayLoop()
 {
     AV_AUTO_TIMER("VideoPlayer", "PlayLoop");
     LOG_INFO("=== Starting video playback loop ===");
-    
+
     int frameCount = 0;
     auto loopStartTime = TimeSystem::Instance().GetCurrentTimePoint();
-    
+
     while (!m_bNeedStop && m_playState != EM_VideoPlayState::Stopped)
     {
         // 每播放100帧记录一次进度
@@ -469,7 +430,7 @@ void VideoPlayWorker::PlayLoop()
                 m_currentTime = seekTime;
                 m_startTime = av_gettime_relative() - static_cast<int64_t>(seekTime * 1000000);
                 m_totalPauseTime = 0;
-                
+
                 TimeSystem::Instance().StopTimingWithLog("VideoSeek", EM_TimingLogLevel::Info);
             }
             else
@@ -492,13 +453,13 @@ void VideoPlayWorker::PlayLoop()
         {
             break;
         }
-        
+
         frameCount++;
         TIME_SLEEP_MS(1);
     }
 
     LOG_INFO("=== Video playback loop ended, played " + std::to_string(frameCount) + " frames ===");
-    
+
     // 播放结束
     m_playState = EM_VideoPlayState::Stopped;
     emit SigPlayStateChanged(m_playState);
@@ -511,59 +472,21 @@ bool VideoPlayWorker::DecodeVideoFrame()
 
     while (true)
     {
-        // 读取数据包
-        int ret = av_read_frame(rawCtx, m_pPacket);
-        if (ret < 0)
+        //获取数据包
+        if (!m_pPacket.ReadPacket(rawCtx))
         {
-            if (ret == AVERROR_EOF)
-            {
-                LOG_INFO("Reached end of file");
-            }
-            else
-            {
-                char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
-                av_strerror(ret, errbuf, sizeof(errbuf));
-                LOG_WARN("Error reading frame: " + std::string(errbuf));
-            }
             return false;
         }
-
-        // 只处理视频流的数据包
-        if (m_pPacket->stream_index != m_videoStreamIndex)
+        // 只处理视频流的数据包 发送数据包到解码器
+        if (m_pPacket.GetRawPacket()->stream_index != m_videoStreamIndex && !m_pPacket.SendPacket(codecCtx))
         {
-            av_packet_unref(m_pPacket);
             continue;
         }
-
-        // 发送数据包到解码器
-        ret = avcodec_send_packet(codecCtx, m_pPacket);
-        if (ret < 0)
-        {
-            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
-            av_strerror(ret, errbuf, sizeof(errbuf));
-            LOG_WARN("Error sending packet to decoder: " + std::string(errbuf));
-            av_packet_unref(m_pPacket);
-            continue;
-        }
-
         // 接收解码后的帧
-        while (ret >= 0)
+        while (m_pVideoFrame.GetCodecFrame(codecCtx))
         {
-            ret = avcodec_receive_frame(codecCtx, m_pVideoFrame);
-            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-            {
-                break;
-            }
-            else if (ret < 0)
-            {
-                char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
-                av_strerror(ret, errbuf, sizeof(errbuf));
-                LOG_WARN("Error receiving frame from decoder: " + std::string(errbuf));
-                break;
-            }
-
             // 计算帧的显示时间
-            int64_t pts = m_pVideoFrame->pts;
+            int64_t pts = m_pVideoFrame.GetRawFrame()->pts;
             if (pts != AV_NOPTS_VALUE)
             {
                 AVStream* stream = rawCtx->streams[m_videoStreamIndex];
@@ -581,13 +504,12 @@ bool VideoPlayWorker::DecodeVideoFrame()
             }
 
             // 渲染帧
-            RenderFrame(m_pVideoFrame);
-
-            av_packet_unref(m_pPacket);
+            RenderFrame(m_pVideoFrame.GetRawFrame());
+            m_pPacket.UnrefPacket();
             return true;
         }
 
-        av_packet_unref(m_pPacket);
+        m_pPacket.UnrefPacket();
     }
 
     return false;
@@ -604,9 +526,9 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
     {
         // 转换图像格式到RGBA
         auto scaleStartTime = TimeSystem::Instance().GetCurrentTimePoint();
-        int result = sws_scale(m_pSwsCtx, frame->data, frame->linesize, 0, m_videoInfo.m_height, m_pRGBFrame->data, m_pRGBFrame->linesize);
+        int result = sws_scale(m_pSwsCtx, frame->data, frame->linesize, 0, m_videoInfo.m_height, m_pRGBFrame.GetRawFrame()->data, m_pRGBFrame.GetRawFrame()->linesize);
         auto scaleEndTime = TimeSystem::Instance().GetCurrentTimePoint();
-        
+
         if (result <= 0)
         {
             double scaleDuration = TimeSystem::Instance().CalculateTimeDifference(scaleStartTime, scaleEndTime, EM_TimeUnit::Microseconds);
@@ -631,7 +553,7 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
         }
 
         // 复制RGBA数据到缓冲区
-        memcpy(m_rgbBuffer.data(), m_pRGBFrame->data[0], dataSize);
+        memcpy(m_rgbBuffer.data(), m_pRGBFrame.GetRawFrame()->data[0], dataSize);
 
         // 发送帧数据给Qt显示
         emit SigFrameDataUpdated(m_rgbBuffer.data(), m_videoInfo.m_width, m_videoInfo.m_height);
@@ -644,13 +566,13 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
 
             if (m_pTexture->LockTexture(nullptr, &pixels, &pitch))
             {
-                uint8_t* src = m_pRGBFrame->data[0];
+                uint8_t* src = m_pRGBFrame.GetRawFrame()->data[0];
                 auto dst = static_cast<uint8_t*>(pixels);
 
                 for (int y = 0; y < m_videoInfo.m_height; y++)
                 {
                     memcpy(dst, src, m_videoInfo.m_width * 4);
-                    src += m_pRGBFrame->linesize[0];
+                    src += m_pRGBFrame.GetRawFrame()->linesize[0];
                     dst += pitch;
                 }
 
@@ -659,7 +581,6 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
         }
 
         emit SigFrameUpdated();
-        
     } catch (const std::exception& e)
     {
         LOG_ERROR("Exception in RenderFrame: " + std::string(e.what()));

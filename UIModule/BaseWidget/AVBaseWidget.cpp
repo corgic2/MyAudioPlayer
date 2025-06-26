@@ -117,7 +117,7 @@ void AVBaseWidget::SlotBtnRecordClicked()
 {
     // 立即禁用录制按钮，防止快速点击
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Record, false);
-    
+
     if (!GetIsRecording())
     {
         QString filePath = QFileDialog::getSaveFileName(this, tr("保存录音文件"), QDir::currentPath(), tr("Wave Files (*.wav)"));
@@ -197,7 +197,7 @@ void AVBaseWidget::StartAVPlayThread()
     m_playThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AVPlayThread", [this]()
     {
         AUTO_TIMER_LOG("AVPlayThread", EM_TimingLogLevel::Info);
-        
+
         try
         {
             // 从指定位置开始播放
@@ -282,9 +282,10 @@ void AVBaseWidget::SlotBtnNextClicked()
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Next, false);
     // 获取当前项的索引
     FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
+    int currentIndex = -1;
     if (currentItem)
     {
-        int currentIndex = ui->audioFileList->GetItemCount() - 1;
+        currentIndex = ui->audioFileList->GetItemCount() - 1;
         for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
         {
             if (ui->audioFileList->GetItem(i) == currentItem)
@@ -293,30 +294,27 @@ void AVBaseWidget::SlotBtnNextClicked()
                 break;
             }
         }
-
-        // 切换到下一个文件
-        if (currentIndex < ui->audioFileList->GetItemCount() - 1)
-        {
-            FilePathIconListWidgetItem* nextItem = ui->audioFileList->GetItem(currentIndex + 1);
-            if (nextItem)
-            {
-                QString filePath = nextItem->GetNodeInfo().filePath;
-                m_currentAVFile = filePath;
-                ui->ControlButtons->SetCurrentAudioFile(filePath);
-
-                // 重置播放位置为从头开始
-                m_currentPosition = 0.0;
-
-                if (GetIsPlaying())
-                {
-                    StopAVPlayThread();
-                }
-                ui->audioFileList->setCurrentItem(nextItem);
-                StartAVPlayThread();
-                ui->ControlButtons->UpdatePlayState(true);
-            }
-        }
     }
+
+    FilePathIconListWidgetItem* nextItem = ui->audioFileList->GetItem((currentIndex + 1) % ui->audioFileList->GetItemCount());
+    if (nextItem)
+    {
+        QString filePath = nextItem->GetNodeInfo().filePath;
+        m_currentAVFile = filePath;
+        ui->ControlButtons->SetCurrentAudioFile(filePath);
+
+        // 重置播放位置为从头开始
+        m_currentPosition = 0.0;
+
+        if (GetIsPlaying())
+        {
+            StopAVPlayThread();
+        }
+        ui->audioFileList->setCurrentItem(nextItem);
+        StartAVPlayThread();
+        ui->ControlButtons->UpdatePlayState(true);
+    }
+
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Next, true);
 }
 
@@ -325,9 +323,10 @@ void AVBaseWidget::SlotBtnPreviousClicked()
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Previous, false);
     // 获取当前项的索引
     FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
+    int currentIndex = -1;
     if (currentItem)
     {
-        int currentIndex = 0;
+        currentIndex = 0;
         for (int i = 0; i < ui->audioFileList->GetItemCount(); ++i)
         {
             if (ui->audioFileList->GetItem(i) == currentItem)
@@ -336,30 +335,26 @@ void AVBaseWidget::SlotBtnPreviousClicked()
                 break;
             }
         }
-
-        // 切换到上一个文件
-        if (currentIndex > 0)
-        {
-            FilePathIconListWidgetItem* prevItem = ui->audioFileList->GetItem(currentIndex - 1);
-            if (prevItem)
-            {
-                QString filePath = prevItem->GetNodeInfo().filePath;
-                m_currentAVFile = filePath;
-                ui->ControlButtons->SetCurrentAudioFile(filePath);
-
-                // 重置播放位置为从头开始
-                m_currentPosition = 0.0;
-
-                if (GetIsPlaying())
-                {
-                    StopAVPlayThread();
-                }
-                ui->audioFileList->setCurrentItem(prevItem);
-                StartAVPlayThread();
-                ui->ControlButtons->UpdatePlayState(true);
-            }
-        }
     }
+    FilePathIconListWidgetItem* prevItem = ui->audioFileList->GetItem((currentIndex - 1 + ui->audioFileList->GetItemCount()) % ui->audioFileList->GetItemCount());
+    if (prevItem)
+    {
+        QString filePath = prevItem->GetNodeInfo().filePath;
+        m_currentAVFile = filePath;
+        ui->ControlButtons->SetCurrentAudioFile(filePath);
+
+        // 重置播放位置为从头开始
+        m_currentPosition = 0.0;
+
+        if (GetIsPlaying())
+        {
+            StopAVPlayThread();
+        }
+        ui->audioFileList->setCurrentItem(prevItem);
+        StartAVPlayThread();
+        ui->ControlButtons->UpdatePlayState(true);
+    }
+
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Previous, true);
 }
 
@@ -508,12 +503,12 @@ void AVBaseWidget::StartAVRecordThread(const QString& filePath)
         qDebug() << "Unsupported file type for playback:" << m_currentAVFile;
         return;
     }
-    
+
     m_recordThreadRunning = true;
     m_recordThreadId = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AudioRecordThread", [this, filePath]()
     {
         AUTO_TIMER_LOG("AVRecordThread", EM_TimingLogLevel::Info);
-        
+
         try
         {
             m_ffmpeg->StartRecording(filePath);

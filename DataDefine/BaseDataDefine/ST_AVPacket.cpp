@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "ST_AVPacket.h"
 
+#include "LogSystem/LogSystem.h"
+
 
 // ST_AVPacket implementation
 ST_AVPacket::ST_AVPacket() : m_pkt(av_packet_alloc())
@@ -34,14 +36,38 @@ ST_AVPacket &ST_AVPacket::operator=(ST_AVPacket &&other) noexcept
     return *this;
 }
 
-int ST_AVPacket::ReadPacket(AVFormatContext *pFormatContext)
+bool ST_AVPacket::ReadPacket(AVFormatContext *pFormatContext)
 {
-    return av_read_frame(pFormatContext, m_pkt);
+    int ret = av_read_frame(pFormatContext, m_pkt);
+    if (ret < 0)
+    {
+        if (ret == AVERROR_EOF)
+        {
+            LOG_INFO("Reached end of file");
+        }
+        else
+        {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE] = { 0 };
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            LOG_WARN("Error reading frame: " + std::string(errbuf));
+        }
+        return false;
+    }
+    return true;
 }
 
-int ST_AVPacket::SendPacket(AVCodecContext *pCodecContext)
+bool ST_AVPacket::SendPacket(AVCodecContext *pCodecContext)
 {
-    return avcodec_send_packet(pCodecContext, m_pkt);
+    int ret = avcodec_send_packet(pCodecContext, m_pkt);
+    if (ret < 0)
+    {
+        char errbuf[AV_ERROR_MAX_STRING_SIZE] = { 0 };
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        LOG_WARN("Error sending packet to decoder: " + std::string(errbuf));
+        UnrefPacket();
+        return false;
+    }
+    return true;
 }
 
 void ST_AVPacket::UnrefPacket()

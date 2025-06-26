@@ -2,9 +2,6 @@
 #include <memory>
 #include <QDebug>
 #include <vector>
-#include <libavutil/avutil.h>
-#include <libavutil/mathematics.h>
-#include <libavutil/opt.h>
 #include "LogSystem/LogSystem.h"
 #include "TimeSystem/TimeSystem.h"
 
@@ -18,7 +15,7 @@ AudioResampler::AudioResampler()
 void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_ResampleResult& output, ST_ResampleParams& params)
 {
     AUTO_TIMER_LOG("AudioResampler", EM_TimingLogLevel::Debug);
-    
+
     // 验证输入
     if (!inputData || inputSamples <= 0)
     {
@@ -49,7 +46,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     }
 
     // 计算输出样本数，使用更安全的计算方式
-    int64_t delay = swr_get_delay(m_swrCtx.GetRawContext(), params.GetInput().GetSampleRate());
+    int64_t delay = m_swrCtx.GetDelayData(params.GetInput().GetSampleRate());
     int outSamples = static_cast<int>(av_rescale_rnd(delay + inputSamples, params.GetOutput().GetSampleRate(), params.GetInput().GetSampleRate(), AV_ROUND_UP));
 
     // 确保输出样本数合理，添加更多安全检查
@@ -84,7 +81,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     }
 
     // 使用对齐分配以提高性能和避免访问冲突
-    uint8_t* alignedBuffer = static_cast<uint8_t*>(av_malloc(bufSize + AV_INPUT_BUFFER_PADDING_SIZE));
+    auto alignedBuffer = static_cast<uint8_t*>(av_malloc(bufSize + AV_INPUT_BUFFER_PADDING_SIZE));
     if (!alignedBuffer)
     {
         LOG_ERROR("Resample() : Failed to allocate aligned buffer");
@@ -101,19 +98,10 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
 
         // 执行重采样
         TIME_START("SwrConvert");
-        int realOutSamples = swr_convert(m_swrCtx.GetRawContext(), &outBuf, outSamples, inputData, inputSamples);
+        int realOutSamples = m_swrCtx.SwrConvert(&outBuf, outSamples, inputData, inputSamples);
         double convertDuration = TimeSystem::Instance().StopTiming("SwrConvert", EM_TimeUnit::Microseconds);
-
-        if (realOutSamples < 0)
+        if (realOutSamples <= 0)
         {
-            char error_buffer[AV_ERROR_MAX_STRING_SIZE] = {0};
-            av_strerror(realOutSamples, error_buffer, AV_ERROR_MAX_STRING_SIZE);
-            LOG_ERROR("Resample conversion failed: " + std::string(error_buffer));
-            output.SetData(std::vector<uint8_t>());
-        }
-        else if (realOutSamples == 0)
-        {
-            LOG_DEBUG("Resample() : No output samples generated");
             output.SetData(std::vector<uint8_t>());
         }
         else
@@ -163,7 +151,7 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
 void AudioResampler::Flush(ST_ResampleResult& output, ST_ResampleParams& params)
 {
     TIME_START("ResamplerFlush");
-    
+
     if (!m_swrCtx.GetRawContext())
     {
         LOG_WARN("Flush() : No resampler context available");
@@ -171,11 +159,11 @@ void AudioResampler::Flush(ST_ResampleResult& output, ST_ResampleParams& params)
     }
 
     // 估算剩余样本
-    int delaySamples = swr_get_delay(m_swrCtx.GetRawContext(), params.GetOutput().GetSampleRate());
+    
+    int delaySamples = m_swrCtx.GetDelayData(params.GetOutput().GetSampleRate());
     if (delaySamples <= 0)
     {
-        std::vector<uint8_t> emptyData;
-        output.SetData(std::move(emptyData));
+        output.SetData(std::vector<uint8_t>());
         return;
     }
 
@@ -186,7 +174,7 @@ void AudioResampler::Flush(ST_ResampleResult& output, ST_ResampleParams& params)
     uint8_t* outBuf = tempData.data();
 
     // 获取剩余数据
-    int realOutSamples = swr_convert(m_swrCtx.GetRawContext(), &outBuf, delaySamples, nullptr, 0);
+    int realOutSamples = m_swrCtx.SwrConvert(&outBuf, delaySamples, nullptr, 0);
     if (realOutSamples < 0)
     {
         LOG_WARN("Flush() : Failed to flush resampler");
@@ -249,13 +237,10 @@ ST_ResampleSimpleData AudioResampler::GetDefaultOutputParams() const
 bool AudioResampler::InitializeResampler(ST_ResampleParams& params)
 {
     TIME_START("ResamplerContextInit");
-    
+
     // 检查参数是否有变化
     bool needReinit = false;
-    if (m_lastInRate != params.GetInput().GetSampleRate() ||
-        m_lastOutRate != params.GetOutput().GetSampleRate() ||
-        m_lastInFmt.sampleFormat != params.GetInput().GetSampleFormat().sampleFormat ||
-        m_lastOutFmt.sampleFormat != params.GetOutput().GetSampleFormat().sampleFormat)
+    if (m_lastInRate != params.GetInput().GetSampleRate() || m_lastOutRate != params.GetOutput().GetSampleRate() || m_lastInFmt.sampleFormat != params.GetInput().GetSampleFormat().sampleFormat || m_lastOutFmt.sampleFormat != params.GetOutput().GetSampleFormat().sampleFormat)
     {
         needReinit = true;
     }

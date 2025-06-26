@@ -1,9 +1,11 @@
 ﻿#pragma once
+#include <qstringlist.h>
 #include <string>
 
 extern "C" {
 #include <libavformat/avformat.h>
 #include "libavutil/time.h"
+#include "libavdevice/avdevice.h"
 }
 /// <summary>
 /// 音频输入格式封装类
@@ -31,6 +33,9 @@ class ST_AVInputFormat
         return m_pInputFormatCtx;
     }
 
+    QStringList GetDeviceLists(const char* device_name, AVDictionary* device_options,bool bAudio = true);
+
   private:
     const AVInputFormat *m_pInputFormatCtx = nullptr;
+    AVDeviceInfoList* deviceList = nullptr;
 };

@@ -118,7 +118,7 @@ public:
     /// 获取音频总时长
     /// </summary>
     /// <returns>音频总时长（秒）</returns>
-    double GetDuration() const;
+    double GetDuration() const override;
 
 signals:
     /// <summary>
@@ -205,6 +205,7 @@ private:
     /// 清除播放状态操作
     /// </summary>
     void PlayerStateReSet();
+
 private:
     QString m_currentInputDevice;                       /// 当前选择的FFmpeg输入设备
     std::unique_ptr<ST_OpenAudioDevice> m_recordDevice; /// 录制设备
@@ -213,5 +214,6 @@ private:
     std::atomic<bool> m_isRecording{false};             /// 录制状态标志
     QString m_currentFilePath;                          /// 当前播放的文件路径
     double m_duration{0.0};                             /// 音频总时长（秒）
-    QStringList m_inputAudioDevices; /// 音频输入设备列表
+    QStringList m_inputAudioDevices;                    /// 音频输入设备列表
+    std::recursive_mutex m_mutex;                       ///音频播放互斥，否则快速点击切换时会导致资源被提前释放
 };

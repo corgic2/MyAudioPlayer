@@ -7,6 +7,7 @@
 #include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVCodecParameters.h"
+#include "BaseDataDefine/ST_AVFrame.h"
 #include "DataDefine/ST_AudioDecodeResult.h"
 #include "DataDefine/ST_OpenFileResult.h"
 #include "DataDefine/ST_ResampleParams.h"
@@ -14,7 +15,6 @@
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
 #include "SDL3/SDL.h"
-#define FMT_NAME "dshow"
 #pragma execution_character_set("utf-8")
 // 根据不同设备进行修改，此电脑为USB音频设备
 AudioFFmpegUtils::AudioFFmpegUtils(QObject* parent)
@@ -56,15 +56,7 @@ std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString& 
 
     QString type = bAudio ? "audio=" : "video=";
     QByteArray utf8DeviceName = type.toUtf8() + deviceName.toUtf8();
-    int ret = openDeviceParam->GetFormatContext().OpenInputFilePath(utf8DeviceName.constData(), openDeviceParam->GetInputFormat().GetRawFormat(), nullptr);
-    if (ret < 0)
-    {
-        char errbuf[1024] = {0};
-        av_strerror(ret, errbuf, sizeof(errbuf));
-        LOG_WARN("Failed to open device:" + std::string(errbuf));
-        return openDeviceParam;
-    }
-
+    openDeviceParam->GetFormatContext().OpenInputFilePath(utf8DeviceName.constData(), openDeviceParam->GetInputFormat().GetRawFormat(), nullptr);
     return openDeviceParam;
 }
 
@@ -114,16 +106,9 @@ void AudioFFmpegUtils::StartRecording(const QString& outputFilePath)
 
     int ret = 0;
     // 打开输出文件
-    if (!(outputFormatCtx.GetRawContext()->oformat->flags & AVFMT_NOFILE))
+    if (!(outputFormatCtx.GetRawContext()->oformat->flags & AVFMT_NOFILE) && !outputFormatCtx.OpenIOFilePath(outputFilePath))
     {
-        ret = avio_open(&outputFormatCtx.GetRawContext()->pb, outputFilePath.toUtf8().constData(), AVIO_FLAG_WRITE);
-        if (ret < 0)
-        {
-            char errbuf[1024];
-            av_strerror(ret, errbuf, sizeof(errbuf));
-            LOG_WARN("Could not open output file:" + std::string(errbuf));
-            return;
-        }
+        return;
     }
 
     // 写入文件头
@@ -179,6 +164,7 @@ void AudioFFmpegUtils::StopRecording()
 
 void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosition, const QStringList& args)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     PlayerStateReSet();
     if (startPosition > m_duration)
     {
@@ -212,7 +198,7 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
     {
         TIME_START("AudioSeek");
         LOG_INFO("Seeking to position: " + std::to_string(startPosition) + " seconds");
-        
+
         // 确保不会超出音频范围
         if (startPosition > m_duration)
         {
@@ -221,18 +207,12 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
 
         // 计算目标时间戳并执行定位
         int64_t targetTs = static_cast<int64_t>(startPosition * AV_TIME_BASE);
-        int ret = av_seek_frame(openFileResult.m_formatCtx->GetRawContext(), -1, targetTs, AVSEEK_FLAG_BACKWARD);
-        if (ret < 0)
+        if (!openFileResult.m_formatCtx->SeekFrame(-1, targetTs, AVSEEK_FLAG_BACKWARD))
         {
-            char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
-            av_strerror(ret, errbuf, sizeof(errbuf));
-            LOG_WARN("Failed to seek audio: " + std::string(errbuf));
             return;
         }
-
         // 清空解码器缓冲
-        avcodec_flush_buffers(openFileResult.m_codecCtx->GetRawContext());
-        
+        openFileResult.m_codecCtx->FlushBuffer();
         TimeSystem::Instance().StopTimingWithLog("AudioSeek", EM_TimingLogLevel::Info);
     }
 
@@ -336,19 +316,13 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
     
     int processedPackets = 0;
     int processedFrames = 0;
-    
-    AVFrame* frame = av_frame_alloc();
-    if (!frame)
-    {
-        LOG_ERROR("Failed to allocate frame for audio processing");
-        return;
-    }
 
+    ST_AVFrame frame;
     AV_TIMER_START("Audio", "ProgressTracking");
 
     try
     {
-        while (pkt.ReadPacket(openFileResult.m_formatCtx->GetRawContext()) >= 0)
+        while (pkt.ReadPacket(openFileResult.m_formatCtx->GetRawContext()))
         {
             if (pkt.GetRawPacket()->stream_index == openFileResult.m_audioStreamIdx)
             {
@@ -359,20 +333,13 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                     LOG_INFO("Processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames");
                     AV_TIMER_START("Audio", "ProgressTracking");
                 }
-
                 // 发送数据包到解码器
-                int ret = avcodec_send_packet(openFileResult.m_codecCtx->GetRawContext(), pkt.GetRawPacket());
-                if (ret < 0)
+                if (!pkt.SendPacket(openFileResult.m_codecCtx->GetRawContext()))
                 {
-                    char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
-                    av_strerror(ret, errbuf, sizeof(errbuf));
-                    LOG_WARN("Failed to send packet to decoder: " + std::string(errbuf));
-                    pkt.UnrefPacket();
                     continue;
                 }
-
                 // 接收解码后的帧
-                while ((ret = avcodec_receive_frame(openFileResult.m_codecCtx->GetRawContext(), frame)) >= 0)
+                while (frame.GetCodecFrame(openFileResult.m_codecCtx->GetRawContext()))
                 {
                     processedFrames++;
                     
@@ -383,26 +350,26 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                     const uint8_t* inputDataPtrs[AV_NUM_DATA_POINTERS] = {0};
 
                     // 检查是否为平面格式
-                    bool isPlanar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(frame->format));
-                    int channels = frame->ch_layout.nb_channels;
+                    bool isPlanar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(frame.GetRawFrame()->format));
+                    int channels = frame.GetRawFrame()->ch_layout.nb_channels;
 
                     if (isPlanar)
                     {
                         // 平面格式：每个通道分别存储
                         for (int ch = 0; ch < channels && ch < AV_NUM_DATA_POINTERS; ch++)
                         {
-                            inputDataPtrs[ch] = frame->data[ch];
+                            inputDataPtrs[ch] = frame.GetRawFrame()->data[ch];
                         }
                     }
                     else
                     {
                         // 交错格式：所有通道数据交错存储
-                        inputDataPtrs[0] = frame->data[0];
+                        inputDataPtrs[0] = frame.GetRawFrame()->data[0];
                     }
 
                     // 执行重采样
                     TIME_START("AudioResample");
-                    resampler.Resample(inputDataPtrs, frame->nb_samples, resampleResult, resampleParams);
+                    resampler.Resample(inputDataPtrs, frame.GetRawFrame()->nb_samples, resampleResult, resampleParams);
                     double resampleDuration = TimeSystem::Instance().StopTiming("AudioResample", EM_TimeUnit::Microseconds);
                     
                     // 只在耗时较长时记录重采样时间
@@ -430,25 +397,6 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                         }
                     }
                 }
-
-                if (ret == AVERROR(EAGAIN))
-                {
-                    // 需要更多输入数据
-                    pkt.UnrefPacket();
-                    continue;
-                }
-                else if (ret == AVERROR_EOF)
-                {
-                    // 解码器已到达文件末尾
-                    break;
-                }
-                else if (ret < 0)
-                {
-                    char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
-                    av_strerror(ret, errbuf, sizeof(errbuf));
-                    LOG_WARN("Error receiving frame from decoder: " + std::string(errbuf));
-                }
-                
                 processedPackets++;
             }
 
@@ -486,7 +434,6 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
         LOG_ERROR("Unknown exception in audio processing");
     }
 
-    av_frame_free(&frame);
 }
 
 void AudioFFmpegUtils::PlayerStateReSet()
@@ -529,6 +476,7 @@ void AudioFFmpegUtils::ResumePlay()
 
 void AudioFFmpegUtils::StopPlay()
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     PlayerStateReSet();
     m_playState.Reset();
     emit SigPlayStateChanged(false);
@@ -587,32 +535,9 @@ void AudioFFmpegUtils::ShowSpec(AVFormatContext* ctx)
 QStringList AudioFFmpegUtils::GetInputAudioDevices()
 {
     QStringList devices;
-    const AVInputFormat* inputFormat = av_find_input_format(FMT_NAME);
-    if (!inputFormat)
-    {
-        LOG_WARN("Failed to find input format:" + std::string(FMT_NAME));
-        return devices;
-    }
-
-    AVDeviceInfoList* deviceList = nullptr;
-    int ret = avdevice_list_input_sources(inputFormat, nullptr, nullptr, &deviceList);
-    if (ret < 0)
-    {
-        char errbuf[1024];
-        av_strerror(ret, errbuf, sizeof(errbuf));
-        LOG_WARN("Failed to get input devices:" + std::string(errbuf));
-        return devices;
-    }
-
-    for (int i = 0; i < deviceList->nb_devices; i++)
-    {
-        if (*deviceList->devices[i]->media_types == AVMEDIA_TYPE_AUDIO)
-        {
-            devices.append(QString::fromUtf8(deviceList->devices[i]->device_description));
-        }
-    }
-
-    avdevice_free_list_devices(&deviceList);
+    ST_AVInputFormat inputFormat;
+    inputFormat.FindInputFormat(FMT_NAME);
+    devices = inputFormat.GetDeviceLists(nullptr, nullptr);
     return devices;
 }
 
@@ -648,13 +573,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
 
     // 读取音频数据并计算波形
     ST_AVPacket packet;
-    AVFrame* frame = av_frame_alloc();
-    if (!frame)
-    {
-        LOG_WARN("LoadAudioWaveform() : Failed to allocate frame");
-        return false;
-    }
-
+    ST_AVFrame frame;
     const int SAMPLES_PER_PIXEL = 1024; // 每个像素点对应的采样数
     float maxSample = 0.0f;
     float currentSum = 0.0f;
@@ -664,16 +583,16 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
 
     try
     {
-        while (packet.ReadPacket(openFileResult.m_formatCtx->GetRawContext()) >= 0)
+        while (packet.ReadPacket(openFileResult.m_formatCtx->GetRawContext()))
         {
             if (packet.GetStreamIndex() == openFileResult.m_audioStreamIdx)
             {
-                if (packet.SendPacket(openFileResult.m_codecCtx->GetRawContext()) >= 0)
+                if (packet.SendPacket(openFileResult.m_codecCtx->GetRawContext()))
                 {
-                    while (avcodec_receive_frame(openFileResult.m_codecCtx->GetRawContext(), frame) >= 0)
+                    while (frame.GetCodecFrame(openFileResult.m_codecCtx->GetRawContext()))
                     {
                         // 处理不同的采样格式
-                        ProcessAudioFrame(frame, waveformData, SAMPLES_PER_PIXEL, currentSum, sampleCount, maxSample);
+                        ProcessAudioFrame(frame.GetRawFrame(), waveformData, SAMPLES_PER_PIXEL, currentSum, sampleCount, maxSample);
                     }
                 }
                 processedPackets++;
@@ -703,11 +622,9 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
     catch (...)
     {
         LOG_ERROR("LoadAudioWaveform() : Exception occurred during waveform loading");
-        av_frame_free(&frame);
         return false;
     }
 
-    av_frame_free(&frame);
     return !waveformData.isEmpty();
 }
 
