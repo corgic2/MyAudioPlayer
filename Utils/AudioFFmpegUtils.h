@@ -113,6 +113,11 @@ public:
     /// </summary>
     /// <returns>true表示正在录制，false表示已停止录制</returns>
     bool IsRecording() override;
+    /// <summary>
+    /// 获取当前播放位置
+    /// </summary>
+    /// <returns></returns>
+    double GetCurrentPosition() const;
 
     /// <summary>
     /// 获取音频总时长
@@ -215,5 +220,7 @@ private:
     QString m_currentFilePath;                          /// 当前播放的文件路径
     double m_duration{0.0};                             /// 音频总时长（秒）
     QStringList m_inputAudioDevices;                    /// 音频输入设备列表
-    std::recursive_mutex m_mutex;                       ///音频播放互斥，否则快速点击切换时会导致资源被提前释放
+    std::recursive_mutex m_mutex;                       /// 音频播放互斥，否则快速点击切换时会导致资源被提前释放
+    double m_startTime{0.0};                           /// 播放开始时间（秒）
+    std::chrono::steady_clock::time_point m_playStartTimePoint; /// 播放开始的时间点
 };

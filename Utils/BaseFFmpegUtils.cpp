@@ -8,3 +8,4 @@ BaseFFmpegUtils::BaseFFmpegUtils(QObject* parent)
 BaseFFmpegUtils::~BaseFFmpegUtils()
 {
 }
+

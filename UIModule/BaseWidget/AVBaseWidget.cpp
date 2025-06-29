@@ -84,6 +84,29 @@ void AVBaseWidget::InitializeWidget()
     ui->ToolButtonFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
     ui->ToolButtonFrame->setLineWidth(1);
     ui->ToolButtonFrame->setMidLineWidth(0);
+
+    // 设置现代化进度条样式
+    ui->customProgressBar->SetProgressBarStyle(CustomProgressBar::ProgressBarStyle_Rounded);
+    ui->customProgressBar->SetBackgroundColor(UIColorDefine::background_color::HoverBackground);
+    ui->customProgressBar->SetProgressColor(UIColorDefine::theme_color::Primary);
+    ui->customProgressBar->SetTextColor(UIColorDefine::font_color::Primary);
+    ui->customProgressBar->SetEnableGradient(true);
+    ui->customProgressBar->SetGradientStartColor(UIColorDefine::gradient_color::Primary.start);
+    ui->customProgressBar->SetGradientEndColor(UIColorDefine::gradient_color::Primary.end);
+    ui->customProgressBar->SetEnableAnimation(true);
+    ui->customProgressBar->SetAnimationDuration(300);
+    ui->customProgressBar->SetTextPosition(CustomProgressBar::TextPosition_Center);
+    ui->customProgressBar->SetEnableBorder(true);
+    ui->customProgressBar->SetBorderColor(UIColorDefine::border_color::Primary);
+    ui->customProgressBar->SetBorderWidth(1);
+    ui->customProgressBar->SetBorderRadius(8);
+    ui->customProgressBar->SetEnableShadow(true);
+    ui->customProgressBar->SetShadowColor(UIColorDefine::shadow_color::Light);
+
+    // 设置进度条范围
+    ui->customProgressBar->setRange(0, 1000); // 使用1000为最大值，提高精度
+    ui->customProgressBar->setValue(0);
+
     m_audioPlayerWidget = new PlayerAudioModuleWidget(this);
     m_videoPlayerWidget = new PlayerVideoModuleWidget(this);
     ui->verticalLayout_6->addWidget(m_audioPlayerWidget);
@@ -111,6 +134,12 @@ void AVBaseWidget::ConnectSignals()
 
     // 添加录制完成信号连接
     connect(this, &AVBaseWidget::SigAVRecordFinished, this, &AVBaseWidget::SlotAVRecordFinished);
+
+    // 连接进度条信号
+    connect(ui->customProgressBar, &CustomProgressBar::SigValueChanged, this, &AVBaseWidget::SlotProgressBarValueChanged);
+    
+    // 连接播放进度更新定时器
+    connect(m_playTimer, &QTimer::timeout, this, &AVBaseWidget::SlotUpdatePlayProgress);
 }
 
 void AVBaseWidget::SlotBtnRecordClicked()
@@ -220,12 +249,21 @@ void AVBaseWidget::StartAVPlayThread()
             emit SigAVPlayFinished();
         }
     });
+
+    // 在播放开始后启动进度更新定时器
+    if (m_playThreadRunning)
+    {
+        m_playTimer->start();
+    }
 }
 
 void AVBaseWidget::StopAVPlayThread()
 {
     if (m_playThreadRunning)
     {
+        // 停止进度更新定时器
+        m_playTimer->stop();
+        
         m_playThreadRunning = false;
 
         // 首先停止FFmpeg播放器
@@ -247,18 +285,22 @@ void AVBaseWidget::SlotAVPlayFinished()
     ui->ControlButtons->UpdatePlayState(false);
     m_playThreadRunning = false;
 
-    // 播放完成后重置播放位置
+    // 播放完成后重置播放位置和进度条
     m_currentPosition = 0.0;
+    ui->customProgressBar->setValue(0);
+    ui->customProgressBar->setFormat("00:00 / 00:00");
+    
     LOG_INFO("音频播放完成，状态已重置");
 }
 
 void AVBaseWidget::SlotBtnForwardClicked()
 {
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Forward, false);
-    if (GetIsPlaying())
+    if (GetIsPlaying() && m_ffmpeg)
     {
-        // 从新位置开始播放
-        m_currentPosition += 15;
+        // 快进15秒
+        double duration = m_ffmpeg->GetDuration();
+        m_currentPosition = std::min(duration, m_currentPosition + 15.0);
         m_ffmpeg->SeekPlay(m_currentPosition);
     }
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Forward, true);
@@ -268,9 +310,9 @@ void AVBaseWidget::SlotBtnBackwardClicked()
 {
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Backward, false);
 
-    if (GetIsPlaying())
+    if (GetIsPlaying() && m_ffmpeg)
     {
-        // 从新位置开始播放
+        // 快退15秒
         m_currentPosition = std::max(0.0, m_currentPosition - 15.0);
         m_ffmpeg->SeekPlay(m_currentPosition);
     }
@@ -576,4 +618,68 @@ bool AVBaseWidget::GetIsPaused() const
 bool AVBaseWidget::GetIsRecording() const
 {
     return m_ffmpeg && m_ffmpeg->IsRecording();
+}
+
+void AVBaseWidget::SlotProgressBarValueChanged(int value)
+{
+    if (m_isProgressBarUpdating || !m_ffmpeg)
+    {
+        return;
+    }
+
+    // 计算跳转位置
+    double duration = m_ffmpeg->GetDuration();
+    if (duration > 0)
+    {
+        double seekPosition = (static_cast<double>(value) / 1000.0) * duration;
+        m_currentPosition = seekPosition;
+        
+        // 跳转播放位置
+        if (GetIsPlaying())
+        {
+            m_ffmpeg->SeekPlay(seekPosition);
+        }
+    }
+}
+
+void AVBaseWidget::SlotUpdatePlayProgress()
+{
+    if (!m_ffmpeg || !GetIsPlaying())
+    {
+        return;
+    }
+
+    m_isProgressBarUpdating = true;
+    
+    double currentPos = m_ffmpeg->GetCurrentPosition();
+    double duration = m_ffmpeg->GetDuration();
+    
+    m_currentPosition = currentPos;
+    
+    if (duration > 0)
+    {
+        int progressValue = static_cast<int>((currentPos / duration) * 1000);
+        ui->customProgressBar->SetValueWithAnimation(progressValue);
+        
+        // 更新进度条文本显示
+        QString timeText = QString("%1 / %2")
+                          .arg(FormatTime(static_cast<int>(currentPos)))
+                          .arg(FormatTime(static_cast<int>(duration)));
+        ui->customProgressBar->setFormat(timeText);
+    }
+    
+    m_isProgressBarUpdating = false;
+    
+    // 检查播放是否完成
+    if (currentPos >= duration && duration > 0)
+    {
+        emit SigAVPlayFinished();
+    }
+}
+
+QString AVBaseWidget::FormatTime(int seconds) const
+{
+    int minutes = seconds / 60;
+    int secs = seconds % 60;
+    return QString("%1:%2").arg(minutes, 2, 10, QChar('0')).arg(secs, 2, 10, QChar('0'));
 }

@@ -113,6 +113,17 @@ protected slots:
     /// </summary>
     void SlotAVRecordFinished();
 
+    /// <summary>
+    /// 进度条值改变槽函数
+    /// </summary>
+    /// <param name="value">进度值</param>
+    void SlotProgressBarValueChanged(int value);
+    
+    /// <summary>
+    /// 更新播放进度槽函数
+    /// </summary>
+    void SlotUpdatePlayProgress();
+
 protected:
     /// <summary>
     /// 窗口关闭事件
@@ -182,6 +193,14 @@ private:
     /// </summary>
     /// <returns>是否正在录制</returns>
     bool GetIsRecording() const;
+
+    /// <summary>
+    /// 格式化时间显示
+    /// </summary>
+    /// <param name="seconds">秒数</param>
+    /// <returns>格式化后的时间字符串 (MM:SS)</returns>
+    QString FormatTime(int seconds) const;
+
 private:
     Ui::AVBaseWidgetClass* ui;
     BaseFFmpegUtils* m_ffmpeg = nullptr;
@@ -194,5 +213,6 @@ private:
     size_t m_recordThreadId;                                /// 音视频录制线程ID
     std::atomic<bool> m_recordThreadRunning{false};         /// 音视频录制线程运行标志
     double m_currentPosition{0.0};                          /// 当前播放位置（秒）
+    bool m_isProgressBarUpdating{false};                    /// 进度条更新标志，防止循环更新
 
 };

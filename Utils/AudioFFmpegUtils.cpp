@@ -172,6 +172,10 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
         return;
     }
     
+    // 记录播放开始时间和位置
+    m_startTime = startPosition;
+    m_playStartTimePoint = std::chrono::steady_clock::now();
+    
     // 使用时间系统进行整体计时
     TIME_START("AudioPlaybackTotal");
     LOG_INFO("=== Starting audio playback: " + inputFilePath.toStdString() + ", start position: " + std::to_string(startPosition) + " seconds ===");
@@ -301,6 +305,13 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
     // 改进音频数据处理流程
     ProcessAudioData(openFileResult, resampler, resampleParams);
 
+    // 在播放开始成功后添加
+    if (m_playInfo && m_playState.IsPlaying())
+    {
+        // 发送播放状态改变信号
+        emit SigPlayStateChanged(true);
+    }
+    
     TimeSystem::Instance().StopTimingWithLog("AudioPlaybackTotal", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "Audio playback initialization completed");
 }
 
@@ -457,9 +468,12 @@ void AudioFFmpegUtils::PausePlay()
     }
 
     LOG_INFO("Pausing audio playback");
+    
+    // 保存当前播放位置
+    double currentPos = GetCurrentPosition();
+    m_playState.SetCurrentPosition(currentPos);
     m_playState.SetPaused(true);
     m_playInfo->PauseAudio();
-    m_playState.SetCurrentPosition(m_playState.GetCurrentPosition() + (SDL_GetTicks() - m_playState.GetStartTime()) / 1000.0);
 }
 
 void AudioFFmpegUtils::ResumePlay()
@@ -470,7 +484,9 @@ void AudioFFmpegUtils::ResumePlay()
     }
 
     m_playState.SetPaused(false);
-    m_playState.SetStartTime(SDL_GetTicks());
+    // 重新记录播放开始时间点
+    m_playStartTimePoint = std::chrono::steady_clock::now();
+    m_startTime = m_playState.GetCurrentPosition();
     m_playInfo->ResumeAudio();
 }
 
@@ -489,12 +505,18 @@ bool AudioFFmpegUtils::SeekAudio(double seconds)
         return false;
     }
 
+    // 更新开始时间和时间点
+    m_startTime = seconds;
+    m_playStartTimePoint = std::chrono::steady_clock::now();
+    m_playState.SetCurrentPosition(seconds);
+
     // 暂停当前播放
     bool wasPlaying = m_playState.IsPlaying() && !m_playState.IsPaused();
     if (wasPlaying)
     {
         m_playInfo->PauseAudio();
     }
+    
     // 重新初始化播放
     StartPlay(m_currentFilePath, seconds);
 
@@ -820,4 +842,25 @@ bool AudioFFmpegUtils::IsPaused()
 bool AudioFFmpegUtils::IsRecording()
 {
     return m_isRecording.load();
+}
+
+double AudioFFmpegUtils::GetCurrentPosition() const
+{
+    if (!m_playState.IsPlaying())
+    {
+        return m_startTime;
+    }
+    
+    if (m_playState.IsPaused())
+    {
+        return m_playState.GetCurrentPosition();
+    }
+    
+    // 计算当前播放位置：开始位置 + 已播放时间
+    auto now = std::chrono::steady_clock::now();
+    auto elapsedSeconds = std::chrono::duration<double>(now - m_playStartTimePoint).count();
+    double currentPos = m_startTime + elapsedSeconds;
+    
+    // 确保不超过总时长
+    return std::min(currentPos, m_duration);
 }

@@ -131,6 +131,52 @@
          <number>0</number>
         </property>
         <item>
+         <widget class="CustomProgressBar" name="customProgressBar">
+          <property name="minimum">
+           <number>0</number>
+          </property>
+          <property name="maximum">
+           <number>1000</number>
+          </property>
+          <property name="value">
+           <number>0</number>
+          </property>
+          <property name="progressBarStyle" stdset="0">
+           <enum>CustomProgressBar::ProgressBarStyle_Rounded</enum>
+          </property>
+          <property name="enableGradient" stdset="0">
+           <bool>true</bool>
+          </property>
+          <property name="enableAnimation" stdset="0">
+           <bool>true</bool>
+          </property>
+          <property name="animationDuration" stdset="0">
+           <number>300</number>
+          </property>
+          <property name="textPosition" stdset="0">
+           <enum>CustomProgressBar::TextPosition_Center</enum>
+          </property>
+          <property name="enableShadow" stdset="0">
+           <bool>true</bool>
+          </property>
+          <property name="enableBorder" stdset="0">
+           <bool>true</bool>
+          </property>
+          <property name="borderWidth" stdset="0">
+           <number>1</number>
+          </property>
+          <property name="borderRadius" stdset="0">
+           <number>8</number>
+          </property>
+          <property name="enableStripes" stdset="0">
+           <bool>false</bool>
+          </property>
+          <property name="stripeDirection" stdset="0">
+           <enum>CustomProgressBar::StripeDirection_LeftToRight</enum>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="ControlButtonWidget" name="ControlButtons" native="true"/>
         </item>
        </layout>
@@ -232,6 +278,11 @@
    <class>CustomLabel</class>
    <extends>QLabel</extends>
    <header>CoreWidget/CustomLabel.h</header>
+  </customwidget>
+  <customwidget>
+   <class>CustomProgressBar</class>
+   <extends>QProgressBar</extends>
+   <header>CoreWidget/CustomProgressBar.h</header>
   </customwidget>
   <customwidget>
    <class>FilePathIconListWidget</class>
