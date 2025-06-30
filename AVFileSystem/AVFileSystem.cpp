@@ -1,7 +1,7 @@
 ﻿#include "AVFileSystem.h"
 #include <algorithm>
 
-namespace AV_player
+namespace av_fileSystem
 {
     bool AVFileSystem::IsAVFile(const std::string& filePath)
     {

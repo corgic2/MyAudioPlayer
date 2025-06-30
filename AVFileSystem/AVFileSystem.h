@@ -3,7 +3,7 @@
 #include <vector>
 #include "FileSystem/FileSystem.h"
 
-namespace AV_player
+namespace av_fileSystem
 {
     /// <summary>
     /// 音视频文件类型枚举

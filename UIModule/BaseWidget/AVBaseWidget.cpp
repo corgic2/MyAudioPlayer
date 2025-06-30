@@ -202,13 +202,13 @@ void AVBaseWidget::StartAVPlayThread()
         StopAVPlayThread();
     }
 
-    if (AV_player::AVFileSystem::IsAudioFile(m_currentAVFile.toStdString()))
+    if (av_fileSystem::AVFileSystem::IsAudioFile(m_currentAVFile.toStdString()))
     {
         m_ffmpeg = m_audioPlayerWidget->GetFFMpegUtils();
         m_audioPlayerWidget->LoadWaveWidegt(m_currentAVFile);
         ShowAVWidget(true);
     }
-    else if (AV_player::AVFileSystem::IsVideoFile(m_currentAVFile.toStdString()))
+    else if (av_fileSystem::AVFileSystem::IsVideoFile(m_currentAVFile.toStdString()))
     {
         m_ffmpeg = m_videoPlayerWidget->GetFFMpegUtils();
         // 设置视频显示控件
@@ -435,14 +435,14 @@ void AVBaseWidget::AddAVFiles(const QStringList& filePaths)
     {
         LOG_DEBUG("添加文件: " + filePath.toStdString());
         std::string stdPath = my_sdk::FileSystem::QtPathToStdPath(filePath.toStdString());
-        if (!AV_player::AVFileSystem::IsAVFile(stdPath))
+        if (!av_fileSystem::AVFileSystem::IsAVFile(stdPath))
         {
             continue;
         }
 
         if (GetFileIndex(filePath) == -1)
         {
-            AV_player::ST_AVFileInfo audioInfo = AV_player::AVFileSystem::GetAVFileInfo(stdPath);
+            av_fileSystem::ST_AVFileInfo audioInfo = av_fileSystem::AVFileSystem::GetAVFileInfo(stdPath);
             FilePathIconListWidgetItem::ST_NodeInfo nodeInfo;
             nodeInfo.filePath = filePath;
             nodeInfo.displayName = QString::fromStdString(audioInfo.m_displayName);
@@ -532,11 +532,11 @@ void AVBaseWidget::StartAVRecordThread(const QString& filePath)
     {
         StopAVRecordThread();
     }
-    if (AV_player::AVFileSystem::IsAudioFile(m_currentAVFile.toStdString()))
+    if (av_fileSystem::AVFileSystem::IsAudioFile(m_currentAVFile.toStdString()))
     {
         m_ffmpeg = m_audioPlayerWidget->GetFFMpegUtils();
     }
-    else if (AV_player::AVFileSystem::IsVideoFile(m_currentAVFile.toStdString()))
+    else if (av_fileSystem::AVFileSystem::IsVideoFile(m_currentAVFile.toStdString()))
     {
         m_ffmpeg = m_videoPlayerWidget->GetFFMpegUtils();
     }

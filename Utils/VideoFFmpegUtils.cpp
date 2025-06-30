@@ -41,7 +41,7 @@ void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition,
     }
 
     // 检查是否为支持的视频格式
-    if (!AV_player::AVFileSystem::IsVideoFile(videoPath.toStdString()))
+    if (!av_fileSystem::AVFileSystem::IsVideoFile(videoPath.toStdString()))
     {
         LOG_WARN("VideoFFmpegUtils::StartPlay() : Unsupported video format: " + videoPath.toStdString());
         emit SigError("不支持的视频格式");
