@@ -154,22 +154,10 @@ private:
     /// 视频录制状态
     /// </summary>
     EM_VideoRecordState m_recordState;
-
-    /// <summary>
-    /// 视频播放线程
-    /// </summary>
-    QThread* m_pPlayThread;
-
     /// <summary>
     /// 视频播放工作对象
     /// </summary>
     VideoPlayWorker* m_pPlayWorker;
-
-    /// <summary>
-    /// 视频录制线程
-    /// </summary>
-    QThread* m_pRecordThread;
-
     /// <summary>
     /// 视频录制工作对象
     /// </summary>

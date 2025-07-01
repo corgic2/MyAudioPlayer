@@ -137,7 +137,7 @@ void AVBaseWidget::ConnectSignals()
 
     // 连接进度条信号
     connect(ui->customProgressBar, &CustomProgressBar::SigValueChanged, this, &AVBaseWidget::SlotProgressBarValueChanged);
-    
+
     // 连接播放进度更新定时器
     connect(m_playTimer, &QTimer::timeout, this, &AVBaseWidget::SlotUpdatePlayProgress);
 }
@@ -263,7 +263,7 @@ void AVBaseWidget::StopAVPlayThread()
     {
         // 停止进度更新定时器
         m_playTimer->stop();
-        
+
         m_playThreadRunning = false;
 
         // 首先停止FFmpeg播放器
@@ -289,7 +289,7 @@ void AVBaseWidget::SlotAVPlayFinished()
     m_currentPosition = 0.0;
     ui->customProgressBar->setValue(0);
     ui->customProgressBar->setFormat("00:00 / 00:00");
-    
+
     LOG_INFO("音频播放完成，状态已重置");
 }
 
@@ -633,7 +633,7 @@ void AVBaseWidget::SlotProgressBarValueChanged(int value)
     {
         double seekPosition = (static_cast<double>(value) / 1000.0) * duration;
         m_currentPosition = seekPosition;
-        
+
         // 跳转播放位置
         if (GetIsPlaying())
         {
@@ -650,26 +650,24 @@ void AVBaseWidget::SlotUpdatePlayProgress()
     }
 
     m_isProgressBarUpdating = true;
-    
+
     double currentPos = m_ffmpeg->GetCurrentPosition();
     double duration = m_ffmpeg->GetDuration();
-    
+
     m_currentPosition = currentPos;
-    
+
     if (duration > 0)
     {
         int progressValue = static_cast<int>((currentPos / duration) * 1000);
         ui->customProgressBar->SetValueWithAnimation(progressValue);
-        
+
         // 更新进度条文本显示
-        QString timeText = QString("%1 / %2")
-                          .arg(FormatTime(static_cast<int>(currentPos)))
-                          .arg(FormatTime(static_cast<int>(duration)));
+        QString timeText = QString("%1 / %2").arg(FormatTime(static_cast<int>(currentPos))).arg(FormatTime(static_cast<int>(duration)));
         ui->customProgressBar->setFormat(timeText);
     }
-    
+
     m_isProgressBarUpdating = false;
-    
+
     // 检查播放是否完成
     if (currentPos >= duration && duration > 0)
     {

@@ -243,11 +243,11 @@ void VideoPlayWorker::SafeStopPlayThread()
     if (m_pPlayThread && m_pPlayThread->isRunning())
     {
         LOG_INFO("Waiting for play thread to finish...");
-        if (!m_pPlayThread->wait(3000)) // 等待3秒
+        if (!m_pPlayThread->wait(200)) // 等待3秒
         {
             LOG_WARN("Play thread did not finish gracefully, forcing termination");
             m_pPlayThread->terminate();
-            m_pPlayThread->wait(1000); // 再等待1秒
+            m_pPlayThread->wait(200); // 再等待1秒
         }
     }
 
