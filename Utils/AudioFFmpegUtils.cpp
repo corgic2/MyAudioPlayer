@@ -230,14 +230,35 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
 
     ST_ResampleParams resampleParams;
 
-    // 设置实际的输入参数
-    resampleParams.GetInput().SetSampleRate(codecpar->sample_rate);
-    resampleParams.GetInput().SetSampleFormat(ST_AVSampleFormat(static_cast<AVSampleFormat>(codecpar->format)));
+    // === 修复：从解码器上下文获取正确的音频格式 ===
+    AVCodecContext* codecCtx = openFileResult.m_codecCtx->GetRawContext();
+    
+    // 设置实际的输入参数（优先使用解码器上下文的参数）
+    int inputSampleRate = (codecCtx->sample_rate > 0) ? codecCtx->sample_rate : codecpar->sample_rate;
+    AVSampleFormat inputFormat = (codecCtx->sample_fmt != AV_SAMPLE_FMT_NONE) ? codecCtx->sample_fmt : static_cast<AVSampleFormat>(codecpar->format);
+    
+    // 如果格式仍然是NONE，则设置一个默认值，稍后在处理第一帧时更新
+    if (inputFormat == AV_SAMPLE_FMT_NONE)
+    {
+        LOG_WARN("Audio format is AV_SAMPLE_FMT_NONE, will update from first decoded frame");
+        inputFormat = AV_SAMPLE_FMT_FLTP; // 设置一个常见的默认格式
+    }
+    
+    resampleParams.GetInput().SetSampleRate(inputSampleRate);
+    resampleParams.GetInput().SetSampleFormat(ST_AVSampleFormat(inputFormat));
 
     auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
     if (inLayout)
     {
-        av_channel_layout_copy(inLayout, &codecpar->ch_layout);
+        // 优先使用解码器上下文的通道布局
+        if (codecCtx->ch_layout.nb_channels > 0)
+        {
+            av_channel_layout_copy(inLayout, &codecCtx->ch_layout);
+        }
+        else
+        {
+            av_channel_layout_copy(inLayout, &codecpar->ch_layout);
+        }
         resampleParams.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
     }
 
@@ -252,7 +273,7 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
         resampleParams.GetOutput().SetChannelLayout(ST_AVChannelLayout(outLayout));
     }
 
-    LOG_INFO("Audio parameters - Input: " + std::to_string(codecpar->sample_rate) + "Hz, " + std::to_string(codecpar->ch_layout.nb_channels) + " channels, format: " + std::to_string(codecpar->format));
+    LOG_INFO("Audio parameters - Input: " + std::to_string(inputSampleRate) + "Hz, " + std::to_string(codecpar->ch_layout.nb_channels) + " channels, format: " + std::to_string(static_cast<int>(inputFormat)));
     LOG_INFO("Audio parameters - Output: 44100Hz, 2 channels, S16 format");
 
     // 优化SDL音频规格配置
@@ -327,6 +348,7 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
     
     int processedPackets = 0;
     int processedFrames = 0;
+    bool bResampleParamsUpdated = false; // 标记是否已更新重采样参数
 
     ST_AVFrame frame;
     AV_TIMER_START("Audio", "ProgressTracking");
@@ -337,13 +359,6 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
         {
             if (pkt.GetRawPacket()->stream_index == openFileResult.m_audioStreamIdx)
             {
-                // 每处理100个包记录一次进度
-                if (processedPackets % 100 == 0 && processedPackets > 0)
-                {
-                    AV_TIMER_STOP_LOG("Audio", "ProgressTracking");
-                    LOG_INFO("Processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames");
-                    AV_TIMER_START("Audio", "ProgressTracking");
-                }
                 // 发送数据包到解码器
                 if (!pkt.SendPacket(openFileResult.m_codecCtx->GetRawContext()))
                 {
@@ -353,6 +368,41 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                 while (frame.GetCodecFrame(openFileResult.m_codecCtx->GetRawContext()))
                 {
                     processedFrames++;
+                    
+                    // === 修复：在第一次获取解码帧时更新重采样参数 ===
+                    if (!bResampleParamsUpdated)
+                    {
+                        AVFrame* rawFrame = frame.GetRawFrame();
+                        
+                        // 从实际解码的帧获取正确的音频格式
+                        AVSampleFormat actualFormat = static_cast<AVSampleFormat>(rawFrame->format);
+                        int actualSampleRate = rawFrame->sample_rate;
+                        
+                        LOG_INFO("Updating resample params from first decoded frame:");
+                        LOG_INFO("  Actual format: " + std::to_string(static_cast<int>(actualFormat)) + " (" + std::string(av_get_sample_fmt_name(actualFormat)) + ")");
+                        LOG_INFO("  Actual sample rate: " + std::to_string(actualSampleRate));
+                        LOG_INFO("  Actual channels: " + std::to_string(rawFrame->ch_layout.nb_channels));
+                        
+                        // 更新重采样参数
+                        resampleParams.GetInput().SetSampleFormat(ST_AVSampleFormat(actualFormat));
+                        if (actualSampleRate > 0)
+                        {
+                            resampleParams.GetInput().SetSampleRate(actualSampleRate);
+                        }
+                        
+                        // 更新通道布局
+                        if (rawFrame->ch_layout.nb_channels > 0)
+                        {
+                            auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
+                            if (inLayout)
+                            {
+                                av_channel_layout_copy(inLayout, &rawFrame->ch_layout);
+                                resampleParams.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
+                            }
+                        }
+                        
+                        bResampleParamsUpdated = true;
+                    }
                     
                     // 直接使用AVFrame进行重采样，避免数据格式转换问题
                     ST_ResampleResult resampleResult;
@@ -409,6 +459,14 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
                     }
                 }
                 processedPackets++;
+                
+                // 每处理100个包记录一次进度
+                if (processedPackets % 100 == 0 && processedPackets > 0)
+                {
+                    AV_TIMER_STOP_LOG("Audio", "ProgressTracking");
+                    LOG_INFO("Processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames");
+                    AV_TIMER_START("Audio", "ProgressTracking");
+                }
             }
 
             pkt.UnrefPacket();
@@ -444,7 +502,6 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
     {
         LOG_ERROR("Unknown exception in audio processing");
     }
-
 }
 
 void AudioFFmpegUtils::PlayerStateReSet()

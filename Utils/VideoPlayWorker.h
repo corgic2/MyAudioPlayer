@@ -5,10 +5,16 @@
 #include <QMutex>
 #include <QObject>
 #include <QString>
+#include <QThread>
+#include <QWaitCondition>
+#include "AudioResampler.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
 #include "BaseDataDefine/ST_AVFrame.h"
 #include "BaseDataDefine/ST_AVPacket.h"
+#include "DataDefine/ST_AudioPlayInfo.h"
+#include "DataDefine/ST_OpenFileResult.h"
+#include "DataDefine/ST_ResampleParams.h"
 #include "DataDefine/ST_SDL_Renderer.h"
 #include "DataDefine/ST_SDL_Texture.h"
 
@@ -21,6 +27,7 @@ extern "C"
 #include <libavutil/imgutils.h>
 #include <libavutil/time.h>
 #include <libavutil/pixdesc.h>
+#include <SDL3/SDL.h>
 }
 
 /// <summary>
@@ -114,7 +121,9 @@ struct ST_VideoFrameInfo
 /// </summary>
 class VideoPlayWorker : public QObject
 {
-    Q_OBJECT public:
+    Q_OBJECT
+
+public:
     /// <summary>
     /// 构造函数
     /// </summary>
@@ -156,25 +165,9 @@ public slots:
     void SlotStartPlay();
 
     /// <summary>
-    /// 暂停播放
-    /// </summary>
-    void SlotPausePlay();
-
-    /// <summary>
-    /// 恢复播放
-    /// </summary>
-    void SlotResumePlay();
-
-    /// <summary>
     /// 停止播放
     /// </summary>
     void SlotStopPlay();
-
-    /// <summary>
-    /// 跳转播放位置
-    /// </summary>
-    /// <param name="seconds">目标时间（秒）</param>
-    void SlotSeekPlay(double seconds);
 
 signals:
     /// <summary>
@@ -216,16 +209,61 @@ private:
     void PlayLoop();
 
     /// <summary>
+    /// 安全停止播放线程
+    /// </summary>
+    void SafeStopPlayThread();
+
+    /// <summary>
+    /// 初始化SDL系统
+    /// </summary>
+    /// <returns>是否初始化成功</returns>
+    bool InitSDLSystem();
+
+    /// <summary>
+    /// 清理SDL系统
+    /// </summary>
+    void CleanupSDLSystem();
+
+    /// <summary>
+    /// 安全释放AVChannelLayout
+    /// </summary>
+    /// <param name="layout">要释放的布局指针</param>
+    void SafeFreeChannelLayout(AVChannelLayout** layout);
+
+    /// <summary>
     /// 解码视频帧
     /// </summary>
     /// <returns>是否成功解码到帧</returns>
     bool DecodeVideoFrame();
 
     /// <summary>
+    /// 解码音频帧
+    /// </summary>
+    /// <returns>是否成功解码到帧</returns>
+    bool DecodeAudioFrame();
+
+    /// <summary>
     /// 渲染视频帧
     /// </summary>
     /// <param name="frame">视频帧</param>
     void RenderFrame(AVFrame* frame);
+
+    /// <summary>
+    /// 处理音频帧
+    /// </summary>
+    /// <param name="frame">音频帧</param>
+    void ProcessAudioFrame(AVFrame* frame);
+
+    /// <summary>
+    /// 初始化音频系统
+    /// </summary>
+    /// <returns>是否初始化成功</returns>
+    bool InitAudioSystem();
+
+    /// <summary>
+    /// 清理音频系统
+    /// </summary>
+    void CleanupAudioSystem();
 
     /// <summary>
     /// 计算帧时间延迟
@@ -256,14 +294,24 @@ private:
     std::unique_ptr<ST_AVFormatContext> m_pFormatCtx;
 
     /// <summary>
-    /// 解码器上下文
+    /// 视频解码器上下文
     /// </summary>
-    std::unique_ptr<ST_AVCodecContext> m_pCodecCtx;
+    std::unique_ptr<ST_AVCodecContext> m_pVideoCodecCtx;
+
+    /// <summary>
+    /// 音频解码器上下文
+    /// </summary>
+    std::unique_ptr<ST_AVCodecContext> m_pAudioCodecCtx;
 
     /// <summary>
     /// 视频流索引
     /// </summary>
     int m_videoStreamIndex;
+
+    /// <summary>
+    /// 音频流索引
+    /// </summary>
+    int m_audioStreamIndex;
 
     /// <summary>
     /// 数据包
@@ -274,6 +322,11 @@ private:
     /// 视频帧
     /// </summary>
     ST_AVFrame m_pVideoFrame;
+
+    /// <summary>
+    /// 音频帧
+    /// </summary>
+    ST_AVFrame m_pAudioFrame;
 
     /// <summary>
     /// RGB帧
@@ -294,6 +347,21 @@ private:
     /// SDL纹理
     /// </summary>
     ST_SDL_Texture* m_pTexture = nullptr;
+
+    /// <summary>
+    /// 音频播放信息
+    /// </summary>
+    std::unique_ptr<ST_AudioPlayInfo> m_pAudioPlayInfo;
+
+    /// <summary>
+    /// 音频重采样器
+    /// </summary>
+    AudioResampler m_audioResampler;
+
+    /// <summary>
+    /// 重采样参数
+    /// </summary>
+    ST_ResampleParams m_resampleParams;
 
     /// <summary>
     /// 视频信息
@@ -341,6 +409,11 @@ private:
     std::atomic<double> m_seekTarget;
 
     /// <summary>
+    /// 是否有音频流
+    /// </summary>
+    bool m_bHasAudio;
+
+    /// <summary>
     /// 线程安全锁
     /// </summary>
     QMutex m_mutex;
@@ -349,4 +422,49 @@ private:
     /// RGB帧缓冲区
     /// </summary>
     std::vector<uint8_t> m_rgbBuffer;
+
+    /// <summary>
+    /// 播放线程
+    /// </summary>
+    std::unique_ptr<QThread> m_pPlayThread;
+
+    /// <summary>
+    /// 线程等待条件
+    /// </summary>
+    QWaitCondition m_threadWaitCondition;
+
+    /// <summary>
+    /// SDL初始化状态
+    /// </summary>
+    std::atomic<bool> m_bSDLInitialized;
+
+    /// <summary>
+    /// 音频设备ID
+    /// </summary>
+    SDL_AudioDeviceID m_audioDeviceId;
+
+    /// <summary>
+    /// 输入通道布局指针（用于内存管理）
+    /// </summary>
+    AVChannelLayout* m_pInputChannelLayout;
+
+    /// <summary>
+    /// 输出通道布局指针（用于内存管理）
+    /// </summary>
+    AVChannelLayout* m_pOutputChannelLayout;
+
+    /// <summary>
+    /// 帧处理计数器（用于性能监控）
+    /// </summary>
+    std::atomic<int64_t> m_frameCount;
+
+    /// <summary>
+    /// 最后一次处理时间
+    /// </summary>
+    std::atomic<int64_t> m_lastProcessTime;
+
+    /// <summary>
+    /// 音频重采样参数是否已更新标志
+    /// </summary>
+    std::atomic<bool> m_bAudioResampleParamsUpdated;
 };
