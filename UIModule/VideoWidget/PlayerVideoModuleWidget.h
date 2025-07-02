@@ -22,7 +22,7 @@ QT_END_NAMESPACE
 /// <summary>
 /// 视频播放器模块控件类
 /// </summary>
-class PlayerVideoModuleWidget : public BaseModuleWidegt
+class PlayerVideoModuleWidget : public BaseModuleWidget
 {
     Q_OBJECT public:
     /// <summary>
@@ -104,9 +104,9 @@ private:
 
 private:
     Ui::PlayerVideoModuleWidgetClass* ui;
-    VideoFFmpegUtils* m_videoFFmpeg;       /// 视频FFmpeg工具类（使用指针避免循环包含）
-    QLabel* m_videoDisplayLabel;           /// 视频显示标签
-    QVBoxLayout* m_mainLayout;             /// 主布局
-    ST_VideoFrameInfo* m_currentVideoInfo; /// 当前视频信息（使用指针）
-    QTimer* m_updateTimer;                 /// 更新定时器
+    VideoFFmpegUtils* m_videoFFmpeg{nullptr};        /// 视频FFmpeg工具类（使用指针避免循环包含）
+    QLabel* m_videoDisplayLabel{nullptr};            /// 视频显示标签
+    QVBoxLayout* m_mainLayout{nullptr};              /// 主布局
+    ST_VideoFrameInfo* m_currentVideoInfo{nullptr};  /// 当前视频信息（使用指针）
+    QTimer* m_updateTimer{nullptr};                  /// 更新定时器
 };

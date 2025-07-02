@@ -1,9 +1,9 @@
 ﻿#include "BaseModuleWidegt.h"
 
-BaseModuleWidegt::BaseModuleWidegt(QWidget *parent) : QWidget(parent)
+BaseModuleWidget::BaseModuleWidget(QWidget *parent) : QWidget(parent)
 {
 }
 
-BaseModuleWidegt::~BaseModuleWidegt()
+BaseModuleWidget::~BaseModuleWidget()
 {}
 

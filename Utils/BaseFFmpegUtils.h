@@ -14,7 +14,7 @@ public:
     /// 构造函数
     /// </summary>
     /// <param name="parent">父对象</param>
-    BaseFFmpegUtils(QObject* parent);
+    BaseFFmpegUtils(QObject* parent = nullptr);
 
     /// <summary>
     /// 析构函数

@@ -8,10 +8,10 @@
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
 PlayerVideoModuleWidget::PlayerVideoModuleWidget(QWidget* parent)
-    : BaseModuleWidegt(parent), ui(new Ui::PlayerVideoModuleWidgetClass()), m_videoFFmpeg(nullptr), m_videoDisplayLabel(nullptr), m_mainLayout(nullptr), m_currentVideoInfo(nullptr), m_updateTimer(nullptr)
+    : BaseModuleWidget(parent), ui(new Ui::PlayerVideoModuleWidgetClass())
 {
     ui->setupUi(this);
-
+    
     // 创建VideoFFmpegUtils实例
     m_videoFFmpeg = new VideoFFmpegUtils(this);
     m_currentVideoInfo = new ST_VideoFrameInfo();

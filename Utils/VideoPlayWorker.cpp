@@ -11,7 +11,7 @@
 #include "TimeSystem/TimeSystem.h"
 
 VideoPlayWorker::VideoPlayWorker(QObject* parent)
-    : QObject(parent), m_pFormatCtx(nullptr), m_pVideoCodecCtx(nullptr), m_pAudioCodecCtx(nullptr), m_videoStreamIndex(-1), m_audioStreamIndex(-1), m_pSwsCtx(nullptr), m_pRenderer(nullptr), m_pTexture(nullptr), m_pAudioPlayInfo(nullptr), m_playState(EM_VideoPlayState::Stopped), m_bNeedStop(false), m_startTime(0), m_pauseStartTime(0), m_totalPauseTime(0), m_currentTime(0.0), m_bSeekRequested(false), m_seekTarget(0.0), m_bHasAudio(false), m_pPlayThread(nullptr), m_bSDLInitialized(false), m_audioDeviceId(0), m_pInputChannelLayout(nullptr), m_pOutputChannelLayout(nullptr), m_frameCount(0), m_lastProcessTime(0), m_bAudioResampleParamsUpdated(false)
+    : QObject(parent)
 {
     InitSDLSystem();
 }
@@ -331,6 +331,50 @@ void VideoPlayWorker::SlotStopPlay()
     SafeStopPlayThread();
     m_playState.store(EM_VideoPlayState::Stopped);
     emit SigPlayStateChanged(m_playState.load());
+}
+
+void VideoPlayWorker::SlotPausePlay()
+{
+    QMutexLocker locker(&m_mutex);
+    
+    if (m_playState.load() == EM_VideoPlayState::Playing)
+    {
+        m_playState.store(EM_VideoPlayState::Paused);
+        emit SigPlayStateChanged(m_playState.load());
+        LOG_INFO("Video playback paused");
+    }
+}
+
+void VideoPlayWorker::SlotResumePlay()
+{
+    QMutexLocker locker(&m_mutex);
+    
+    if (m_playState.load() == EM_VideoPlayState::Paused)
+    {
+        m_playState.store(EM_VideoPlayState::Playing);
+        
+        // 唤醒播放循环
+        m_threadWaitCondition.wakeAll();
+        
+        emit SigPlayStateChanged(m_playState.load());
+        LOG_INFO("Video playback resumed");
+    }
+}
+
+void VideoPlayWorker::SlotSeekPlay(double seconds)
+{
+    QMutexLocker locker(&m_mutex);
+    
+    m_seekTarget.store(seconds);
+    m_bSeekRequested.store(true);
+    
+    // 如果当前是暂停状态，唤醒线程处理跳转
+    if (m_playState.load() == EM_VideoPlayState::Paused)
+    {
+        m_threadWaitCondition.wakeAll();
+    }
+    
+    LOG_INFO("Video seek requested to: " + std::to_string(seconds) + " seconds");
 }
 
 void VideoPlayWorker::PlayLoop()

@@ -87,27 +87,27 @@ private:
     /// <summary>
     /// 输入格式上下文
     /// </summary>
-    std::unique_ptr<ST_AVFormatContext> m_pInputFormatCtx;
+    std::unique_ptr<ST_AVFormatContext> m_pInputFormatCtx{nullptr};
 
     /// <summary>
     /// 输出格式上下文
     /// </summary>
-    std::unique_ptr<ST_AVFormatContext> m_pOutputFormatCtx;
+    std::unique_ptr<ST_AVFormatContext> m_pOutputFormatCtx{nullptr};
 
     /// <summary>
     /// 输入解码器上下文
     /// </summary>
-    std::unique_ptr<ST_AVCodecContext> m_pInputCodecCtx;
+    std::unique_ptr<ST_AVCodecContext> m_pInputCodecCtx{nullptr};
 
     /// <summary>
     /// 输出编码器上下文
     /// </summary>
-    std::unique_ptr<ST_AVCodecContext> m_pOutputCodecCtx;
+    std::unique_ptr<ST_AVCodecContext> m_pOutputCodecCtx{nullptr};
 
     /// <summary>
     /// 视频流索引
     /// </summary>
-    int m_videoStreamIndex;
+    int m_videoStreamIndex{-1};
 
     /// <summary>
     /// 输入数据包
@@ -122,12 +122,12 @@ private:
     /// <summary>
     /// 是否需要停止
     /// </summary>
-    std::atomic<bool> m_bNeedStop;
+    std::atomic<bool> m_bNeedStop{false};
 
     /// <summary>
     /// 录制状态
     /// </summary>
-    std::atomic<EM_VideoRecordState> m_recordState;
+    std::atomic<EM_VideoRecordState> m_recordState{EM_VideoRecordState::Stopped};
 
     /// <summary>
     /// 线程安全锁

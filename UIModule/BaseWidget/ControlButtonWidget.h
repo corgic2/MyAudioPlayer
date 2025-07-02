@@ -139,6 +139,7 @@ private:
     /// <param name="buttonType">按钮类型</param>
     /// <returns>按钮指针，如果类型无效则返回nullptr</returns>
     CustomToolButton* GetButtonByType(EM_ControlButtonType buttonType) const;
+
 private:
     Ui::ControlButtonWidget* ui;
     QString m_currentAudioFile;                              /// 当前音频文件路径

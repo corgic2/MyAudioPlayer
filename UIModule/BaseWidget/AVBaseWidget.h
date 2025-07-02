@@ -203,11 +203,11 @@ private:
 
 private:
     Ui::AVBaseWidgetClass* ui;
-    BaseFFmpegUtils* m_ffmpeg = nullptr;
-    PlayerAudioModuleWidget* m_audioPlayerWidget = nullptr; /// 音频播放器模块控件
-    PlayerVideoModuleWidget* m_videoPlayerWidget = nullptr; /// 视频播放器模块控件
+    BaseFFmpegUtils* m_ffmpeg{nullptr};
+    PlayerAudioModuleWidget* m_audioPlayerWidget{nullptr}; /// 音频播放器模块控件
+    PlayerVideoModuleWidget* m_videoPlayerWidget{nullptr}; /// 视频播放器模块控件
     QString m_currentAVFile;                                /// 当前播放的音视频文件
-    QTimer* m_playTimer = nullptr;                          /// 播放定时器
+    QTimer* m_playTimer{nullptr};                           /// 播放定时器
     size_t m_playThreadId;                                  /// 音视频播放线程ID
     std::atomic<bool> m_playThreadRunning{false};           /// 音视频播放线程运行标志
     size_t m_recordThreadId;                                /// 音视频录制线程ID

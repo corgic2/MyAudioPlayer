@@ -17,7 +17,7 @@ QT_END_NAMESPACE
 /// <summary>
 /// 音频播放器模块控件类
 /// </summary>
-class PlayerAudioModuleWidget : public BaseModuleWidegt
+class PlayerAudioModuleWidget : public BaseModuleWidget
 {
     Q_OBJECT;
 
@@ -73,9 +73,9 @@ private:
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;
     AudioFFmpegUtils m_audioFFmpeg;
-    AudioWaveformWidget* m_waveformWidget = nullptr;
+    AudioWaveformWidget* m_waveformWidget{nullptr};
     QString m_currentFilePath;
-    qint64 m_currentPosition = 0;
-    qint64 m_totalDuration = 0;
+    qint64 m_currentPosition{0};
+    qint64 m_totalDuration{0};
     QVector<float> m_waveformData;
 };

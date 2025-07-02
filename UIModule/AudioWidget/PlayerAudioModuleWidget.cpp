@@ -6,7 +6,7 @@
 
 
 PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
-    : BaseModuleWidegt(parent), ui(new Ui::PlayerAudioModuleWidgetClass())
+    : BaseModuleWidget(parent), ui(new Ui::PlayerAudioModuleWidgetClass())
 {
     ui->setupUi(this);
 
@@ -21,7 +21,7 @@ PlayerAudioModuleWidget::PlayerAudioModuleWidget(QWidget* parent)
 
 PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
 {
-    SAFE_DELETE_POINTER_VALUE(ui)
+    SAFE_DELETE_POINTER_VALUE(ui);
 }
 
 BaseFFmpegUtils* PlayerAudioModuleWidget::GetFFMpegUtils()

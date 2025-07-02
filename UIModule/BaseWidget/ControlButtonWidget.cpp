@@ -1,10 +1,9 @@
 ﻿#include "ControlButtonWidget.h"
-
-#include "ControlButtonWidget.h"
 #include "ui_ControlButtonWidget.h"
 #include <QTimer>
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "UtilsWidget/CustomToolTips.h"
+#include "SDKCommonDefine/SDKCommonDefine.h"
 
 ControlButtonWidget::ControlButtonWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::ControlButtonWidget())
@@ -16,7 +15,7 @@ ControlButtonWidget::ControlButtonWidget(QWidget* parent)
 
 ControlButtonWidget::~ControlButtonWidget()
 {
-    delete ui;
+    SAFE_DELETE_POINTER_VALUE(ui);
 }
 
 void ControlButtonWidget::InitializeWidget()

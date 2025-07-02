@@ -1,48 +1,54 @@
 ﻿#include "VideoRecordWorker.h"
-#include <QMutexLocker>
+#include <QDebug>
 #include <QThread>
-#include "FFmpegPublicUtils.h"
-#include "BaseDataDefine/ST_AVInputFormat.h"
+#include "AVFileSystem.h" 
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
-#include "TimeSystem/TimeSystem.h"
+#include "SDKCommonDefine/SDKCommonDefine.h"
 
 VideoRecordWorker::VideoRecordWorker(QObject* parent)
-    : QObject(parent), m_pInputFormatCtx(nullptr), m_pOutputFormatCtx(nullptr), m_pInputCodecCtx(nullptr), m_pOutputCodecCtx(nullptr), m_videoStreamIndex(-1), m_bNeedStop(false), m_recordState(EM_VideoRecordState::Stopped)
+    : QObject(parent)
 {
-    // 初始化FFmpeg包
-
     // 注册设备
     avdevice_register_all();
 }
 
 VideoRecordWorker::~VideoRecordWorker()
 {
+    LOG_INFO("VideoRecordWorker destructor called");
     Cleanup();
 }
 
 void VideoRecordWorker::SlotStartRecord(const QString& outputPath)
 {
-    QMutexLocker locker(&m_mutex);
-
-    if (m_recordState != EM_VideoRecordState::Stopped)
+    if (outputPath.isEmpty())
     {
-        LOG_WARN("VideoRecordWorker::SlotStartRecord() : Recording already in progress");
+        LOG_WARN("VideoRecordWorker::SlotStartRecord() : Invalid output file path");
+        emit SigError("无效的输出文件路径");
         return;
     }
 
+    // 检查是否已经在录制
+    if (m_recordState.load() != EM_VideoRecordState::Stopped)
+    {
+        LOG_WARN("VideoRecordWorker::SlotStartRecord() : Recording is already in progress");
+        return;
+    }
+
+    // 设置录制状态为录制中
+    m_recordState.store(EM_VideoRecordState::Recording);
     m_outputPath = outputPath;
+    m_bNeedStop.store(false);
+    emit SigRecordStateChanged(m_recordState.load());
 
     if (!InitRecorder(outputPath))
     {
         LOG_WARN("VideoRecordWorker::SlotStartRecord() : Failed to initialize recorder");
         emit SigError("录制器初始化失败");
+        m_recordState.store(EM_VideoRecordState::Stopped);
+        emit SigRecordStateChanged(m_recordState.load());
         return;
     }
-
-    m_recordState = EM_VideoRecordState::Recording;
-    m_bNeedStop = false;
-    emit SigRecordStateChanged(m_recordState);
 
     // 启动录制循环
     RecordLoop();
@@ -50,46 +56,47 @@ void VideoRecordWorker::SlotStartRecord(const QString& outputPath)
 
 void VideoRecordWorker::SlotStopRecord()
 {
-    QMutexLocker locker(&m_mutex);
-
-    m_bNeedStop = true;
-    m_recordState = EM_VideoRecordState::Stopped;
-    emit SigRecordStateChanged(m_recordState);
+    LOG_INFO("Stop record requested");
+    m_bNeedStop.store(true);
+    m_recordState.store(EM_VideoRecordState::Stopped);
+    emit SigRecordStateChanged(m_recordState.load());
+    Cleanup();
 }
 
 bool VideoRecordWorker::InitRecorder(const QString& outputPath)
 {
-    AUTO_TIMER_LOG("VideoRecorderInit", EM_TimingLogLevel::Info);
-    LOG_INFO("=== Initializing video recorder for: " + outputPath.toStdString() + " ===");
-
     try
     {
-        // 获取默认视频设备
-        TIME_START("VideoDeviceFind");
+        LOG_INFO("Initializing video recorder for output: " + outputPath.toStdString());
+
+        // 初始化输入设备（摄像头）
         QString deviceName = GetDefaultVideoDevice();
         if (deviceName.isEmpty())
         {
-            LOG_ERROR("No video recording device available");
+            LOG_WARN("No video input device found");
             return false;
         }
-        TimeSystem::Instance().StopTimingWithLog("VideoDeviceFind", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "Video recording device found: " + deviceName.toStdString());
 
-        // 创建输入格式上下文（录制设备）
-        TIME_START("VideoInputCtxInit");
+        LOG_INFO("Using video device: " + deviceName.toStdString());
+
+        // 分配输入格式上下文
         m_pInputFormatCtx = std::make_unique<ST_AVFormatContext>();
 
         // 查找输入格式
-        const AVInputFormat* inputFormat = av_find_input_format("dshow"); // Windows设备
+        const AVInputFormat* inputFormat = av_find_input_format("dshow");
         if (!inputFormat)
         {
             LOG_WARN("Failed to find dshow input format");
             return false;
         }
 
-        // 打开录制设备
-        QString devicePath = QString("video=%1").arg(deviceName);
-        if (!m_pInputFormatCtx->OpenInputFilePath(devicePath.toUtf8().constData(), inputFormat, nullptr))
+        // 准备设备字符串 
+        QString deviceString = QString("video=%1").arg(deviceName);
+
+        // 打开输入设备
+        if (!m_pInputFormatCtx->OpenInputFilePath(deviceString.toLocal8Bit().constData(), inputFormat))
         {
+            LOG_WARN("Failed to open video input device");
             return false;
         }
 
@@ -101,23 +108,43 @@ bool VideoRecordWorker::InitRecorder(const QString& outputPath)
             return false;
         }
 
-        // 获取输入视频流信息
-        AVFormatContext* inputCtx = m_pInputFormatCtx->GetRawContext();
-        AVStream* inputStream = inputCtx->streams[m_videoStreamIndex];
-        AVCodecParameters* inputCodecPar = inputStream->codecpar;
+        // 获取视频流参数
+        AVStream* inputStream = m_pInputFormatCtx->GetRawContext()->streams[m_videoStreamIndex];
+        AVCodecParameters* codecPar = inputStream->codecpar;
 
-        TimeSystem::Instance().StopTimingWithLog("VideoInputCtxInit", EM_TimingLogLevel::Info);
-
-        // 创建输出格式上下文
-        TIME_START("VideoOutputCtxInit");
-        m_pOutputFormatCtx = std::make_unique<ST_AVFormatContext>();
-        QString format = QString::fromStdString(my_sdk::FileSystem::GetExtension(outputPath.toStdString()));
-        if (!m_pOutputFormatCtx->OpenOutputFilePath(nullptr, format.toStdString().c_str(), outputPath.toUtf8().constData()))
+        // 查找输入解码器
+        const AVCodec* inputCodec = avcodec_find_decoder(codecPar->codec_id);
+        if (!inputCodec)
         {
+            LOG_WARN("Input codec not found");
             return false;
         }
 
-        // 创建输出视频流
+        // 创建输入解码器上下文
+        m_pInputCodecCtx = std::make_unique<ST_AVCodecContext>(inputCodec);
+        if (!m_pInputCodecCtx->BindParamToContext(codecPar))
+        {
+            LOG_WARN("Failed to copy input codec parameters");
+            return false;
+        }
+
+        if (!m_pInputCodecCtx->OpenCodec(inputCodec))
+        {
+            LOG_WARN("Failed to open input codec");
+            return false;
+        }
+
+        // 分配输出格式上下文
+        m_pOutputFormatCtx = std::make_unique<ST_AVFormatContext>();
+        QString extension = QString::fromStdString(my_sdk::FileSystem::GetExtension(outputPath.toStdString()));
+        
+        if (!m_pOutputFormatCtx->OpenOutputFilePath(nullptr, extension.toLocal8Bit().constData(), outputPath.toLocal8Bit().constData()))
+        {
+            LOG_WARN("Failed to create output format context");
+            return false;
+        }
+
+        // 添加视频流到输出
         AVStream* outputStream = avformat_new_stream(m_pOutputFormatCtx->GetRawContext(), nullptr);
         if (!outputStream)
         {
@@ -125,58 +152,77 @@ bool VideoRecordWorker::InitRecorder(const QString& outputPath)
             return false;
         }
 
-        // 查找编码器
-        const AVCodec* encoder = FFmpegPublicUtils::FindEncoder(format.toStdString().c_str());
-        if (!encoder)
+        // 查找输出编码器
+        const AVCodec* outputCodec = nullptr;
+        if (extension.toLower() == "mp4")
         {
-            // 使用默认H.264编码器
-            encoder = avcodec_find_encoder(AV_CODEC_ID_H264);
-            if (!encoder)
-            {
-                LOG_WARN("No suitable video encoder found");
-                return false;
-            }
+            outputCodec = avcodec_find_encoder(AV_CODEC_ID_H264);
+        }
+        else if (extension.toLower() == "avi")
+        {
+            outputCodec = avcodec_find_encoder(AV_CODEC_ID_MPEG4);
+        }
+        else
+        {
+            outputCodec = avcodec_find_encoder(AV_CODEC_ID_H264); // 默认使用H264
         }
 
-        // 创建编码器上下文
-        m_pOutputCodecCtx = std::make_unique<ST_AVCodecContext>(encoder);
-        if (!m_pOutputCodecCtx->GetRawContext())
+        if (!outputCodec)
         {
-            LOG_WARN("Failed to allocate encoder context");
+            LOG_WARN("Output codec not found");
             return false;
         }
 
-        // 配置编码器参数
-        AVCodecContext* encoderCtx = m_pOutputCodecCtx->GetRawContext();
-        encoderCtx->width = inputCodecPar->width;
-        encoderCtx->height = inputCodecPar->height;
-        encoderCtx->time_base = {1, 25}; // 25fps
-        encoderCtx->framerate = {25, 1};
-        encoderCtx->pix_fmt = AV_PIX_FMT_YUV420P;
-        encoderCtx->bit_rate = 400000; // 400kbps
+        // 创建输出编码器上下文
+        m_pOutputCodecCtx = std::make_unique<ST_AVCodecContext>(outputCodec);
+        
+        // 配置输出编码器参数
+        AVCodecContext* outputCtx = m_pOutputCodecCtx->GetRawContext();
+        outputCtx->width = codecPar->width;
+        outputCtx->height = codecPar->height;
+        outputCtx->pix_fmt = AV_PIX_FMT_YUV420P;
+        outputCtx->time_base = {1, 25}; // 25fps
+        outputCtx->framerate = {25, 1};
+        outputCtx->bit_rate = 400000;
+        outputCtx->gop_size = 12;
+        outputCtx->max_b_frames = 1;
 
-        // 如果输出格式需要全局头部
+        // 对于某些格式，需要设置全局头标志
         if (m_pOutputFormatCtx->GetRawContext()->oformat->flags & AVFMT_GLOBALHEADER)
         {
-            encoderCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+            outputCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
         }
 
-        // 打开编码器
-        if (!m_pOutputCodecCtx->OpenCodec(encoder) && !m_pOutputCodecCtx->CopyParamtersFromContext(outputStream->codecpar))
+        // 打开输出编码器
+        if (!m_pOutputCodecCtx->OpenCodec(outputCodec))
         {
+            LOG_WARN("Failed to open output codec");
             return false;
         }
-        outputStream->time_base = encoderCtx->time_base;
 
-        // 打开输出文件，
-        if (!(m_pOutputFormatCtx->GetRawContext()->oformat->flags & AVFMT_NOFILE) && !m_pOutputFormatCtx->OpenIOFilePath(outputPath) && !m_pOutputFormatCtx->WriteFileHeader(nullptr))
+        // 将编码器参数复制到流
+        if (avcodec_parameters_from_context(outputStream->codecpar, outputCtx) < 0)
         {
+            LOG_WARN("Failed to copy output codec parameters to stream");
             return false;
         }
-        TimeSystem::Instance().StopTimingWithLog("VideoOutputCtxInit", EM_TimingLogLevel::Info);
 
-        LOG_INFO("=== Video recorder initialized successfully ===");
+        // 写入输出文件头
+        if (!m_pOutputFormatCtx->OpenIOFilePath(outputPath))
+        {
+            LOG_WARN("Failed to open output file");
+            return false;
+        }
+
+        if (m_pOutputFormatCtx->WriteFileHeader(nullptr) < 0)
+        {
+            LOG_WARN("Failed to write output file header");
+            return false;
+        }
+
+        LOG_INFO("Video recorder initialized successfully");
         return true;
+
     } catch (const std::exception& e)
     {
         LOG_ERROR("Exception in InitRecorder: " + std::string(e.what()));
@@ -186,124 +232,102 @@ bool VideoRecordWorker::InitRecorder(const QString& outputPath)
 
 void VideoRecordWorker::Cleanup()
 {
-    m_bNeedStop = true;
+    LOG_INFO("Cleaning up video recorder resources");
 
-    // 等待录制循环结束
-    TIME_SLEEP_MS(100);
-    m_pOutputCodecCtx.reset();
-    m_pInputCodecCtx.reset();
-
+    // 写入文件尾
     if (m_pOutputFormatCtx && m_pOutputFormatCtx->GetRawContext())
     {
-        // 写入文件尾
         m_pOutputFormatCtx->WriteFileTrailer();
-
-        // 关闭输出文件
-        AVFormatContext* outputCtx = m_pOutputFormatCtx->GetRawContext();
-        if (outputCtx->pb && !(outputCtx->oformat->flags & AVFMT_NOFILE))
-        {
-            avio_closep(&outputCtx->pb);
-        }
     }
 
-    m_pOutputFormatCtx.reset();
+    // 重置所有资源
     m_pInputFormatCtx.reset();
+    m_pOutputFormatCtx.reset();
+    m_pInputCodecCtx.reset();
+    m_pOutputCodecCtx.reset();
+
+    LOG_INFO("Video recorder cleanup completed");
 }
 
 void VideoRecordWorker::RecordLoop()
 {
-    AUTO_TIMER_LOG("VideoRecordLoop", EM_TimingLogLevel::Info);
-    LOG_INFO("=== Video recording loop started ===");
+    LOG_INFO("Video recording loop started");
 
-    int frameCount = 0;
-    const int maxFrames = 1500; // 录制约60秒（25fps）
-    auto lastLogTime = TimeSystem::Instance().GetCurrentTimePoint();
+    const int MAX_CONSECUTIVE_ERRORS = 10;
+    int consecutiveErrors = 0;
 
-    while (!m_bNeedStop && frameCount < maxFrames)
+    try
     {
-        // 每录制50帧记录一次进度
-        if (frameCount % 50 == 0 && frameCount > 0)
+        while (!m_bNeedStop.load() && m_recordState.load() == EM_VideoRecordState::Recording)
         {
-            auto currentTime = TimeSystem::Instance().GetCurrentTimePoint();
-            double duration = TimeSystem::Instance().CalculateTimeDifference(lastLogTime, currentTime, EM_TimeUnit::Milliseconds);
-            double fps = frameCount > 0 ? (50.0 * 1000.0 / duration) : 0.0;
-            LOG_INFO("Recorded " + std::to_string(frameCount) + " frames, current FPS: " + std::to_string(fps) + " (last 50 frames in " + std::to_string(duration) + " ms)");
-            lastLogTime = currentTime;
-        }
-
-        // 读取输入数据包
-        auto readStartTime = TimeSystem::Instance().GetCurrentTimePoint();
-        if (int ret = m_pInputFormatCtx->ReadFrame(m_pInputPacket.GetRawPacket()) <= 0)
-        {
-            if (ret < 0)
+            // 读取输入包
+            if (!m_pInputPacket.ReadPacket(m_pInputFormatCtx->GetRawContext()))
             {
+                // 可能是设备断开或结束
+                LOG_INFO("Failed to read packet from input device");
+                break;
+            }
+
+            // 检查是否是视频流的包
+            if (m_pInputPacket.GetStreamIndex() != m_videoStreamIndex)
+            {
+                m_pInputPacket.UnrefPacket();
                 continue;
             }
+
+            // 这里可以添加解码和重新编码的逻辑
+            // 当前简化实现：直接复制包（适用于相同编码格式）
+            
+            // 调整时间戳
+            AVStream* inputStream = m_pInputFormatCtx->GetRawContext()->streams[m_videoStreamIndex];
+            AVStream* outputStream = m_pOutputFormatCtx->GetRawContext()->streams[0];
+            
+            av_packet_rescale_ts(m_pInputPacket.GetRawPacket(), inputStream->time_base, outputStream->time_base);
+            m_pInputPacket.GetRawPacket()->stream_index = 0;
+
+            // 写入输出包
+            if (av_interleaved_write_frame(m_pOutputFormatCtx->GetRawContext(), m_pInputPacket.GetRawPacket()) < 0)
+            {
+                LOG_WARN("Failed to write output packet");
+                consecutiveErrors++;
+                if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS)
+                {
+                    LOG_WARN("Too many consecutive write errors, stopping recording");
+                    break;
+                }
+            }
             else
+            {
+                consecutiveErrors = 0; // 重置错误计数
+            }
+
+            m_pInputPacket.UnrefPacket();
+
+            // 短暂延迟避免CPU占用过高
+            if (m_bNeedStop.load())
             {
                 break;
             }
-        };
-        auto readEndTime = TimeSystem::Instance().GetCurrentTimePoint();
-        double readDuration = TimeSystem::Instance().CalculateTimeDifference(readStartTime, readEndTime, EM_TimeUnit::Microseconds);
-
-        // 只在读取耗时较长时记录
-        if (readDuration > 1000) // 大于1ms
-        {
-            LOG_DEBUG("Frame read took " + std::to_string(readDuration) + " μs");
         }
 
-        // 只处理视频流的数据包
-        if (m_pInputPacket.GetRawPacket()->stream_index == m_videoStreamIndex)
-        {
-            auto writeStartTime = TimeSystem::Instance().GetCurrentTimePoint();
-
-            // 重新计算时间戳
-            AVStream* inputStream = m_pInputFormatCtx->GetRawContext()->streams[m_videoStreamIndex];
-            AVStream* outputStream = m_pOutputFormatCtx->GetRawContext()->streams[0];
-
-            av_packet_rescale_ts(m_pInputPacket.GetRawPacket(), inputStream->time_base, outputStream->time_base);
-            m_pInputPacket.GetRawPacket()->stream_index = 0;
-            double writeDuration = 0;
-            // 写入输出文件
-            bool ret = m_pOutputFormatCtx->WriteFrame(m_pInputPacket.GetRawPacket());
-            auto writeEndTime = TimeSystem::Instance().GetCurrentTimePoint();
-            writeDuration = TimeSystem::Instance().CalculateTimeDifference(writeStartTime, writeEndTime, EM_TimeUnit::Microseconds);
-            if (!ret)
-            {
-                LOG_WARN("Error writing output frame after " + std::to_string(writeDuration) + " μs: ");
-            }
-            else
-            {
-                frameCount++;
-                // 只在写入耗时较长时记录
-                if (writeDuration > 5000) // 大于5ms
-                {
-                    LOG_DEBUG("Frame write took " + std::to_string(writeDuration) + " μs");
-                }
-            }
-        }
-        m_pInputPacket.UnrefPacket();
-        TIME_SLEEP_MS(40); // 约25fps
+    } catch (const std::exception& e)
+    {
+        LOG_ERROR("Exception in RecordLoop: " + std::string(e.what()));
+    } catch (...)
+    {
+        LOG_ERROR("Unknown exception in RecordLoop");
     }
 
-    LOG_INFO("=== Video recording loop finished, recorded " + std::to_string(frameCount) + " frames ===");
+    LOG_INFO("Video recording loop ended");
 
-    // 录制完成
-    m_recordState = EM_VideoRecordState::Stopped;
-    emit SigRecordStateChanged(m_recordState);
+    // 确保状态正确设置
+    m_recordState.store(EM_VideoRecordState::Stopped);
+    emit SigRecordStateChanged(m_recordState.load());
 }
 
 QString VideoRecordWorker::GetDefaultVideoDevice()
 {
-    // 获取默认视频录制设备
-    QStringList devices;
-    ST_AVInputFormat inputFormat;
-    inputFormat.FindInputFormat(FMT_NAME);
-    devices = inputFormat.GetDeviceLists(nullptr, nullptr);
-    if (devices.size() > 0)
-    {
-        return devices[0];
-    }
-    return QString();
+    // 这里应该实现设备枚举，当前返回默认设备名
+    // 实际实现中可以调用系统API获取可用的摄像头设备列表
+    return "0"; // 默认第一个摄像头设备
 }

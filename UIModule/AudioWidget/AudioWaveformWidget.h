@@ -73,8 +73,8 @@ private:
     float NormalizeValue(float value) const;
 
 private:
-    QVector<float> m_samples;            /// 音频采样数据
-    double m_playbackPosition = 0.0;     /// 当前播放位置(0.0-1.0)
-    static const int SAMPLE_WIDTH = 2;   /// 采样点宽度
-    static const int SAMPLE_SPACING = 1; /// 采样点间距
+    QVector<float> m_samples;                        /// 音频采样数据
+    double m_playbackPosition{0.0};                  /// 当前播放位置(0.0-1.0)
+    static const int SAMPLE_WIDTH{2};                /// 采样点宽度
+    static const int SAMPLE_SPACING{1};              /// 采样点间距
 };

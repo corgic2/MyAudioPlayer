@@ -3,14 +3,29 @@
 #include <QWidget>
 #include "BaseFFmpegUtils.h"
 
-class BaseModuleWidegt  : public QWidget
+/// <summary>
+/// 基础模块控件类
+/// </summary>
+class BaseModuleWidget : public QWidget
 {
     Q_OBJECT
 
 public:
-    BaseModuleWidegt(QWidget *parent);
-    ~BaseModuleWidegt();
+    /// <summary>
+    /// 构造函数
+    /// </summary>
+    /// <param name="parent">父窗口指针</param>
+    BaseModuleWidget(QWidget* parent);
+    
+    /// <summary>
+    /// 析构函数
+    /// </summary>
+    ~BaseModuleWidget();
 
-     virtual BaseFFmpegUtils *GetFFMpegUtils() = 0;
+    /// <summary>
+    /// 获取FFmpeg工具类指针（纯虚函数）
+    /// </summary>
+    /// <returns>FFmpeg工具类指针</returns>
+    virtual BaseFFmpegUtils* GetFFMpegUtils() = 0;
 };
 

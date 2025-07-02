@@ -5,6 +5,7 @@
 #include "AVFileSystem.h"
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
+#include "SDKCommonDefine/SDKCommonDefine.h"
 #include "VideoWidget/PlayerVideoModuleWidget.h"
 
 VideoFFmpegUtils::VideoFFmpegUtils(QObject* parent)
@@ -74,7 +75,7 @@ void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition,
             emit SigError("播放器初始化失败");
 
             // 清理资源
-            m_pPlayWorker = nullptr;
+            SAFE_DELETE_POINTER_VALUE(m_pPlayWorker);
             return;
         }
 
@@ -97,8 +98,7 @@ void VideoFFmpegUtils::PausePlay()
 {
     if (m_playState == EM_VideoPlayState::Playing && m_pPlayWorker)
     {
-        m_playState = EM_VideoPlayState::Paused;
-        emit SigPlayStateChanged(m_playState);
+        m_pPlayWorker->SlotPausePlay();
     }
 }
 
@@ -106,8 +106,7 @@ void VideoFFmpegUtils::ResumePlay()
 {
     if (m_playState == EM_VideoPlayState::Paused && m_pPlayWorker)
     {
-        m_playState = EM_VideoPlayState::Playing;
-        emit SigPlayStateChanged(m_playState);
+        m_pPlayWorker->SlotResumePlay();
     }
 }
 
@@ -115,8 +114,11 @@ void VideoFFmpegUtils::StopPlay()
 {
     if (m_playState != EM_VideoPlayState::Stopped)
     {
-        m_pPlayWorker->SlotStopPlay();
-        m_pPlayWorker = nullptr;
+        if (m_pPlayWorker)
+        {
+            m_pPlayWorker->SlotStopPlay();
+        }
+        m_pPlayWorker->deleteLater();
         m_playState = EM_VideoPlayState::Stopped;
         emit SigPlayStateChanged(m_playState);
 
@@ -165,7 +167,11 @@ void VideoFFmpegUtils::StopRecording()
 {
     if (m_recordState != EM_VideoRecordState::Stopped)
     {
-        m_pRecordWorker = nullptr;
+        if (m_pRecordWorker)
+        {
+            m_pRecordWorker->SlotStopRecord();
+        }
+        SAFE_DELETE_POINTER_VALUE(m_pRecordWorker);
         m_recordState = EM_VideoRecordState::Stopped;
         emit SigRecordStateChanged(m_recordState);
 
@@ -177,6 +183,7 @@ void VideoFFmpegUtils::SeekPlay(double seconds)
 {
     if (m_pPlayWorker && m_playState != EM_VideoPlayState::Stopped)
     {
+        m_pPlayWorker->SlotSeekPlay(seconds);
         LOG_INFO("Video seek to: " + std::to_string(seconds) + " seconds");
     }
 }
@@ -194,6 +201,16 @@ bool VideoFFmpegUtils::IsPaused()
 bool VideoFFmpegUtils::IsRecording()
 {
     return m_recordState == EM_VideoRecordState::Recording;
+}
+
+double VideoFFmpegUtils::GetCurrentPosition() const
+{
+    return m_currentTime;
+}
+
+double VideoFFmpegUtils::GetDuration() const
+{
+    return m_videoInfo.m_duration;
 }
 
 ST_VideoFrameInfo VideoFFmpegUtils::GetVideoInfo() const

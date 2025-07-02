@@ -99,6 +99,18 @@ class VideoFFmpegUtils : public BaseFFmpegUtils
     bool IsRecording() override;
 
     /// <summary>
+    /// 获取当前播放位置
+    /// </summary>
+    /// <returns>当前播放位置（秒）</returns>
+    double GetCurrentPosition() const override;
+
+    /// <summary>
+    /// 获取总时长
+    /// </summary>
+    /// <returns>总时长（秒）</returns>
+    double GetDuration() const override;
+
+    /// <summary>
     /// 获取视频信息
     /// </summary>
     /// <returns>视频帧信息</returns>
@@ -148,20 +160,22 @@ private:
     /// <summary>
     /// 视频播放状态
     /// </summary>
-    EM_VideoPlayState m_playState;
+    EM_VideoPlayState m_playState{EM_VideoPlayState::Stopped};
 
     /// <summary>
     /// 视频录制状态
     /// </summary>
-    EM_VideoRecordState m_recordState;
+    EM_VideoRecordState m_recordState{EM_VideoRecordState::Stopped};
+    
     /// <summary>
     /// 视频播放工作对象
     /// </summary>
-    VideoPlayWorker* m_pPlayWorker;
+    VideoPlayWorker* m_pPlayWorker{nullptr};
+    
     /// <summary>
     /// 视频录制工作对象
     /// </summary>
-    VideoRecordWorker* m_pRecordWorker;
+    VideoRecordWorker* m_pRecordWorker{nullptr};
 
     /// <summary>
     /// 视频信息
@@ -171,10 +185,10 @@ private:
     /// <summary>
     /// 当前播放时间
     /// </summary>
-    double m_currentTime;
+    double m_currentTime{0.0};
 
     /// <summary>
     /// 视频显示控件指针
     /// </summary>
-    PlayerVideoModuleWidget* m_pVideoDisplayWidget;
+    PlayerVideoModuleWidget* m_pVideoDisplayWidget{nullptr};
 };

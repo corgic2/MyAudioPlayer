@@ -117,7 +117,7 @@ public:
     /// 获取当前播放位置
     /// </summary>
     /// <returns></returns>
-    double GetCurrentPosition() const;
+    double GetCurrentPosition() const override;
 
     /// <summary>
     /// 获取音频总时长
@@ -212,15 +212,15 @@ private:
     void PlayerStateReSet();
 
 private:
-    QString m_currentInputDevice;                       /// 当前选择的FFmpeg输入设备
-    std::unique_ptr<ST_OpenAudioDevice> m_recordDevice; /// 录制设备
-    std::unique_ptr<ST_AudioPlayInfo> m_playInfo;       /// 播放信息
-    ST_AudioPlayState m_playState;                      /// 播放状态
-    std::atomic<bool> m_isRecording{false};             /// 录制状态标志
-    QString m_currentFilePath;                          /// 当前播放的文件路径
-    double m_duration{0.0};                             /// 音频总时长（秒）
-    QStringList m_inputAudioDevices;                    /// 音频输入设备列表
-    std::recursive_mutex m_mutex;                       /// 音频播放互斥，否则快速点击切换时会导致资源被提前释放
-    double m_startTime{0.0};                           /// 播放开始时间（秒）
-    std::chrono::steady_clock::time_point m_playStartTimePoint; /// 播放开始的时间点
+    QString m_currentInputDevice;                                            /// 当前选择的FFmpeg输入设备
+    std::unique_ptr<ST_OpenAudioDevice> m_recordDevice{nullptr};             /// 录制设备
+    std::unique_ptr<ST_AudioPlayInfo> m_playInfo{nullptr};                   /// 播放信息
+    ST_AudioPlayState m_playState;                                           /// 播放状态
+    std::atomic<bool> m_isRecording{false};                                  /// 录制状态标志
+    QString m_currentFilePath;                                               /// 当前播放的文件路径
+    double m_duration{0.0};                                                  /// 音频总时长（秒）
+    QStringList m_inputAudioDevices;                                         /// 音频输入设备列表
+    std::recursive_mutex m_mutex;                                            /// 音频播放互斥，否则快速点击切换时会导致资源被提前释放
+    double m_startTime{0.0};                                                 /// 播放开始时间（秒）
+    std::chrono::steady_clock::time_point m_playStartTimePoint;              /// 播放开始的时间点
 };
