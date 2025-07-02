@@ -50,6 +50,17 @@ void PlayerAudioModuleWidget::LoadWaveWidegt(const QString& inputFilePath)
     });
 }
 
+void PlayerAudioModuleWidget::UpdateWaveformPosition(double currentPos, double duration)
+{
+    if (m_waveformWidget && duration > 0.0)
+    {
+        double progress = currentPos / duration;
+        // 确保进度值在有效范围内
+        progress = std::max(0.0, std::min(1.0, progress));
+        m_waveformWidget->SetPlaybackPosition(progress);
+    }
+}
+
 void PlayerAudioModuleWidget::ConnectSignals()
 {
     // 连接音频播放器信号

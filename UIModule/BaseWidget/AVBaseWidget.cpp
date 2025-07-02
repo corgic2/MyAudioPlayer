@@ -660,7 +660,17 @@ void AVBaseWidget::SlotUpdatePlayProgress()
     {
         int progressValue = static_cast<int>((currentPos / duration) * 1000);
         ui->customProgressBar->SetValueWithAnimation(progressValue);
-
+        
+        AudioFFmpegUtils* audioFFmpeg = dynamic_cast<AudioFFmpegUtils*>(m_ffmpeg);
+        if (audioFFmpeg)
+        {
+            // 更新音频波形图的播放位置
+            if (m_audioPlayerWidget)
+            {
+                m_audioPlayerWidget->UpdateWaveformPosition(currentPos, duration);
+            }
+        }
+        
         // 更新进度条文本显示
         QString timeText = QString("%1 / %2").arg(FormatTime(static_cast<int>(currentPos))).arg(FormatTime(static_cast<int>(duration)));
         ui->customProgressBar->setFormat(timeText);

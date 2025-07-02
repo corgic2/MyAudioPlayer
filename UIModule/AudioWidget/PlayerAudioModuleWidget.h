@@ -41,6 +41,13 @@ public:
     /// </summary>
     /// <param name="inputFilePath"></param>
     void LoadWaveWidegt(const QString& inputFilePath);
+
+    /// <summary>
+    /// 更新波形图播放位置
+    /// </summary>
+    /// <param name="currentPos">当前播放位置（秒）</param>
+    /// <param name="duration">总时长（秒）</param>
+    void UpdateWaveformPosition(double currentPos, double duration);
 signals:
     /// <summary>
     /// 播放状态改变信号
@@ -57,6 +64,7 @@ signals:
     /// 线程退出函数
     /// </summary>
     void SigThreadExit();
+
 private slots:
     /// <summary>
     /// 播放进度改变槽函数
@@ -64,6 +72,7 @@ private slots:
     /// <param name="position">当前位置</param>
     /// <param name="duration">总时长</param>
     void SlotProgressChanged(qint64 position, qint64 duration);
+
 private:
     /// <summary>
     /// 连接信号槽
