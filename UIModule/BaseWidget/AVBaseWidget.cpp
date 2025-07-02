@@ -102,7 +102,7 @@ void AVBaseWidget::InitializeWidget()
     ui->customProgressBar->SetBorderRadius(8);
     ui->customProgressBar->SetEnableShadow(true);
     ui->customProgressBar->SetShadowColor(UIColorDefine::shadow_color::Light);
-
+    ui->customProgressBar->setFixedHeight(15);
     // 设置进度条范围
     ui->customProgressBar->setRange(0, 1000); // 使用1000为最大值，提高精度
     ui->customProgressBar->setValue(0);

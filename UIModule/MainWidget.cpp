@@ -207,20 +207,27 @@ void MainWidget::SlotConvertAudioFormat()
 
     // 构建FFmpeg参数列表
     QStringList arguments = BuildAudioConvertArguments(m_currentAVFile, outputFile, params);
-
-    QProgressDialog progressDialog(tr("正在转换音频文件..."), tr("取消"), 0, 0, this);
-    progressDialog.setWindowModality(Qt::WindowModal);
-    progressDialog.setAutoReset(false);
-    progressDialog.setAutoClose(false);
-    progressDialog.show();
-
+    
+    // 创建阻塞式转换进度对话框
+    QDialog* progressDialog = new QDialog(this);
+    progressDialog->setWindowTitle(tr("音频转换"));
+    progressDialog->setModal(true);
+    progressDialog->setFixedSize(400, 150);
+    progressDialog->setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::CustomizeWindowHint);
+    QVBoxLayout* layout = new QVBoxLayout(progressDialog);
+    QLabel* statusLabel = new QLabel(tr("正在转换音频文件，请稍候..."), progressDialog);
+    statusLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(statusLabel);
+    progressDialog->show();
     QApplication::processEvents();
-
+    
     // 使用参数列表方式执行FFmpeg命令
     ST_CommandResult result = m_qtCustomAPI->ExecuteFFmpegCommand(arguments, 300000); // 5分钟超时
-
-    progressDialog.close();
-
+    
+    // 关闭进度对话框
+    progressDialog->close();
+    progressDialog->deleteLater();
+    
     if (result.success)
     {
         QMessageBox::information(this, tr("转换完成"), tr("音频文件转换成功！\n输出文件：%1").arg(outputFile));
@@ -261,19 +268,28 @@ void MainWidget::SlotConvertVideoFormat()
 
     // 构建FFmpeg参数列表
     QStringList arguments = BuildVideoConvertArguments(m_currentAVFile, outputFile, params);
-
-    QProgressDialog progressDialog(tr("正在转换视频文件..."), tr("取消"), 0, 0, this);
-    progressDialog.setWindowModality(Qt::WindowModal);
-    progressDialog.setAutoReset(false);
-    progressDialog.setAutoClose(false);
-    progressDialog.show();
-
+    
+    // 创建阻塞式转换进度对话框
+    QDialog* progressDialog = new QDialog(this);
+    progressDialog->setWindowTitle(tr("视频转换"));
+    progressDialog->setModal(true);
+    progressDialog->setFixedSize(400, 150);
+    progressDialog->setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::CustomizeWindowHint);
+    
+    QVBoxLayout* layout = new QVBoxLayout(progressDialog);
+    
+    QLabel* statusLabel = new QLabel(tr("正在转换视频文件，请稍候..."), progressDialog);
+    statusLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(statusLabel);
+    progressDialog->show();
     QApplication::processEvents();
-
+    
     // 使用参数列表方式执行FFmpeg命令
     ST_CommandResult result = m_qtCustomAPI->ExecuteFFmpegCommand(arguments, 600000); // 10分钟超时
-
-    progressDialog.close();
+    
+    // 关闭进度对话框
+    progressDialog->close();
+    progressDialog->deleteLater();
 
     if (result.success)
     {
