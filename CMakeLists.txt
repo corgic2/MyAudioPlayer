@@ -11,7 +11,7 @@ set(TARGET_NAME MyAudioPlayer)
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT MyAudioPlayer)
 
 # 设置使用到的Qt模块 ------------------------------------------------------------------
-set(QT_MODULES Core Gui Widgets)
+set(QT_MODULES Core Gui Sql Widgets)
 
 # 查找 Qt 库（以 Qt5 为例）
 find_package(Qt5 COMPONENTS ${QT_MODULES} REQUIRED)
@@ -98,6 +98,7 @@ add_executable(${TARGET_NAME} ${TARGET_SRC})
 target_link_libraries(${TARGET_NAME} PUBLIC
   Qt5::Core 
   Qt5::Widgets
+  Qt5::Sql
 )
 
 # 添加头文件
