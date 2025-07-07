@@ -81,40 +81,26 @@ class VideoFFmpegUtils : public BaseFFmpegUtils
     void SeekPlay(double seconds) override;
 
     /// <summary>
-    /// 获取当前播放状态
-    /// </summary>
-    /// <returns>true表示正在播放，false表示已停止</returns>
-    bool IsPlaying() override;
-
-    /// <summary>
-    /// 获取当前暂停状态
-    /// </summary>
-    /// <returns>true表示已暂停，false表示未暂停</returns>
-    bool IsPaused() override;
-
-    /// <summary>
-    /// 获取当前录制状态
-    /// </summary>
-    /// <returns>true表示正在录制，false表示已停止录制</returns>
-    bool IsRecording() override;
-
-    /// <summary>
     /// 获取当前播放位置
     /// </summary>
     /// <returns>当前播放位置（秒）</returns>
     double GetCurrentPosition() const override;
 
     /// <summary>
-    /// 获取总时长
-    /// </summary>
-    /// <returns>总时长（秒）</returns>
-    double GetDuration() const override;
-
-    /// <summary>
     /// 获取视频信息
     /// </summary>
     /// <returns>视频帧信息</returns>
     ST_VideoFrameInfo GetVideoInfo() const;
+
+    /// <summary>
+    /// 重置播放器状态（重写基类方法）
+    /// </summary>
+    void ResetPlayerState() override;
+
+    /// <summary>
+    /// 强制停止所有活动（重写基类方法）
+    /// </summary>
+    void ForceStop() override;
 
 signals:
     /// <summary>
@@ -158,34 +144,19 @@ private slots:
 
 private:
     /// <summary>
-    /// 视频播放状态
-    /// </summary>
-    EM_VideoPlayState m_playState{EM_VideoPlayState::Stopped};
-
-    /// <summary>
-    /// 视频录制状态
-    /// </summary>
-    EM_VideoRecordState m_recordState{EM_VideoRecordState::Stopped};
-    
-    /// <summary>
     /// 视频播放工作对象
     /// </summary>
-    VideoPlayWorker* m_pPlayWorker{nullptr};
+    std::unique_ptr<VideoPlayWorker> m_pPlayWorker{nullptr};
     
     /// <summary>
     /// 视频录制工作对象
     /// </summary>
-    VideoRecordWorker* m_pRecordWorker{nullptr};
+    std::unique_ptr <VideoRecordWorker> m_pRecordWorker{nullptr};
 
     /// <summary>
     /// 视频信息
     /// </summary>
     ST_VideoFrameInfo m_videoInfo;
-
-    /// <summary>
-    /// 当前播放时间
-    /// </summary>
-    double m_currentTime{0.0};
 
     /// <summary>
     /// 视频显示控件指针

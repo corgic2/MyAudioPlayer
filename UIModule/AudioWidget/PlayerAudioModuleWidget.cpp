@@ -2,6 +2,7 @@
 
 #include <QThread>
 #include "CoreServerGlobal.h"
+#include "MediaPlayerManager.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
 
@@ -26,17 +27,19 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
 
 BaseFFmpegUtils* PlayerAudioModuleWidget::GetFFMpegUtils()
 {
-    return &m_audioFFmpeg;
+    // 已弃用：现在使用MediaPlayerManager统一管理
+    return nullptr;
 }
 
 void PlayerAudioModuleWidget::LoadWaveWidegt(const QString& inputFilePath)
 {
     m_waveformData.clear();
-    CoreServerGlobal::Instance().GetThreadPool().Submit([&]()
+    m_threadID = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("LoadWaveWidget",[=]()
     {
         QVector<float> waveData;
-        // 在新线程中加载音频波形数据
-        if (m_audioFFmpeg.LoadAudioWaveform(inputFilePath, waveData))
+        // 使用MediaPlayerManager加载音频波形数据
+        MediaPlayerManager* playerManager = MediaPlayerManager::Instance();
+        if (playerManager && playerManager->LoadAudioWaveform(inputFilePath, waveData))
         {
             m_currentFilePath = inputFilePath;
             m_waveformData.swap(waveData);
@@ -44,10 +47,11 @@ void PlayerAudioModuleWidget::LoadWaveWidegt(const QString& inputFilePath)
         }
     });
     // 在播放前加载音频数据并生成波形
-    connect(this, &PlayerAudioModuleWidget::SigThreadExit, [&]()
+    connect(this, &PlayerAudioModuleWidget::SigThreadExit, this, [&]()
     {
         m_waveformWidget->SetWaveformData(m_waveformData);
-    });
+        CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_threadID);
+    }, Qt::QueuedConnection);
 }
 
 void PlayerAudioModuleWidget::UpdateWaveformPosition(double currentPos, double duration)
@@ -63,10 +67,8 @@ void PlayerAudioModuleWidget::UpdateWaveformPosition(double currentPos, double d
 
 void PlayerAudioModuleWidget::ConnectSignals()
 {
-    // 连接音频播放器信号
-    connect(&m_audioFFmpeg, &AudioFFmpegUtils::SigPlayStateChanged, this, &PlayerAudioModuleWidget::SigPlayStateChanged);
-
-    connect(&m_audioFFmpeg, &AudioFFmpegUtils::SigProgressChanged, this, &PlayerAudioModuleWidget::SlotProgressChanged);
+    // 现在不再直接连接AudioFFmpegUtils信号
+    // 播放状态和进度信息将通过AVBaseWidget传递
 }
 
 void PlayerAudioModuleWidget::SlotProgressChanged(qint64 position, qint64 duration)

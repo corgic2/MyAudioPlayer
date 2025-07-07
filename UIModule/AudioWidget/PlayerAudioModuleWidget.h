@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include <QTimer>
-#include "AudioFFmpegUtils.h"
 #include "AudioWaveformWidget.h"
 #include "ui_PlayerAudioModuleWidget.h"
 #include "BaseWidget/BaseModuleWidegt.h"
@@ -32,7 +31,7 @@ public:
     /// </summary>
     ~PlayerAudioModuleWidget() override;
     /// <summary>
-    /// 获取FFMpegUtils
+    /// 获取FFMpegUtils (已弃用，返回nullptr)
     /// </summary>
     /// <returns>FFmpeg工具类指针</returns>
     BaseFFmpegUtils* GetFFMpegUtils() override;
@@ -81,10 +80,10 @@ private:
 
 private:
     Ui::PlayerAudioModuleWidgetClass* ui;
-    AudioFFmpegUtils m_audioFFmpeg;
     AudioWaveformWidget* m_waveformWidget{nullptr};
     QString m_currentFilePath;
     qint64 m_currentPosition{0};
     qint64 m_totalDuration{0};
     QVector<float> m_waveformData;
+    size_t m_threadID = 0;
 };

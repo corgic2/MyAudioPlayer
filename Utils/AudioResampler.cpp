@@ -14,7 +14,7 @@ AudioResampler::AudioResampler()
 
 void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_ResampleResult& output, ST_ResampleParams& params)
 {
-    AUTO_TIMER_LOG("AudioResampler", EM_TimingLogLevel::Debug);
+    TIME_START("AudioResampler");
 
     // 验证输入
     if (!inputData || inputSamples <= 0)
@@ -92,8 +92,6 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
     // 清零padding区域
     memset(alignedBuffer + bufSize, 0, AV_INPUT_BUFFER_PADDING_SIZE);
 
-    try
-    {
         uint8_t* outBuf = alignedBuffer;
 
         // 执行重采样
@@ -134,18 +132,16 @@ void AudioResampler::Resample(const uint8_t** inputData, int inputSamples, ST_Re
                 output.SetData(std::vector<uint8_t>());
             }
         }
-    } catch (const std::exception& e)
-    {
-        LOG_ERROR("Exception during resampling: " + std::string(e.what()));
-        output.SetData(std::vector<uint8_t>());
-    } catch (...)
-    {
-        LOG_ERROR("Unknown exception during resampling");
-        output.SetData(std::vector<uint8_t>());
-    }
 
     // 释放对齐的缓冲区
     av_free(alignedBuffer);
+    
+    // 只在较长耗时时记录
+    double duration = TimeSystem::Instance().StopTiming("AudioResampler", EM_TimeUnit::Microseconds);
+    if (duration > 1000) // 大于1ms才记录
+    {
+        LOG_DEBUG("Audio resampling took " + std::to_string(duration) + " μs");
+    }
 }
 
 void AudioResampler::Flush(ST_ResampleResult& output, ST_ResampleParams& params)

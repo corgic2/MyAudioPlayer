@@ -1,13 +1,11 @@
 ﻿#pragma once
 
 #include <QWidget>
-#include "AudioFFmpegUtils.h"
-#include "BaseFFmpegUtils.h"
 #include "ui_AVBaseWidget.h"
-#include "VideoFFmpegUtils.h"
 #include "AudioWidget/PlayerAudioModuleWidget.h"
 #include "DomainWidget/FilePathIconListWidgetItem.h"
 #include "VideoWidget/PlayerVideoModuleWidget.h"
+#include "MediaPlayerManager.h"
 
 QT_BEGIN_NAMESPACE namespace Ui
 {
@@ -151,25 +149,27 @@ private:
     int GetFileIndex(const QString& filePath) const;
 
     /// <summary>
-    /// 启动音视频播放线程
+    /// 启动音视频播放
     /// </summary>
-    void StartAVPlayThread();
+    /// <param name="filePath">播放文件路径</param>
+    /// <param name="startPosition">开始位置（秒）</param>
+    void StartAVPlay(const QString& filePath, double startPosition = 0.0);
 
     /// <summary>
-    /// 停止音视频播放线程
+    /// 停止音视频播放
     /// </summary>
-    void StopAVPlayThread();
+    void StopAVPlay();
 
     /// <summary>
-    /// 启动音视频录制线程
+    /// 启动音视频录制
     /// </summary>
     /// <param name="filePath">录制文件路径</param>
-    void StartAVRecordThread(const QString& filePath);
+    void StartAVRecord(const QString& filePath);
 
     /// <summary>
-    /// 停止音视频录制线程
+    /// 停止音视频录制
     /// </summary>
-    void StopAVRecordThread();
+    void StopAVRecord();
     /// <summary>
     /// 显示音视频控件
     /// </summary>
@@ -203,15 +203,11 @@ private:
 
 private:
     Ui::AVBaseWidgetClass* ui;
-    BaseFFmpegUtils* m_ffmpeg{nullptr};
+    MediaPlayerManager* m_playerManager{nullptr};           /// 媒体播放管理器（单例）
     PlayerAudioModuleWidget* m_audioPlayerWidget{nullptr}; /// 音频播放器模块控件
     PlayerVideoModuleWidget* m_videoPlayerWidget{nullptr}; /// 视频播放器模块控件
     QString m_currentAVFile;                                /// 当前播放的音视频文件
     QTimer* m_playTimer{nullptr};                           /// 播放定时器
-    size_t m_playThreadId;                                  /// 音视频播放线程ID
-    std::atomic<bool> m_playThreadRunning{false};           /// 音视频播放线程运行标志
-    size_t m_recordThreadId;                                /// 音视频录制线程ID
-    std::atomic<bool> m_recordThreadRunning{false};         /// 音视频录制线程运行标志
     double m_currentPosition{0.0};                          /// 当前播放位置（秒）
     bool m_isProgressBarUpdating{false};                    /// 进度条更新标志，防止循环更新
 

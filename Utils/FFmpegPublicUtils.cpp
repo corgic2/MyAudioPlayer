@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include "LogSystem/LogSystem.h"
+#include "FileSystem/FileSystem.h"
 
 
 const AVCodec* FFmpegPublicUtils::FindEncoder(const char* formatName)
@@ -444,4 +445,143 @@ ST_VideoDecodeResult FFmpegPublicUtils::DecodeVideoPacket(const AVPacket* packet
     // 释放资源
     av_frame_free(&frame);
     return result;
+}
+
+bool FFmpegPublicUtils::ValidateFilePath(const QString& filePath)
+{
+    if (filePath.isEmpty())
+    {
+        LOG_WARN("ValidateFilePath() : Empty file path");
+        return false;
+    }
+
+    if (!my_sdk::FileSystem::Exists(filePath.toStdString()))
+    {
+        LOG_WARN("ValidateFilePath() : File does not exist: " + filePath.toStdString());
+        return false;
+    }
+
+    return true;
+}
+
+bool FFmpegPublicUtils::GetAudioStreamInfo(AVFormatContext* formatCtx, int streamIndex,
+                                          int& sampleRate, int& channels, AVSampleFormat& format, double& duration)
+{
+    if (!formatCtx || streamIndex < 0 || streamIndex >= static_cast<int>(formatCtx->nb_streams))
+    {
+        LOG_WARN("GetAudioStreamInfo() : Invalid parameters");
+        return false;
+    }
+
+    AVStream* stream = formatCtx->streams[streamIndex];
+    AVCodecParameters* codecPar = stream->codecpar;
+
+    if (codecPar->codec_type != AVMEDIA_TYPE_AUDIO)
+    {
+        LOG_WARN("GetAudioStreamInfo() : Stream is not an audio stream");
+        return false;
+    }
+
+    // 获取音频参数
+    sampleRate = codecPar->sample_rate;
+    channels = codecPar->ch_layout.nb_channels;
+    format = static_cast<AVSampleFormat>(codecPar->format);
+
+    // 计算时长
+    if (formatCtx->duration != AV_NOPTS_VALUE)
+    {
+        duration = static_cast<double>(formatCtx->duration) / AV_TIME_BASE;
+    }
+    else if (stream->duration != AV_NOPTS_VALUE)
+    {
+        duration = static_cast<double>(stream->duration) * av_q2d(stream->time_base);
+    }
+    else
+    {
+        duration = 0.0;
+    }
+
+    return true;
+}
+
+bool FFmpegPublicUtils::SeekAudio(AVFormatContext* formatCtx, AVCodecContext* codecCtx, double seconds)
+{
+    if (!formatCtx || !codecCtx || seconds < 0.0)
+    {
+        LOG_WARN("SeekAudio() : Invalid parameters");
+        return false;
+    }
+
+    // 计算目标时间戳
+    int64_t targetTs = static_cast<int64_t>(seconds * AV_TIME_BASE);
+    
+    // 执行定位
+    int ret = av_seek_frame(formatCtx, -1, targetTs, AVSEEK_FLAG_BACKWARD);
+    if (ret < 0)
+    {
+        char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        LOG_WARN("SeekAudio() : Failed to seek: " + std::string(errbuf));
+        return false;
+    }
+
+    // 清空解码器缓冲
+    avcodec_flush_buffers(codecCtx);
+    
+    return true;
+}
+
+bool FFmpegPublicUtils::SeekVideo(AVFormatContext* formatCtx, AVCodecContext* codecCtx, double seconds)
+{
+    if (!formatCtx || !codecCtx || seconds < 0.0)
+    {
+        LOG_WARN("SeekVideo() : Invalid parameters");
+        return false;
+    }
+
+    // 计算目标时间戳
+    int64_t targetTs = static_cast<int64_t>(seconds * AV_TIME_BASE);
+    
+    // 执行定位
+    int ret = av_seek_frame(formatCtx, -1, targetTs, AVSEEK_FLAG_BACKWARD);
+    if (ret < 0)
+    {
+        char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        LOG_WARN("SeekVideo() : Failed to seek: " + std::string(errbuf));
+        return false;
+    }
+
+    // 清空解码器缓冲
+    avcodec_flush_buffers(codecCtx);
+    
+    return true;
+}
+
+double FFmpegPublicUtils::GetFileDuration(AVFormatContext* formatCtx)
+{
+    if (!formatCtx)
+    {
+        LOG_WARN("GetFileDuration() : formatCtx is nullptr");
+        return 0.0;
+    }
+
+    if (formatCtx->duration != AV_NOPTS_VALUE)
+    {
+        return static_cast<double>(formatCtx->duration) / AV_TIME_BASE;
+    }
+
+    // 尝试从流中获取时长
+    double maxDuration = 0.0;
+    for (unsigned int i = 0; i < formatCtx->nb_streams; i++)
+    {
+        AVStream* stream = formatCtx->streams[i];
+        if (stream->duration != AV_NOPTS_VALUE)
+        {
+            double streamDuration = static_cast<double>(stream->duration) * av_q2d(stream->time_base);
+            maxDuration = std::max(maxDuration, streamDuration);
+        }
+    }
+
+    return maxDuration;
 }

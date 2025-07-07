@@ -3,7 +3,6 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QResizeEvent>
-#include "VideoFFmpegUtils.h"  // 在cpp文件中包含具体实现
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
@@ -12,8 +11,6 @@ PlayerVideoModuleWidget::PlayerVideoModuleWidget(QWidget* parent)
 {
     ui->setupUi(this);
     
-    // 创建VideoFFmpegUtils实例
-    m_videoFFmpeg = new VideoFFmpegUtils(this);
     m_currentVideoInfo = new ST_VideoFrameInfo();
 
     InitializeWidget();
@@ -34,7 +31,8 @@ PlayerVideoModuleWidget::~PlayerVideoModuleWidget()
 
 BaseFFmpegUtils* PlayerVideoModuleWidget::GetFFMpegUtils()
 {
-    return m_videoFFmpeg;
+    // 已弃用：现在使用MediaPlayerManager统一管理
+    return nullptr;
 }
 
 QWidget* PlayerVideoModuleWidget::GetVideoDisplayWidget()
@@ -60,21 +58,12 @@ void PlayerVideoModuleWidget::InitializeWidget()
     // 添加到布局
     m_mainLayout->addWidget(m_videoDisplayLabel);
     setLayout(m_mainLayout);
-
-    // 设置显示控件到VideoFFmpegUtils
-    if (m_videoFFmpeg)
-    {
-        m_videoFFmpeg->SetVideoDisplayWidget(this);
-    }
 }
 
 void PlayerVideoModuleWidget::ConnectSignals()
 {
-    // 连接视频FFmpeg工具类的信号
-    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigPlayStateChanged, this, &PlayerVideoModuleWidget::SlotVideoPlayStateChanged);
-    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigPlayProgressUpdated, this, &PlayerVideoModuleWidget::SlotVideoProgressUpdated);
-    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigFrameUpdated, this, &PlayerVideoModuleWidget::SlotVideoFrameUpdated);
-    connect(m_videoFFmpeg, &VideoFFmpegUtils::SigError, this, &PlayerVideoModuleWidget::SlotVideoError);
+    // 现在不再直接连接VideoFFmpegUtils信号
+    // 播放状态和进度信息将通过AVBaseWidget和MediaPlayerManager传递
 }
 
 void PlayerVideoModuleWidget::SetVideoFrame(const uint8_t* frameData, int width, int height)
@@ -102,6 +91,7 @@ void PlayerVideoModuleWidget::SetVideoFrame(const uint8_t* frameData, int width,
         QPixmap scaledPixmap = pixmap.scaled(scaledSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         m_videoDisplayLabel->setPixmap(scaledPixmap);
     }
+    QApplication::processEvents();
 }
 
 void PlayerVideoModuleWidget::ClearVideoDisplay()

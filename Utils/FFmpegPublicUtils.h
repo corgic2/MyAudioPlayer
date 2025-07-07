@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 #include "DataDefine/ST_AudioDecodeResult.h"
+#include "DataDefine/ST_OpenFileResult.h"
 extern "C"
 {
 #include <libavcodec/avcodec.h>
@@ -158,4 +159,49 @@ public:
     /// <returns>转换上下文指针</returns>
     static struct SwsContext* CreateVideoConverter(int srcWidth, int srcHeight, AVPixelFormat srcFormat,
                                                   int dstWidth, int dstHeight, AVPixelFormat dstFormat);
+
+    /// <summary>
+    /// 验证文件路径有效性
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <returns>是否有效</returns>
+    static bool ValidateFilePath(const QString& filePath);
+
+    /// <summary>
+    /// 获取音频流信息
+    /// </summary>
+    /// <param name="formatCtx">格式上下文</param>
+    /// <param name="streamIndex">流索引</param>
+    /// <param name="sampleRate">采样率输出</param>
+    /// <param name="channels">通道数输出</param>
+    /// <param name="format">音频格式输出</param>
+    /// <param name="duration">时长输出</param>
+    /// <returns>是否成功获取信息</returns>
+    static bool GetAudioStreamInfo(AVFormatContext* formatCtx, int streamIndex,
+                                  int& sampleRate, int& channels, AVSampleFormat& format, double& duration);
+
+    /// <summary>
+    /// 执行音频seek操作
+    /// </summary>
+    /// <param name="formatCtx">格式上下文</param>
+    /// <param name="codecCtx">解码器上下文</param>
+    /// <param name="seconds">跳转到的时间（秒）</param>
+    /// <returns>是否成功</returns>
+    static bool SeekAudio(AVFormatContext* formatCtx, AVCodecContext* codecCtx, double seconds);
+
+    /// <summary>
+    /// 执行视频seek操作
+    /// </summary>
+    /// <param name="formatCtx">格式上下文</param>
+    /// <param name="codecCtx">解码器上下文</param>
+    /// <param name="seconds">跳转到的时间（秒）</param>
+    /// <returns>是否成功</returns>
+    static bool SeekVideo(AVFormatContext* formatCtx, AVCodecContext* codecCtx, double seconds);
+
+    /// <summary>
+    /// 通用的文件时长获取
+    /// </summary>
+    /// <param name="formatCtx">格式上下文</param>
+    /// <returns>时长（秒）</returns>
+    static double GetFileDuration(AVFormatContext* formatCtx);
 };

@@ -6,11 +6,7 @@
 #include <QWidget>
 #include "ui_PlayerVideoModuleWidget.h"
 #include "BaseWidget/BaseModuleWidegt.h"
-
-// 前向声明，避免循环包含
-class VideoFFmpegUtils;
-enum class EM_VideoPlayState;
-struct ST_VideoFrameInfo;
+#include "VideoPlayWorker.h"  // 包含视频类型定义
 
 QT_BEGIN_NAMESPACE namespace Ui
 {
@@ -37,7 +33,7 @@ class PlayerVideoModuleWidget : public BaseModuleWidget
     ~PlayerVideoModuleWidget() override;
 
     /// <summary>
-    /// 获取FFMpegUtils
+    /// 获取FFMpegUtils (已弃用，返回nullptr)
     /// </summary>
     /// <returns>FFmpeg工具类指针</returns>
     BaseFFmpegUtils* GetFFMpegUtils() override;
@@ -104,7 +100,6 @@ private:
 
 private:
     Ui::PlayerVideoModuleWidgetClass* ui;
-    VideoFFmpegUtils* m_videoFFmpeg{nullptr};        /// 视频FFmpeg工具类（使用指针避免循环包含）
     QLabel* m_videoDisplayLabel{nullptr};            /// 视频显示标签
     QVBoxLayout* m_mainLayout{nullptr};              /// 主布局
     ST_VideoFrameInfo* m_currentVideoInfo{nullptr};  /// 当前视频信息（使用指针）

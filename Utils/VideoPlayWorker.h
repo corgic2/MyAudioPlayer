@@ -2,19 +2,13 @@
 
 #include <atomic>
 #include <memory>
-#include <QMutex>
 #include <QObject>
 #include <QString>
-#include <QThread>
-#include <QWaitCondition>
-#include "AudioResampler.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
 #include "BaseDataDefine/ST_AVFrame.h"
 #include "BaseDataDefine/ST_AVPacket.h"
-#include "DataDefine/ST_AudioPlayInfo.h"
 #include "DataDefine/ST_OpenFileResult.h"
-#include "DataDefine/ST_ResampleParams.h"
 #include "DataDefine/ST_SDL_Renderer.h"
 #include "DataDefine/ST_SDL_Texture.h"
 
@@ -217,20 +211,10 @@ private:
     void PlayLoop();
 
     /// <summary>
-    /// 安全停止播放线程
-    /// </summary>
-    void SafeStopPlayThread();
-
-    /// <summary>
     /// 初始化SDL系统
     /// </summary>
     /// <returns>是否初始化成功</returns>
     bool InitSDLSystem();
-
-    /// <summary>
-    /// 清理SDL系统
-    /// </summary>
-    void CleanupSDLSystem();
 
     /// <summary>
     /// 安全释放AVChannelLayout
@@ -245,33 +229,12 @@ private:
     bool DecodeVideoFrame();
 
     /// <summary>
-    /// 解码音频帧
-    /// </summary>
-    /// <returns>是否成功解码到帧</returns>
-    bool DecodeAudioFrame();
-
-    /// <summary>
     /// 渲染视频帧
     /// </summary>
     /// <param name="frame">视频帧</param>
     void RenderFrame(AVFrame* frame);
 
-    /// <summary>
-    /// 处理音频帧
-    /// </summary>
-    /// <param name="frame">音频帧</param>
-    void ProcessAudioFrame(AVFrame* frame);
-
-    /// <summary>
-    /// 初始化音频系统
-    /// </summary>
-    /// <returns>是否初始化成功</returns>
-    bool InitAudioSystem();
-
-    /// <summary>
-    /// 清理音频系统
-    /// </summary>
-    void CleanupAudioSystem();
+    // 音频相关方法已移除，音频播放由AudioFFmpegUtils处理
 
     /// <summary>
     /// 计算帧时间延迟
@@ -299,27 +262,27 @@ private:
     /// <summary>
     /// 格式上下文
     /// </summary>
-    std::unique_ptr<ST_AVFormatContext> m_pFormatCtx{nullptr};
+    std::unique_ptr<ST_AVFormatContext> m_pFormatCtx = nullptr;
 
     /// <summary>
     /// 视频解码器上下文
     /// </summary>
-    std::unique_ptr<ST_AVCodecContext> m_pVideoCodecCtx{nullptr};
+    std::unique_ptr<ST_AVCodecContext> m_pVideoCodecCtx = nullptr;
 
     /// <summary>
-    /// 音频解码器上下文
+    /// 音频解码器上下文（用于流信息检测，不用于播放）
     /// </summary>
-    std::unique_ptr<ST_AVCodecContext> m_pAudioCodecCtx{nullptr};
+    std::unique_ptr<ST_AVCodecContext> m_pAudioCodecCtx = nullptr;
 
     /// <summary>
     /// 视频流索引
     /// </summary>
-    int m_videoStreamIndex{-1};
+    int m_videoStreamIndex = -1;
 
     /// <summary>
-    /// 音频流索引
+    /// 音频流索引（仅用于检测）
     /// </summary>
-    int m_audioStreamIndex{-1};
+    int m_audioStreamIndex = -1;
 
     /// <summary>
     /// 数据包
@@ -332,7 +295,7 @@ private:
     ST_AVFrame m_pVideoFrame;
 
     /// <summary>
-    /// 音频帧
+    /// 音频帧（已不使用）
     /// </summary>
     ST_AVFrame m_pAudioFrame;
 
@@ -344,32 +307,19 @@ private:
     /// <summary>
     /// 图像转换上下文
     /// </summary>
-    SwsContext* m_pSwsCtx{nullptr};
+    SwsContext* m_pSwsCtx = nullptr;
 
     /// <summary>
     /// SDL渲染器
     /// </summary>
-    ST_SDL_Renderer* m_pRenderer{nullptr};
+    ST_SDL_Renderer* m_pRenderer = nullptr;
 
     /// <summary>
     /// SDL纹理
     /// </summary>
-    ST_SDL_Texture* m_pTexture{nullptr};
+    ST_SDL_Texture* m_pTexture = nullptr;
 
-    /// <summary>
-    /// 音频播放信息
-    /// </summary>
-    std::unique_ptr<ST_AudioPlayInfo> m_pAudioPlayInfo{nullptr};
-
-    /// <summary>
-    /// 音频重采样器
-    /// </summary>
-    AudioResampler m_audioResampler;
-
-    /// <summary>
-    /// 重采样参数
-    /// </summary>
-    ST_ResampleParams m_resampleParams;
+    // 注意：音频相关成员已移除，音频播放由AudioFFmpegUtils处理
 
     /// <summary>
     /// 视频信息
@@ -377,102 +327,59 @@ private:
     ST_VideoFrameInfo m_videoInfo;
 
     /// <summary>
-    /// 播放状态
-    /// </summary>
-    std::atomic<EM_VideoPlayState> m_playState{EM_VideoPlayState::Stopped};
-
-    /// <summary>
-    /// 是否需要停止
-    /// </summary>
-    std::atomic<bool> m_bNeedStop{false};
-
-    /// <summary>
     /// 播放开始时间
     /// </summary>
-    int64_t m_startTime{0};
+    int64_t m_startTime = 0;
 
     /// <summary>
     /// 暂停时间
     /// </summary>
-    int64_t m_pauseStartTime{0};
+    int64_t m_pauseStartTime = 0;
 
     /// <summary>
     /// 总暂停时间
     /// </summary>
-    int64_t m_totalPauseTime{0};
+    int64_t m_totalPauseTime = 0;
 
     /// <summary>
     /// 当前播放时间
     /// </summary>
-    double m_currentTime{0.0};
-
-    /// <summary>
-    /// 跳转请求标志
-    /// </summary>
-    std::atomic<bool> m_bSeekRequested{false};
-
-    /// <summary>
-    /// 跳转目标时间
-    /// </summary>
-    std::atomic<double> m_seekTarget{0.0};
+    double m_currentTime = 0.0;
 
     /// <summary>
     /// 是否有音频流
     /// </summary>
-    bool m_bHasAudio{false};
-
-    /// <summary>
-    /// 线程安全锁
-    /// </summary>
-    QMutex m_mutex;
+    bool m_bHasAudio = false;
 
     /// <summary>
     /// RGB帧缓冲区
     /// </summary>
     std::vector<uint8_t> m_rgbBuffer;
 
-    /// <summary>
-    /// 播放线程
-    /// </summary>
-    std::unique_ptr<QThread> m_pPlayThread{nullptr};
+    // 音频相关成员已移除
 
     /// <summary>
-    /// 线程等待条件
+    /// 是否请求seek操作
     /// </summary>
-    QWaitCondition m_threadWaitCondition;
+    std::atomic<bool> m_bSeekRequested = false;
 
     /// <summary>
-    /// SDL初始化状态
+    /// seek目标时间
     /// </summary>
-    std::atomic<bool> m_bSDLInitialized{false};
+    std::atomic<double> m_seekTarget = 0.0;
 
     /// <summary>
-    /// 音频设备ID
+    /// 播放状态控制
     /// </summary>
-    SDL_AudioDeviceID m_audioDeviceId{0};
+    std::atomic<bool> m_bIsPlaying = false;
 
     /// <summary>
-    /// 输入通道布局指针（用于内存管理）
+    /// 暂停状态控制
     /// </summary>
-    AVChannelLayout* m_pInputChannelLayout{nullptr};
+    std::atomic<bool> m_bIsPaused = false;
 
     /// <summary>
-    /// 输出通道布局指针（用于内存管理）
+    /// 停止播放标志
     /// </summary>
-    AVChannelLayout* m_pOutputChannelLayout{nullptr};
-
-    /// <summary>
-    /// 帧处理计数器（用于性能监控）
-    /// </summary>
-    std::atomic<int64_t> m_frameCount{0};
-
-    /// <summary>
-    /// 最后一次处理时间
-    /// </summary>
-    std::atomic<int64_t> m_lastProcessTime{0};
-
-    /// <summary>
-    /// 音频重采样参数是否已更新标志
-    /// </summary>
-    std::atomic<bool> m_bAudioResampleParamsUpdated{false};
+    std::atomic<bool> m_bNeedStop = false;
 };

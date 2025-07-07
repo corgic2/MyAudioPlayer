@@ -2,7 +2,6 @@
 
 #include <atomic>
 #include <memory>
-#include <mutex>
 #include <QDebug>
 #include <QObject>
 #include <QString>
@@ -52,7 +51,6 @@ public:
     /// 开始录音
     /// </summary>
     /// <param name="outputFilePath">输出文件路径</param>
-    /// <param name="encoderFormat">编码格式</param>
     void StartRecording(const QString& outputFilePath) override;
 
     /// <summary>
@@ -98,40 +96,22 @@ public:
     bool LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData);
 
     /// <summary>
-    /// 获取当前播放状态
-    /// </summary>
-    /// <returns>true表示正在播放，false表示已停止</returns>
-    bool IsPlaying() override;
-
-    /// <summary>
-    /// 获取当前暂停状态
-    /// </summary>
-    /// <returns>true表示已暂停，false表示未暂停</returns>
-    bool IsPaused() override;
-    /// <summary>
-    /// 获取当前录制状态
-    /// </summary>
-    /// <returns>true表示正在录制，false表示已停止录制</returns>
-    bool IsRecording() override;
-    /// <summary>
     /// 获取当前播放位置
     /// </summary>
-    /// <returns></returns>
+    /// <returns>当前播放位置（秒）</returns>
     double GetCurrentPosition() const override;
 
     /// <summary>
-    /// 获取音频总时长
+    /// 重置播放器状态（重写基类方法）
     /// </summary>
-    /// <returns>音频总时长（秒）</returns>
-    double GetDuration() const override;
+    void ResetPlayerState() override;
+
+    /// <summary>
+    /// 强制停止所有活动（重写基类方法）
+    /// </summary>
+    void ForceStop() override;
 
 signals:
-    /// <summary>
-    /// 播放状态改变信号
-    /// </summary>
-    /// <param name="isPlaying">是否正在播放</param>
-    void SigPlayStateChanged(bool isPlaying);
-
     /// <summary>
     /// 播放进度改变信号
     /// </summary>
@@ -158,18 +138,19 @@ private:
     /// <summary>
     /// 获取所有音频输入设备
     /// </summary>
-    /// <returns></returns>
+    /// <returns>设备列表</returns>
     QStringList GetInputAudioDevices();
+    
     /// <summary>
     /// 设置输入设备
     /// </summary>
-    /// <param name="deviceName"></param>
+    /// <param name="deviceName">设备名称</param>
     void SetInputDevice(const QString& deviceName);
 
     /// <summary>
     /// 音频定位
     /// </summary>
-    /// <param name="seconds">定位时间（秒），正数表示前进，负数表示后退</param>
+    /// <param name="seconds">定位时间（秒）</param>
     /// <returns>是否定位成功</returns>
     bool SeekAudio(double seconds);
 
@@ -206,21 +187,15 @@ private:
     /// <param name="resampler">重采样器</param>
     /// <param name="resampleParams">重采样参数</param>
     void ProcessAudioData(ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams);
+    
     /// <summary>
-    /// 清除播放状态操作
+    /// 重置播放器状态
     /// </summary>
     void PlayerStateReSet();
-
 private:
     QString m_currentInputDevice;                                            /// 当前选择的FFmpeg输入设备
     std::unique_ptr<ST_OpenAudioDevice> m_recordDevice{nullptr};             /// 录制设备
     std::unique_ptr<ST_AudioPlayInfo> m_playInfo{nullptr};                   /// 播放信息
-    ST_AudioPlayState m_playState;                                           /// 播放状态
-    std::atomic<bool> m_isRecording{false};                                  /// 录制状态标志
-    QString m_currentFilePath;                                               /// 当前播放的文件路径
-    double m_duration{0.0};                                                  /// 音频总时长（秒）
+    ST_AudioPlayState m_playState;                                           /// 播放状态（保留用于兼容性）
     QStringList m_inputAudioDevices;                                         /// 音频输入设备列表
-    std::recursive_mutex m_mutex;                                            /// 音频播放互斥，否则快速点击切换时会导致资源被提前释放
-    double m_startTime{0.0};                                                 /// 播放开始时间（秒）
-    std::chrono::steady_clock::time_point m_playStartTimePoint;              /// 播放开始的时间点
 };
