@@ -21,9 +21,14 @@ enum class EM_MediaType
     Audio,
 
     /// <summary>
-    /// 视频
+    /// 视频（仅视频，无音频）
     /// </summary>
     Video,
+
+    /// <summary>
+    /// 视频含音频（需同时播放音频和视频）
+    /// </summary>
+    VideoWithAudio,
 
     /// <summary>
     /// 未知
@@ -219,6 +224,13 @@ private:
     EM_MediaType DetectMediaType(const QString& filePath);
 
     /// <summary>
+    /// 检测视频文件是否包含音频轨道
+    /// </summary>
+    /// <param name="filePath">视频文件路径</param>
+    /// <returns>视频媒体类型（Video或VideoWithAudio）</returns>
+    EM_MediaType DetectVideoWithAudio(const QString& filePath);
+
+    /// <summary>
     /// 停止当前播放器
     /// </summary>
     void StopCurrentPlayer();
@@ -278,4 +290,9 @@ private:
     /// 上次播放开始时间
     /// </summary>
     std::chrono::steady_clock::time_point m_lastPlayStartTime;
+
+    /// <summary>
+    /// 是否正在进行音视频同步播放
+    /// </summary>
+    std::atomic<bool> m_isSyncPlaying{false};
 }; 

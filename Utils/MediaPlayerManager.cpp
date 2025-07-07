@@ -4,6 +4,13 @@
 #include "AVFileSystem.h"
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
+
+extern "C"
+{
+#include <libavformat/avformat.h>
+#include <libavcodec/avcodec.h>
+}
+
 #pragma execution_character_set("utf-8")
 
 // 静态成员初始化
@@ -105,6 +112,26 @@ bool MediaPlayerManager::PlayMedia(const QString& filePath, double startPosition
             m_currentMediaType = EM_MediaType::Video;
         }
     }
+    else if (mediaType == EM_MediaType::VideoWithAudio)
+    {
+        // 同时启动音频和视频播放器
+        if (m_audioPlayer && m_videoPlayer)
+        {
+            LOG_INFO("Starting audio and video playback simultaneously");
+            
+            // 设置同步播放标志
+            m_isSyncPlaying.store(true);
+            
+            // 先启动音频播放器（音频作为时钟基准）
+            m_audioPlayer->StartPlay(filePath, startPosition, args);
+            
+            // 然后启动视频播放器
+            m_videoPlayer->StartPlay(filePath, startPosition, args);
+            
+            success = true;
+            m_currentMediaType = EM_MediaType::VideoWithAudio;
+        }
+    }
 
     if (success)
     {
@@ -130,6 +157,18 @@ void MediaPlayerManager::PausePlay()
     {
         m_videoPlayer->PausePlay();
     }
+    else if (m_currentMediaType == EM_MediaType::VideoWithAudio)
+    {
+        // 同时暂停音频和视频
+        if (m_audioPlayer)
+        {
+            m_audioPlayer->PausePlay();
+        }
+        if (m_videoPlayer)
+        {
+            m_videoPlayer->PausePlay();
+        }
+    }
 }
 
 void MediaPlayerManager::ResumePlay()
@@ -142,6 +181,18 @@ void MediaPlayerManager::ResumePlay()
     {
         m_videoPlayer->ResumePlay();
     }
+    else if (m_currentMediaType == EM_MediaType::VideoWithAudio)
+    {
+        // 同时恢复音频和视频
+        if (m_audioPlayer)
+        {
+            m_audioPlayer->ResumePlay();
+        }
+        if (m_videoPlayer)
+        {
+            m_videoPlayer->ResumePlay();
+        }
+    }
 }
 
 void MediaPlayerManager::StopPlay()
@@ -149,6 +200,7 @@ void MediaPlayerManager::StopPlay()
     StopCurrentPlayer();
     m_currentMediaType = EM_MediaType::Unknown;
     m_currentFilePath.clear();
+    m_isSyncPlaying.store(false);
 }
 
 void MediaPlayerManager::SeekPlay(double seconds)
@@ -160,6 +212,18 @@ void MediaPlayerManager::SeekPlay(double seconds)
     else if (m_currentMediaType == EM_MediaType::Video && m_videoPlayer)
     {
         m_videoPlayer->SeekPlay(seconds);
+    }
+    else if (m_currentMediaType == EM_MediaType::VideoWithAudio)
+    {
+        // 同时跳转音频和视频
+        if (m_audioPlayer)
+        {
+            m_audioPlayer->SeekPlay(seconds);
+        }
+        if (m_videoPlayer)
+        {
+            m_videoPlayer->SeekPlay(seconds);
+        }
     }
 }
 
@@ -209,6 +273,14 @@ bool MediaPlayerManager::IsPlaying() const
     {
         return m_videoPlayer->IsPlaying();
     }
+    else if (m_currentMediaType == EM_MediaType::VideoWithAudio)
+    {
+        // 音视频同播时，以视频播放状态为准
+        if (m_videoPlayer)
+        {
+            return m_videoPlayer->IsPlaying();
+        }
+    }
 
     return false;
 }
@@ -222,6 +294,14 @@ bool MediaPlayerManager::IsPaused() const
     else if (m_currentMediaType == EM_MediaType::Video && m_videoPlayer)
     {
         return m_videoPlayer->IsPaused();
+    }
+    else if (m_currentMediaType == EM_MediaType::VideoWithAudio)
+    {
+        // 音视频同播时，以视频暂停状态为准
+        if (m_videoPlayer)
+        {
+            return m_videoPlayer->IsPaused();
+        }
     }
 
     return false;
@@ -245,6 +325,14 @@ double MediaPlayerManager::GetCurrentPosition() const
     {
         return m_videoPlayer->GetCurrentPosition();
     }
+    else if (m_currentMediaType == EM_MediaType::VideoWithAudio)
+    {
+        // 音视频同播时，以视频位置为准
+        if (m_videoPlayer)
+        {
+            return m_videoPlayer->GetCurrentPosition();
+        }
+    }
 
     return 0.0;
 }
@@ -258,6 +346,14 @@ double MediaPlayerManager::GetDuration() const
     else if (m_currentMediaType == EM_MediaType::Video && m_videoPlayer)
     {
         return m_videoPlayer->GetDuration();
+    }
+    else if (m_currentMediaType == EM_MediaType::VideoWithAudio)
+    {
+        // 音视频同播时，以视频时长为准
+        if (m_videoPlayer)
+        {
+            return m_videoPlayer->GetDuration();
+        }
     }
 
     return 0.0;
@@ -301,16 +397,17 @@ EM_MediaType MediaPlayerManager::DetectMediaType(const QString& filePath)
     // 使用已有的文件系统检测方法
     std::string stdFilePath = filePath.toStdString();
 
-    // 检查是否为视频文件
-    if (av_fileSystem::AVFileSystem::IsVideoFile(stdFilePath))
-    {
-        return EM_MediaType::Video;
-    }
-
     // 检查是否为音频文件
     if (av_fileSystem::AVFileSystem::IsAudioFile(stdFilePath))
     {
         return EM_MediaType::Audio;
+    }
+
+    // 检查是否为视频文件
+    if (av_fileSystem::AVFileSystem::IsVideoFile(stdFilePath))
+    {
+        // 对于视频文件，进一步检测是否包含音频轨道
+        return DetectVideoWithAudio(filePath);
     }
 
     // 如果上述方法无法检测，则通过文件扩展名检测
@@ -327,10 +424,71 @@ EM_MediaType MediaPlayerManager::DetectMediaType(const QString& filePath)
     QStringList videoFormats = {"mp4", "avi", "mkv", "mov", "wmv", "flv", "webm", "m4v", "3gp", "ts", "mts"};
     if (videoFormats.contains(extension))
     {
-        return EM_MediaType::Video;
+        // 对于视频格式，进一步检测是否包含音频轨道
+        return DetectVideoWithAudio(filePath);
     }
 
     LOG_WARN("Unknown media type for file: " + stdFilePath + ", extension: " + extension.toStdString());
+    return EM_MediaType::Unknown;
+}
+
+EM_MediaType MediaPlayerManager::DetectVideoWithAudio(const QString& filePath)
+{
+    AVFormatContext* formatCtx = nullptr;
+    bool hasVideo = false;
+    bool hasAudio = false;
+
+    // 打开输入文件
+    if (avformat_open_input(&formatCtx, filePath.toUtf8().constData(), nullptr, nullptr) < 0)
+    {
+        LOG_WARN("Failed to open file for stream detection: " + filePath.toStdString());
+        return EM_MediaType::Unknown;
+    }
+
+    // 获取流信息
+    if (avformat_find_stream_info(formatCtx, nullptr) < 0)
+    {
+        LOG_WARN("Failed to find stream info: " + filePath.toStdString());
+        avformat_close_input(&formatCtx);
+        return EM_MediaType::Unknown;
+    }
+
+    // 检查所有流
+    for (unsigned int i = 0; i < formatCtx->nb_streams; i++)
+    {
+        AVCodecParameters* codecParams = formatCtx->streams[i]->codecpar;
+        
+        if (codecParams->codec_type == AVMEDIA_TYPE_VIDEO)
+        {
+            hasVideo = true;
+        }
+        else if (codecParams->codec_type == AVMEDIA_TYPE_AUDIO)
+        {
+            hasAudio = true;
+        }
+    }
+
+    // 清理资源
+    avformat_close_input(&formatCtx);
+
+    // 根据检测结果返回对应的媒体类型
+    if (hasVideo && hasAudio)
+    {
+        LOG_INFO("Detected video file with audio track: " + filePath.toStdString());
+        return EM_MediaType::VideoWithAudio;
+    }
+    else if (hasVideo)
+    {
+        LOG_INFO("Detected video file without audio track: " + filePath.toStdString());
+        return EM_MediaType::Video;
+    }
+    else if (hasAudio)
+    {
+        LOG_INFO("Detected audio-only file: " + filePath.toStdString());
+        return EM_MediaType::Audio;
+    }
+
+    LOG_WARN("No video or audio streams found in file: " + filePath.toStdString());
     return EM_MediaType::Unknown;
 }
 
@@ -343,6 +501,18 @@ void MediaPlayerManager::StopCurrentPlayer()
     else if (m_currentMediaType == EM_MediaType::Video && m_videoPlayer)
     {
         m_videoPlayer->StopPlay();
+    }
+    else if (m_currentMediaType == EM_MediaType::VideoWithAudio)
+    {
+        // 同时停止音频和视频
+        if (m_audioPlayer)
+        {
+            m_audioPlayer->StopPlay();
+        }
+        if (m_videoPlayer)
+        {
+            m_videoPlayer->StopPlay();
+        }
     }
 }
 

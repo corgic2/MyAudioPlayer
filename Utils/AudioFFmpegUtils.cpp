@@ -166,7 +166,7 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
 {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
     PlayerStateReSet();
-    
+
     if (startPosition > GetDuration())
     {
         m_playState.Reset();
@@ -206,8 +206,7 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
         }
 
         // 使用通用的seek功能
-        if (!FFmpegPublicUtils::SeekAudio(openFileResult->m_formatCtx->GetRawContext(), 
-                                          openFileResult->m_codecCtx->GetRawContext(), startPosition))
+        if (!FFmpegPublicUtils::SeekAudio(openFileResult->m_formatCtx->GetRawContext(), openFileResult->m_codecCtx->GetRawContext(), startPosition))
         {
             return;
         }
@@ -477,14 +476,14 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
     }
 
     LOG_INFO("=== Audio data processing completed, processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames ===");
-    
+
     TimeSystem::Instance().StopTimingWithLog("AudioDataProcessing", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "Audio data processing completed");
 }
 
 void AudioFFmpegUtils::PlayerStateReSet()
 {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
-    
+
     // 确保之前的资源被完全释放
     if (m_playInfo)
     {
@@ -493,7 +492,7 @@ void AudioFFmpegUtils::PlayerStateReSet()
         m_playInfo.reset();
         SDL_Delay(10); // 等待资源释放
     }
-    
+
     // 重置播放状态
     m_playState.Reset();
 }
@@ -501,7 +500,7 @@ void AudioFFmpegUtils::PlayerStateReSet()
 void AudioFFmpegUtils::PausePlay()
 {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
-    
+
     if (!IsPlaying() || !m_playInfo)
     {
         LOG_WARN("Pause failed: No audio is currently playing");
@@ -521,7 +520,7 @@ void AudioFFmpegUtils::PausePlay()
 void AudioFFmpegUtils::ResumePlay()
 {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
-    
+
     if (!IsPaused() || !m_playInfo)
     {
         return;
@@ -545,7 +544,7 @@ void AudioFFmpegUtils::StopPlay()
 bool AudioFFmpegUtils::SeekAudio(double seconds)
 {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
-    
+
     if (GetCurrentFilePath().isEmpty() || !m_playInfo)
     {
         return false;
@@ -879,48 +878,48 @@ double AudioFFmpegUtils::GetCurrentPosition() const
 void AudioFFmpegUtils::ResetPlayerState()
 {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
-    
+
     LOG_INFO("Resetting AudioFFmpegUtils player state");
-    
+
     // 强制停止播放和录制
     ForceStop();
-    
+
     // 清理音频播放资源
     PlayerStateReSet();
-    
+
     // 清理录制设备
     m_recordDevice.reset();
-    
+
     // 调用基类的重置方法
     BaseFFmpegUtils::ResetPlayerState();
-    
+
     LOG_INFO("AudioFFmpegUtils player state reset completed");
 }
 
 void AudioFFmpegUtils::ForceStop()
 {
     std::lock_guard<std::recursive_mutex> lock(GetMutex());
-    
+
     LOG_INFO("Force stopping AudioFFmpegUtils");
-    
+
     // 强制停止播放
     if (m_playInfo)
     {
         m_playInfo->StopAudio();
         m_playInfo->UnbindStreamAndDevice();
     }
-    
+
     // 强制停止录制
     if (m_recordDevice)
     {
         m_recordDevice.reset();
     }
-    
+
     // 调用基类的强制停止
     BaseFFmpegUtils::ForceStop();
-    
+
     // 重置播放状态
     m_playState.Reset();
-    
+
     LOG_INFO("AudioFFmpegUtils force stop completed");
 }
