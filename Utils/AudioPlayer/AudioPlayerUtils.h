@@ -62,6 +62,12 @@ public:
     /// </summary>
     /// <returns>设备列表</returns>
     static QStringList GetInputAudioDevices();
-
+    /// <summary>
+    /// 加载音频波形数据
+    /// </summary>
+    /// <param name="filePath"></param>
+    /// <param name="waveformData"></param>
+    /// <returns></returns>
+    static bool LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData);
 };
 

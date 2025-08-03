@@ -1,18 +1,19 @@
 ﻿#include "AudioPlayerUtils.h"
 
+#include "BaseDataDefine/ST_AVFrame.h"
 #include "BaseDataDefine/ST_AVInputFormat.h"
+#include "BaseDataDefine/ST_AVPacket.h"
 #include "BasePlayer/FFmpegPublicUtils.h"
+#include "FileSystem/FileSystem.h"
+#include "TimeSystem/TimeSystem.h"
 
-
-AudioPlayerUtils::AudioPlayerUtils(QObject *parent)
+AudioPlayerUtils::AudioPlayerUtils(QObject* parent)
     : QObject(parent)
 {
-    
 }
 
 AudioPlayerUtils::~AudioPlayerUtils()
 {
-    
 }
 
 void AudioPlayerUtils::ResigsterDevice()
@@ -23,7 +24,6 @@ void AudioPlayerUtils::ResigsterDevice()
         LOG_WARN("SDL_Init failed:" + std::string(SDL_GetError()));
     }
 }
-
 
 void AudioPlayerUtils::ProcessAudioFrame(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample)
 {
@@ -199,7 +199,6 @@ void AudioPlayerUtils::ProcessInt32Samples(AVFrame* frame, QVector<float>& wavef
     }
 }
 
-
 QStringList AudioPlayerUtils::GetInputAudioDevices()
 {
     QStringList devices;
@@ -207,4 +206,80 @@ QStringList AudioPlayerUtils::GetInputAudioDevices()
     inputFormat.FindInputFormat(FMT_NAME);
     devices = inputFormat.GetDeviceLists(nullptr, nullptr);
     return devices;
+}
+
+bool AudioPlayerUtils::LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData)
+{
+    TIME_START("AudioWaveformLoading");
+    LOG_INFO("=== Starting audio waveform loading for: " + filePath.toStdString() + " ===");
+
+    if (filePath.isEmpty() || !my_sdk::FileSystem::Exists(filePath.toStdString()))
+    {
+        LOG_WARN("LoadAudioWaveform() : Invalid file path");
+        return false;
+    }
+
+    AV_TIMER_START("Audio", "WaveformFileOpen");
+    ST_OpenFileResult openFileResult;
+    openFileResult.OpenFilePath(filePath);
+
+    if (!openFileResult.m_formatCtx || !openFileResult.m_codecCtx)
+    {
+        LOG_WARN("LoadAudioWaveform() : Failed to open audio file");
+        TimeSystem::Instance().StopTimingWithLog("AudioWaveformLoading", EM_TimingLogLevel::Warning, EM_TimeUnit::Milliseconds, "Failed to open waveform file");
+        return false;
+    }
+
+    // 清空之前的数据
+    waveformData.clear();
+
+    // 读取音频数据并计算波形
+    ST_AVPacket packet;
+    ST_AVFrame frame;
+    const int SAMPLES_PER_PIXEL = 1024; // 每个像素点对应的采样数
+    float maxSample = 0.0f;
+    float currentSum = 0.0f;
+    int sampleCount = 0;
+
+    int processedPackets = 0;
+
+
+    while (packet.ReadPacket(openFileResult.m_formatCtx->GetRawContext()))
+    {
+        if (packet.GetStreamIndex() == openFileResult.m_audioStreamIdx)
+        {
+            if (packet.SendPacket(openFileResult.m_codecCtx->GetRawContext()))
+            {
+                while (frame.GetCodecFrame(openFileResult.m_codecCtx->GetRawContext()))
+                {
+                    // 处理不同的采样格式
+                    AudioPlayerUtils::ProcessAudioFrame(frame.GetRawFrame(), waveformData, SAMPLES_PER_PIXEL, currentSum, sampleCount, maxSample);
+                }
+            }
+            processedPackets++;
+        }
+        packet.UnrefPacket();
+    }
+
+    // 处理剩余的样本
+    if (sampleCount > 0)
+    {
+        float average = currentSum / sampleCount;
+        waveformData.append(average);
+        maxSample = std::max(maxSample, average);
+    }
+
+    // 归一化波形数据
+    if (maxSample > 0.0f)
+    {
+        for (float& sample : waveformData)
+        {
+            sample /= maxSample;
+        }
+    }
+
+    LOG_INFO("=== Waveform loading completed, generated " + std::to_string(waveformData.size()) + " data points ===");
+
+    TimeSystem::Instance().StopTimingWithLog("AudioWaveformLoading", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "Waveform loading completed");
+    return !waveformData.isEmpty();
 }

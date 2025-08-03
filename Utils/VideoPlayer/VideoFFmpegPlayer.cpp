@@ -25,7 +25,7 @@ void VideoFFmpegPlayer::SetVideoDisplayWidget(PlayerVideoModuleWidget* videoWidg
     m_pVideoDisplayWidget = videoWidget;
 }
 
-void VideoFFmpegPlayer::StartPlay(const QString& videoPath, double startPosition, const QStringList& args)
+void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double startPosition, const QStringList& args)
 {
     // 使用基类的文件验证功能
     if (!FFmpegPublicUtils::ValidateFilePath(videoPath))
@@ -53,7 +53,6 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, double startPosition
     m_pPlayWorker = std::make_unique<VideoPlayWorker>();
 
     // 连接信号槽
-    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayStateChanged, this, &VideoFFmpegPlayer::SigPlayStateChanged);
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayProgressUpdated, this, &VideoFFmpegPlayer::SigPlayProgressUpdated);
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigFrameDataUpdated, this, &VideoFFmpegPlayer::SlotHandleFrameUpdate);
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigError, this, &VideoFFmpegPlayer::SigError);
@@ -74,13 +73,12 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, double startPosition
     m_videoInfo = m_pPlayWorker->GetVideoInfo();
     SetCurrentFilePath(videoPath);
     SetDuration(m_videoInfo.m_duration);
-    
+
     // 记录播放开始时间
     RecordPlayStartTime(startPosition);
-    
+
     m_pPlayWorker->SlotStartPlay();
-    SetPlayState(EM_PlayState::Playing);
-    emit SigPlayStateChanged(EM_VideoPlayState::Playing);
+    m_playState.SetPlaying(true);
 
     LOG_INFO("Video playback started successfully: " + videoPath.toStdString());
 }
@@ -90,7 +88,7 @@ void VideoFFmpegPlayer::PausePlay()
     if (IsPlaying() && m_pPlayWorker)
     {
         m_pPlayWorker->SlotPausePlay();
-        SetPlayState(EM_PlayState::Paused);
+        m_playState.SetPaused(true);
     }
 }
 
@@ -99,7 +97,7 @@ void VideoFFmpegPlayer::ResumePlay()
     if (IsPaused() && m_pPlayWorker)
     {
         m_pPlayWorker->SlotResumePlay();
-        SetPlayState(EM_PlayState::Playing);
+        m_playState.SetPlaying(true);
     }
 }
 
@@ -115,10 +113,8 @@ void VideoFFmpegPlayer::StopPlay()
         m_pPlayWorker->SlotStopPlay();
         m_pPlayWorker.reset();
     }
-    
-    SetPlayState(EM_PlayState::Stopped);
-    emit SigPlayStateChanged(EM_VideoPlayState::Stopped);
 
+    m_playState.SetPaused(true);
     LOG_INFO("Video playback stopped");
 }
 
@@ -140,14 +136,12 @@ void VideoFFmpegPlayer::StartRecording(const QString& outputPath)
     m_pRecordWorker = std::make_unique<VideoRecordWorker>();
 
     // 连接录制信号槽
-    connect(m_pRecordWorker.get(), &VideoRecordWorker::SigRecordStateChanged, this, &VideoFFmpegPlayer::SigRecordStateChanged);
     connect(m_pRecordWorker.get(), &VideoRecordWorker::SigError, this, &VideoFFmpegPlayer::SigError);
     connect(this, &VideoFFmpegPlayer::destroyed, m_pRecordWorker.get(), &VideoRecordWorker::deleteLater);
 
     // 启动录制线程
     m_pRecordWorker->SlotStartRecord(outputPath);
-    SetRecordState(EM_RecordState::Recording);
-    emit SigRecordStateChanged(EM_VideoRecordState::Recording);
+    m_playState.SetRecording(true);
 
     LOG_INFO("Video recording started: " + outputPath.toStdString());
 }
@@ -164,9 +158,8 @@ void VideoFFmpegPlayer::StopRecording()
         m_pRecordWorker->SlotStopRecord();
         m_pRecordWorker.reset();
     }
-    
-    SetRecordState(EM_RecordState::Stopped);
-    emit SigRecordStateChanged(EM_VideoRecordState::Stopped);
+
+    m_playState.SetRecording(false);
 
     LOG_INFO("Video recording stopped");
 }
@@ -181,7 +174,7 @@ void VideoFFmpegPlayer::SeekPlay(double seconds)
     }
 }
 
-double VideoFFmpegPlayer::GetCurrentPosition() const
+double VideoFFmpegPlayer::GetCurrentPosition()
 {
     // 使用基类的计算方法
     return CalculateCurrentPosition();
@@ -207,50 +200,50 @@ void VideoFFmpegPlayer::SlotHandleFrameUpdate(const uint8_t* frameData, int widt
 void VideoFFmpegPlayer::ResetPlayerState()
 {
     LOG_INFO("Resetting VideoFFmpegPlayer player state");
-    
+
     // 强制停止播放和录制
     ForceStop();
-    
+
     // 清理播放工作对象
     if (m_pPlayWorker)
     {
         m_pPlayWorker->Cleanup();
         m_pPlayWorker.reset();
     }
-    
+
     // 清理录制工作对象
     if (m_pRecordWorker)
     {
         m_pRecordWorker.reset();
     }
-    
+
     // 重置视频信息
     m_videoInfo = ST_VideoFrameInfo();
-    
+
     // 调用基类的重置方法
     BaseFFmpegPlayer::ResetPlayerState();
-    
+
     LOG_INFO("VideoFFmpegPlayer player state reset completed");
 }
 
 void VideoFFmpegPlayer::ForceStop()
 {
     LOG_INFO("Force stopping VideoFFmpegPlayer");
-    
+
     // 强制停止播放工作对象
     if (m_pPlayWorker)
     {
         m_pPlayWorker->SlotStopPlay();
     }
-    
+
     // 强制停止录制工作对象
     if (m_pRecordWorker)
     {
         m_pRecordWorker->SlotStopRecord();
     }
-    
+
     // 调用基类的强制停止
     BaseFFmpegPlayer::ForceStop();
-    
+
     LOG_INFO("VideoFFmpegPlayer force stop completed");
 }

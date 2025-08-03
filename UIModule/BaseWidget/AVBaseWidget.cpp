@@ -148,18 +148,6 @@ void AVBaseWidget::ConnectSignals()
     // 连接MediaPlayerManager的信号
     if (m_playerManager)
     {
-        connect(m_playerManager, &MediaPlayerManager::SigPlayStateChanged, this, [this](bool isPlaying) {
-            ui->ControlButtons->UpdatePlayState(isPlaying);
-            if (isPlaying)
-            {
-                m_playTimer->start();
-            }
-            else
-            {
-                m_playTimer->stop();
-            }
-        });
-        
         connect(m_playerManager, &MediaPlayerManager::SigRecordStateChanged, this, [this](bool isRecording) {
             ui->ControlButtons->UpdateRecordState(isRecording);
         });

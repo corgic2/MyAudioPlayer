@@ -48,12 +48,6 @@ public slots:
 
 signals:
     /// <summary>
-    /// 录制状态改变信号
-    /// </summary>
-    /// <param name="state">录制状态</param>
-    void SigRecordStateChanged(EM_VideoRecordState state);
-
-    /// <summary>
     /// 错误信号
     /// </summary>
     /// <param name="errorMsg">错误信息</param>
@@ -123,12 +117,6 @@ private:
     /// 是否需要停止
     /// </summary>
     std::atomic<bool> m_bNeedStop{false};
-
-    /// <summary>
-    /// 录制状态
-    /// </summary>
-    std::atomic<EM_VideoRecordState> m_recordState{EM_VideoRecordState::Stopped};
-
     /// <summary>
     /// 线程安全锁
     /// </summary>

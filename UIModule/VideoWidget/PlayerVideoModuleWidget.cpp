@@ -112,22 +112,6 @@ void PlayerVideoModuleWidget::ResizeVideoDisplay()
     }
 }
 
-void PlayerVideoModuleWidget::SlotVideoPlayStateChanged(EM_VideoPlayState state)
-{
-    switch (state)
-    {
-        case EM_VideoPlayState::Playing:
-            // 播放状态不需要定时器，直接通过信号更新
-            break;
-        case EM_VideoPlayState::Paused:
-            // 暂停状态
-            break;
-        case EM_VideoPlayState::Stopped:
-            ClearVideoDisplay();
-            break;
-    }
-}
-
 void PlayerVideoModuleWidget::SlotVideoProgressUpdated(double currentTime, double totalTime)
 {
     // 可以在这里更新进度条或时间显示

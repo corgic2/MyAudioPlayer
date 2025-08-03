@@ -145,33 +145,7 @@ public:
     /// </summary>
     /// <param name="videoWidget">视频显示控件</param>
     void SetVideoDisplayWidget(PlayerVideoModuleWidget* videoWidget);
-
-    /// <summary>
-    /// 加载音频波形数据
-    /// </summary>
-    /// <param name="filePath">音频文件路径</param>
-    /// <param name="waveformData">输出的波形数据</param>
-    /// <returns>是否成功加载波形数据</returns>
-    bool LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData);
-
-    /// <summary>
-    /// 获取播放器性能统计信息
-    /// </summary>
-    /// <returns>性能统计信息</returns>
-    QString GetPerformanceStats() const;
-
-    /// <summary>
-    /// 重置性能统计
-    /// </summary>
-    void ResetPerformanceStats();
-
 signals:
-    /// <summary>
-    /// 播放状态改变信号
-    /// </summary>
-    /// <param name="isPlaying">是否正在播放</param>
-    void SigPlayStateChanged(bool isPlaying);
-
     /// <summary>
     /// 录制状态改变信号
     /// </summary>

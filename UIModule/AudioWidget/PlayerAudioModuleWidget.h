@@ -49,11 +49,6 @@ public:
     void UpdateWaveformPosition(double currentPos, double duration);
 signals:
     /// <summary>
-    /// 播放状态改变信号
-    /// </summary>
-    /// <param name="isPlaying">是否正在播放</param>
-    void SigPlayStateChanged(bool isPlaying);
-    /// <summary>
     /// 播放进度改变信号
     /// </summary>
     /// <param name="position">当前位置（秒）</param>

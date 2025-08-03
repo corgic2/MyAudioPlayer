@@ -46,7 +46,7 @@ class VideoFFmpegPlayer : public BaseFFmpegPlayer
     /// <param name="videoPath">视频文件路径</param>
     /// <param name="startPosition">开始位置（秒）</param>
     /// <param name="args">参数列表</param>
-    void StartPlay(const QString& videoPath, double startPosition = 0.0, const QStringList& args = QStringList()) override;
+    void StartPlay(const QString& videoPath, bool bStart, double startPosition = 0.0, const QStringList& args = QStringList()) override;
 
     /// <summary>
     /// 暂停视频播放
@@ -84,7 +84,7 @@ class VideoFFmpegPlayer : public BaseFFmpegPlayer
     /// 获取当前播放位置
     /// </summary>
     /// <returns>当前播放位置（秒）</returns>
-    double GetCurrentPosition() const override;
+    double GetCurrentPosition();
 
     /// <summary>
     /// 获取视频信息
@@ -103,18 +103,6 @@ class VideoFFmpegPlayer : public BaseFFmpegPlayer
     void ForceStop() override;
 
 signals:
-    /// <summary>
-    /// 视频播放状态改变信号
-    /// </summary>
-    /// <param name="state">播放状态</param>
-    void SigPlayStateChanged(EM_VideoPlayState state);
-
-    /// <summary>
-    /// 视频录制状态改变信号
-    /// </summary>
-    /// <param name="state">录制状态</param>
-    void SigRecordStateChanged(EM_VideoRecordState state);
-
     /// <summary>
     /// 播放进度更新信号
     /// </summary>

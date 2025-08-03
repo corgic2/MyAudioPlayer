@@ -1,6 +1,7 @@
-﻿#include "ST_AudioPlayState.h"
+﻿#include "ST_AVPlayState.h"
 
-void ST_AudioPlayState::Reset()
+
+void ST_AVPlayState::Reset()
 {
     m_isPlaying = false;
     m_isPaused = false;

@@ -22,7 +22,6 @@
 AudioFFmpegPlayer::AudioFFmpegPlayer(QObject* parent)
     : BaseFFmpegPlayer(parent)
 {
-    m_playState.Reset();
     // 暂使用默认第一个设备
     m_inputAudioDevices = AudioPlayerUtils::GetInputAudioDevices();
     if (!m_inputAudioDevices.empty())
@@ -36,7 +35,6 @@ AudioFFmpegPlayer::~AudioFFmpegPlayer()
     StopPlay();
     StopRecording();
 }
-
 
 
 std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegPlayer::OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio)
@@ -114,7 +112,7 @@ void AudioFFmpegPlayer::StartRecording(const QString& outputFilePath)
     }
 
     LOG_INFO("Audio recording initialization completed, starting recording");
-    SetRecordState(EM_RecordState::Recording);
+    m_playState.SetRecording(true);
 
     ST_AVPacket pkt;
     int count = 50;
@@ -152,18 +150,17 @@ void AudioFFmpegPlayer::StopRecording()
     }
 
     LOG_INFO("Stopping audio recording");
-    SetRecordState(EM_RecordState::Stopped);
+    m_playState.SetRecording(false);
     m_recordDevice.reset();
 }
 
-void AudioFFmpegPlayer::StartPlay(const QString& inputFilePath, double startPosition, const QStringList& args)
+void AudioFFmpegPlayer::StartPlay(const QString& inputFilePath, bool bStart, double startPosition, const QStringList& args)
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     PlayerStateReSet();
 
     if (startPosition > GetDuration())
     {
-        m_playState.Reset();
         return;
     }
 
@@ -217,7 +214,6 @@ void AudioFFmpegPlayer::StartPlay(const QString& inputFilePath, double startPosi
 
     ST_ResampleParams resampleParams;
 
-    // === 修复：从解码器上下文获取正确的音频格式 ===
     AVCodecContext* codecCtx = openFileResult->m_codecCtx->GetRawContext();
 
     // 设置实际的输入参数（优先使用解码器上下文的参数）
@@ -302,13 +298,14 @@ void AudioFFmpegPlayer::StartPlay(const QString& inputFilePath, double startPosi
     m_playInfo->BindStreamAndDevice();
 
     // Start playback
-    m_playInfo->BeginPlayAudio();
-    SetPlayState(EM_PlayState::Playing);
-    m_playState.SetPlaying(true);
-    m_playState.SetPaused(false);
-    m_playState.SetStartTime(SDL_GetTicks());
-    m_playState.SetCurrentPosition(startPosition);
-
+    if (bStart)
+    {
+        ResumePlay();
+    }
+    else
+    {
+        StopPlay();
+    }
     LOG_INFO("Audio playback started");
 
     // 改进音频数据处理流程
@@ -428,12 +425,6 @@ void AudioFFmpegPlayer::ProcessAudioData(ST_OpenFileResult& openFileResult, Audi
                     {
                         m_playInfo->PutDataToStream(audioBuffer.data(), static_cast<int>(audioBuffer.size()));
                         audioBuffer.clear();
-
-                        // 定期检查是否需要停止
-                        if (!m_playState.IsPlaying())
-                        {
-                            break;
-                        }
                     }
                 }
             }
@@ -447,12 +438,6 @@ void AudioFFmpegPlayer::ProcessAudioData(ST_OpenFileResult& openFileResult, Audi
         }
 
         pkt.UnrefPacket();
-
-        // 定期检查是否需要停止
-        if (processedPackets % 50 == 0 && !m_playState.IsPlaying())
-        {
-            break;
-        }
     }
 
     // 处理剩余的音频数据
@@ -486,9 +471,6 @@ void AudioFFmpegPlayer::PlayerStateReSet()
         m_playInfo.reset();
         SDL_Delay(10); // 等待资源释放
     }
-
-    // 重置播放状态
-    m_playState.Reset();
 }
 
 void AudioFFmpegPlayer::PausePlay()
@@ -505,9 +487,8 @@ void AudioFFmpegPlayer::PausePlay()
 
     // 保存当前播放位置
     double currentPos = GetCurrentPosition();
-    SetPlayState(EM_PlayState::Paused);
-    m_playState.SetCurrentPosition(currentPos);
     m_playState.SetPaused(true);
+
     m_playInfo->PauseAudio();
 }
 
@@ -520,10 +501,7 @@ void AudioFFmpegPlayer::ResumePlay()
         return;
     }
 
-    SetPlayState(EM_PlayState::Playing);
-    m_playState.SetPaused(false);
-    // 重新记录播放开始时间点
-    RecordPlayStartTime(m_playState.GetCurrentPosition());
+    m_playState.SetPlaying(true);
     m_playInfo->ResumeAudio();
 }
 
@@ -531,8 +509,7 @@ void AudioFFmpegPlayer::StopPlay()
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     PlayerStateReSet();
-    SetPlayState(EM_PlayState::Stopped);
-    m_playState.Reset();
+    m_playState.SetPaused(true);
 }
 
 bool AudioFFmpegPlayer::SeekAudio(double seconds)
@@ -553,8 +530,6 @@ bool AudioFFmpegPlayer::SeekAudio(double seconds)
 
     // 更新开始时间和时间点
     RecordPlayStartTime(seconds);
-    m_playState.SetCurrentPosition(seconds);
-
     // 暂停当前播放
     bool wasPlaying = IsPlaying() && !IsPaused();
     if (wasPlaying)
@@ -576,111 +551,12 @@ void AudioFFmpegPlayer::SeekPlay(double seconds)
     }
 }
 
-void AudioFFmpegPlayer::ShowSpec(AVFormatContext* ctx)
-{
-    if (!ctx)
-    {
-        LOG_WARN("ShowSpec() : AVFormatContext is nullptr");
-        return;
-    }
-
-    // Get input stream
-    AVStream* stream = ctx->streams[0];
-    // Get audio parameters
-    ST_AVCodecParameters params(stream->codecpar);
-
-    // 输出音频参数信息
-    qDebug() << "Audio Specifications:";
-    qDebug() << "Channels:" << params.GetRawParameters()->ch_layout.nb_channels;
-    qDebug() << "Sample Rate:" << params.GetRawParameters()->sample_rate;
-    qDebug() << "Format:" << params.GetRawParameters()->format;
-    qDebug() << "Bytes per Sample:" << params.GetSamplePerRate();
-    qDebug() << "Codec ID:" << params.GetRawParameters()->codec_id;
-    qDebug() << "Bits per Sample:" << params.GetBitPerSample();
-}
-
 void AudioFFmpegPlayer::SetInputDevice(const QString& deviceName)
 {
     m_currentInputDevice = deviceName;
 }
 
-bool AudioFFmpegPlayer::LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData)
-{
-    TIME_START("AudioWaveformLoading");
-    LOG_INFO("=== Starting audio waveform loading for: " + filePath.toStdString() + " ===");
-
-    if (filePath.isEmpty() || !my_sdk::FileSystem::Exists(filePath.toStdString()))
-    {
-        LOG_WARN("LoadAudioWaveform() : Invalid file path");
-        return false;
-    }
-
-    AV_TIMER_START("Audio", "WaveformFileOpen");
-    ST_OpenFileResult openFileResult;
-    openFileResult.OpenFilePath(filePath);
-
-    if (!openFileResult.m_formatCtx || !openFileResult.m_codecCtx)
-    {
-        LOG_WARN("LoadAudioWaveform() : Failed to open audio file");
-        TimeSystem::Instance().StopTimingWithLog("AudioWaveformLoading", EM_TimingLogLevel::Warning, EM_TimeUnit::Milliseconds, "Failed to open waveform file");
-        return false;
-    }
-
-    // 清空之前的数据
-    waveformData.clear();
-
-    // 读取音频数据并计算波形
-    ST_AVPacket packet;
-    ST_AVFrame frame;
-    const int SAMPLES_PER_PIXEL = 1024; // 每个像素点对应的采样数
-    float maxSample = 0.0f;
-    float currentSum = 0.0f;
-    int sampleCount = 0;
-
-    int processedPackets = 0;
-
-
-    while (packet.ReadPacket(openFileResult.m_formatCtx->GetRawContext()))
-    {
-        if (packet.GetStreamIndex() == openFileResult.m_audioStreamIdx)
-        {
-            if (packet.SendPacket(openFileResult.m_codecCtx->GetRawContext()))
-            {
-                while (frame.GetCodecFrame(openFileResult.m_codecCtx->GetRawContext()))
-                {
-                    // 处理不同的采样格式
-                    AudioPlayerUtils::ProcessAudioFrame(frame.GetRawFrame(), waveformData, SAMPLES_PER_PIXEL, currentSum, sampleCount, maxSample);
-                }
-            }
-            processedPackets++;
-        }
-        packet.UnrefPacket();
-    }
-
-    // 处理剩余的样本
-    if (sampleCount > 0)
-    {
-        float average = currentSum / sampleCount;
-        waveformData.append(average);
-        maxSample = std::max(maxSample, average);
-    }
-
-    // 归一化波形数据
-    if (maxSample > 0.0f)
-    {
-        for (float& sample : waveformData)
-        {
-            sample /= maxSample;
-        }
-    }
-
-    LOG_INFO("=== Waveform loading completed, generated " + std::to_string(waveformData.size()) + " data points ===");
-
-    TimeSystem::Instance().StopTimingWithLog("AudioWaveformLoading", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "Waveform loading completed");
-    return !waveformData.isEmpty();
-}
-
-double AudioFFmpegPlayer::GetCurrentPosition() const
+double AudioFFmpegPlayer::GetCurrentPosition()
 {
     // 使用基类的计算方法
     return CalculateCurrentPosition();

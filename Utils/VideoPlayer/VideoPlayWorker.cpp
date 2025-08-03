@@ -90,7 +90,6 @@ void VideoPlayWorker::SlotStopPlay()
     LOG_INFO("Stop play requested");
     m_bNeedStop.store(true);
     m_bIsPlaying.store(false);
-    emit SigPlayStateChanged(EM_VideoPlayState::Stopped);
 }
 
 void VideoPlayWorker::SlotPausePlay()
@@ -102,7 +101,6 @@ void VideoPlayWorker::SlotPausePlay()
         
         // 音频暂停由AudioFFmpegPlayer处理
         
-        emit SigPlayStateChanged(EM_VideoPlayState::Paused);
         LOG_INFO("Video playback paused");
     }
 }
@@ -122,7 +120,6 @@ void VideoPlayWorker::SlotResumePlay()
         
         // 音频恢复由AudioFFmpegPlayer处理
         
-        emit SigPlayStateChanged(EM_VideoPlayState::Playing);
         LOG_INFO("Video playback resumed");
     }
 }
@@ -232,7 +229,6 @@ void VideoPlayWorker::PlayLoop()
 
     // 播放结束，设置状态
     m_bIsPlaying.store(false);
-    emit SigPlayStateChanged(EM_VideoPlayState::Stopped);
     LOG_INFO("Video playback completed");
 }
 
@@ -344,7 +340,7 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
 {
     TIME_START("VideoPlayerInit");
     LOG_INFO("=== Initializing video player for: " + filePath.toStdString() + " ===");
-
+    
     if (filePath.isEmpty())
     {
         LOG_WARN("VideoPlayWorker::InitPlayer() : Invalid file path");

@@ -59,12 +59,6 @@ class PlayerVideoModuleWidget : public BaseModuleWidget
 
 protected slots:
     /// <summary>
-    /// 视频播放状态改变槽函数
-    /// </summary>
-    /// <param name="state">播放状态</param>
-    void SlotVideoPlayStateChanged(EM_VideoPlayState state);
-
-    /// <summary>
     /// 视频播放进度更新槽函数
     /// </summary>
     /// <param name="currentTime">当前时间</param>

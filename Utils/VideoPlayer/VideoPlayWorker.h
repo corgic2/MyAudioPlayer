@@ -11,6 +11,7 @@
 #include "DataDefine/ST_OpenFileResult.h"
 #include "DataDefine/ST_SDL_Renderer.h"
 #include "DataDefine/ST_SDL_Texture.h"
+#include "DataDefine/ST_AVPlayState.h"
 
 extern "C"
 {
@@ -24,47 +25,7 @@ extern "C"
 #include <SDL3/SDL.h>
 }
 
-/// <summary>
-/// 视频录制状态枚举
-/// </summary>
-enum class EM_VideoRecordState
-{
-    /// <summary>
-    /// 停止
-    /// </summary>
-    Stopped,
 
-    /// <summary>
-    /// 录制中
-    /// </summary>
-    Recording,
-
-    /// <summary>
-    /// 暂停
-    /// </summary>
-    Paused
-};
-
-/// <summary>
-/// 视频播放状态枚举
-/// </summary>
-enum class EM_VideoPlayState
-{
-    /// <summary>
-    /// 停止
-    /// </summary>
-    Stopped,
-
-    /// <summary>
-    /// 播放中
-    /// </summary>
-    Playing,
-
-    /// <summary>
-    /// 暂停
-    /// </summary>
-    Paused
-};
 
 /// <summary>
 /// 视频帧信息结构体
@@ -172,12 +133,6 @@ public slots:
     void SlotSeekPlay(double seconds);
 
 signals:
-    /// <summary>
-    /// 播放状态改变信号
-    /// </summary>
-    /// <param name="state">播放状态</param>
-    void SigPlayStateChanged(EM_VideoPlayState state);
-
     /// <summary>
     /// 播放进度更新信号
     /// </summary>

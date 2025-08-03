@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <atomic>
 #include <memory>
@@ -9,7 +9,6 @@
 #include "AudioResampler.h"
 #include "../BasePlayer/BaseFFmpegPlayer.h"
 #include "DataDefine/ST_AudioPlayInfo.h"
-#include "DataDefine/ST_AudioPlayState.h"
 #include "DataDefine/ST_OpenAudioDevice.h"
 #include "DataDefine/ST_OpenFileResult.h"
 
@@ -60,7 +59,7 @@ public:
     /// <param name="inputFilePath">输入文件路径</param>
     /// <param name="startPosition">开始播放位置（秒），默认从头开始</param>
     /// <param name="args">播放参数</param>
-    void StartPlay(const QString& inputFilePath, double startPosition = 0.0, const QStringList& args = QStringList()) override;
+    void StartPlay(const QString& inputFilePath, bool bStart = true, double startPosition = 0.0, const QStringList& args = QStringList()) override;
 
     /// <summary>
     /// 暂停音频播放
@@ -84,18 +83,10 @@ public:
     void SeekPlay(double seconds) override;
 
     /// <summary>
-    /// 加载音频波形数据
-    /// </summary>
-    /// <param name="filePath">音频文件路径</param>
-    /// <param name="waveformData">输出的波形数据</param>
-    /// <returns>是否成功加载波形数据</returns>
-    bool LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData);
-
-    /// <summary>
     /// 获取当前播放位置
     /// </summary>
     /// <returns>当前播放位置（秒）</returns>
-    double GetCurrentPosition() const override;
+    double GetCurrentPosition() ;
 
     /// <summary>
     /// 重置播放器状态（重写基类方法）
@@ -126,12 +117,6 @@ private:
     std::unique_ptr<ST_OpenAudioDevice> OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio = true);
 
     /// <summary>
-    /// 显示录音设备参数
-    /// </summary>
-    /// <param name="ctx">格式上下文</param>
-    void ShowSpec(AVFormatContext* ctx);
-
-    /// <summary>
     /// 设置输入设备
     /// </summary>
     /// <param name="deviceName">设备名称</param>
@@ -160,6 +145,5 @@ private:
     QString m_currentInputDevice;                                            /// 当前选择的FFmpeg输入设备
     std::unique_ptr<ST_OpenAudioDevice> m_recordDevice{nullptr};             /// 录制设备
     std::unique_ptr<ST_AudioPlayInfo> m_playInfo{nullptr};                   /// 播放信息
-    ST_AudioPlayState m_playState;                                           /// 播放状态（保留用于兼容性）
     QStringList m_inputAudioDevices;                                         /// 音频输入设备列表
 };

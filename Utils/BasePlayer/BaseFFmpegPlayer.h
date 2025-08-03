@@ -7,57 +7,14 @@
 #include <QObject>
 #include <QString>
 #include "DataDefine/ST_OpenFileResult.h"
-
-/// <summary>
-/// 通用播放状态枚举
-/// </summary>
-enum class EM_PlayState
-{
-    /// <summary>
-    /// 停止
-    /// </summary>
-    Stopped,
-
-    /// <summary>
-    /// 播放中
-    /// </summary>
-    Playing,
-
-    /// <summary>
-    /// 暂停
-    /// </summary>
-    Paused
-};
-
-/// <summary>
-/// 通用录制状态枚举
-/// </summary>
-enum class EM_RecordState
-{
-    /// <summary>
-    /// 停止
-    /// </summary>
-    Stopped,
-
-    /// <summary>
-    /// 录制中
-    /// </summary>
-    Recording,
-
-    /// <summary>
-    /// 暂停
-    /// </summary>
-    Paused
-};
+#include "DataDefine/ST_AVPlayState.h"
 
 /// <summary>
 /// FFmpeg工具基类
 /// </summary>
 class BaseFFmpegPlayer : public QObject
 {
-    Q_OBJECT 
-
-public:
+    Q_OBJECT public:
     /// <summary>
     /// 构造函数
     /// </summary>
@@ -86,7 +43,7 @@ public:
     /// <param name="filePath">文件路径</param>
     /// <param name="startPosition">开始位置（秒）</param>
     /// <param name="args">参数列表</param>
-    virtual void StartPlay(const QString& filePath, double startPosition = 0.0, const QStringList& args = QStringList()) = 0;
+    virtual void StartPlay(const QString& filePath, bool bStart = true,double startPosition = 0.0, const QStringList& args = QStringList()) = 0;
 
     /// <summary>
     /// 暂停播放
@@ -113,31 +70,32 @@ public:
     /// 获取是否正在播放
     /// </summary>
     /// <returns>是否正在播放</returns>
-    virtual bool IsPlaying() { return m_playState.load() == EM_PlayState::Playing; }
+    virtual bool IsPlaying();
 
     /// <summary>
     /// 获取是否已暂停
     /// </summary>
     /// <returns>是否已暂停</returns>
-    virtual bool IsPaused() { return m_playState.load() == EM_PlayState::Paused; }
+    virtual bool IsPaused();
 
     /// <summary>
     /// 获取是否正在录制
     /// </summary>
     /// <returns>是否正在录制</returns>
-    virtual bool IsRecording() { return m_recordState.load() == EM_RecordState::Recording; }
-
-    /// <summary>
-    /// 获取当前播放位置
-    /// </summary>
-    /// <returns>当前播放位置（秒）</returns>
-    virtual double GetCurrentPosition() const { return 0.0; }
+    virtual bool IsRecording();
 
     /// <summary>
     /// 获取总时长
     /// </summary>
     /// <returns>总时长（秒）</returns>
-    virtual double GetDuration() const { return m_duration; }
+    virtual double GetDuration();
+    /// <summary>
+    /// 准备播放但不播放，等待同步开始
+    /// </summary>
+    /// <param name="filePath"></param>
+    /// <param name="startPosition"></param>
+    /// <param name="args"></param>
+    virtual void PreparePlay(const QString& filePath, double startPosition, const QStringList& args);
 
 protected:
     /// <summary>
@@ -146,18 +104,6 @@ protected:
     /// <param name="filePath">文件路径</param>
     /// <returns>打开文件结果</returns>
     std::unique_ptr<ST_OpenFileResult> OpenMediaFile(const QString& filePath);
-
-    /// <summary>
-    /// 设置播放状态
-    /// </summary>
-    /// <param name="state">播放状态</param>
-    void SetPlayState(EM_PlayState state);
-
-    /// <summary>
-    /// 设置录制状态
-    /// </summary>
-    /// <param name="state">录制状态</param>
-    void SetRecordState(EM_RecordState state);
 
     /// <summary>
     /// 设置当前文件路径
@@ -178,16 +124,6 @@ protected:
     void SetDuration(double duration);
 
     /// <summary>
-    /// 重置播放状态
-    /// </summary>
-    void ResetPlayState();
-
-    /// <summary>
-    /// 重置录制状态
-    /// </summary>
-    void ResetRecordState();
-
-    /// <summary>
     /// 记录播放开始时间
     /// </summary>
     /// <param name="startPosition">开始位置（秒）</param>
@@ -205,39 +141,16 @@ protected:
     virtual void ResetPlayerState();
 
     /// <summary>
-    /// 检查播放器是否可以复用
-    /// </summary>
-    /// <returns>是否可以复用</returns>
-    virtual bool CanReusePlayer() const;
-
-    /// <summary>
     /// 强制停止所有活动
     /// </summary>
     virtual void ForceStop();
 
-signals:
-    /// <summary>
-    /// 播放状态改变信号
-    /// </summary>
-    /// <param name="isPlaying">是否正在播放</param>
-    void SigPlayStateChanged(bool isPlaying);
-
-    /// <summary>
-    /// 录制状态改变信号
-    /// </summary>
-    /// <param name="isRecording">是否正在录制</param>
-    void SigRecordStateChanged(bool isRecording);
-
 protected:
+    //播放和暂停状态由基类管理
     /// <summary>
-    /// 播放状态
+    /// 播放状态管理器
     /// </summary>
-    std::atomic<EM_PlayState> m_playState{EM_PlayState::Stopped};
-
-    /// <summary>
-    /// 录制状态
-    /// </summary>
-    std::atomic<EM_RecordState> m_recordState{EM_RecordState::Stopped};
+    ST_AVPlayState m_playState;
 
     /// <summary>
     /// 当前文件路径

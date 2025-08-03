@@ -30,25 +30,14 @@ void VideoRecordWorker::SlotStartRecord(const QString& outputPath)
         return;
     }
 
-    // 检查是否已经在录制
-    if (m_recordState.load() != EM_VideoRecordState::Stopped)
-    {
-        LOG_WARN("VideoRecordWorker::SlotStartRecord() : Recording is already in progress");
-        return;
-    }
-
     // 设置录制状态为录制中
-    m_recordState.store(EM_VideoRecordState::Recording);
     m_outputPath = outputPath;
     m_bNeedStop.store(false);
-    emit SigRecordStateChanged(m_recordState.load());
 
     if (!InitRecorder(outputPath))
     {
         LOG_WARN("VideoRecordWorker::SlotStartRecord() : Failed to initialize recorder");
         emit SigError("录制器初始化失败");
-        m_recordState.store(EM_VideoRecordState::Stopped);
-        emit SigRecordStateChanged(m_recordState.load());
         return;
     }
 
@@ -62,8 +51,6 @@ void VideoRecordWorker::SlotStopRecord()
     
     LOG_INFO("Stop record requested");
     m_bNeedStop.store(true);
-    m_recordState.store(EM_VideoRecordState::Stopped);
-    emit SigRecordStateChanged(m_recordState.load());
     Cleanup();
 }
 
@@ -252,7 +239,7 @@ void VideoRecordWorker::RecordLoop()
     const int MAX_CONSECUTIVE_ERRORS = 10;
     int consecutiveErrors = 0;
 
-    while (!m_bNeedStop.load() && m_recordState.load() == EM_VideoRecordState::Recording)
+    while (!m_bNeedStop.load())
     {
         // 读取输入包
         if (!m_pInputPacket.ReadPacket(m_pInputFormatCtx->GetRawContext()))
@@ -305,10 +292,6 @@ void VideoRecordWorker::RecordLoop()
     }
 
     LOG_INFO("Video recording loop ended");
-
-    // 确保状态正确设置
-    m_recordState.store(EM_VideoRecordState::Stopped);
-    emit SigRecordStateChanged(m_recordState.load());
 }
 
 QString VideoRecordWorker::GetDefaultVideoDevice()

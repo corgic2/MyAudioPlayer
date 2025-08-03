@@ -2,6 +2,7 @@
 
 #include <QThread>
 #include "CoreServerGlobal.h"
+#include "AudioPlayer/AudioPlayerUtils.h"
 #include "BasePlayer/MediaPlayerManager.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
@@ -37,9 +38,7 @@ void PlayerAudioModuleWidget::LoadWaveWidegt(const QString& inputFilePath)
     m_threadID = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("LoadWaveWidget",[=]()
     {
         QVector<float> waveData;
-        // 使用MediaPlayerManager加载音频波形数据
-        MediaPlayerManager* playerManager = MediaPlayerManager::Instance();
-        if (playerManager && playerManager->LoadAudioWaveform(inputFilePath, waveData))
+        if (AudioPlayerUtils::LoadAudioWaveform(inputFilePath, waveData))
         {
             m_currentFilePath = inputFilePath;
             m_waveformData.swap(waveData);
