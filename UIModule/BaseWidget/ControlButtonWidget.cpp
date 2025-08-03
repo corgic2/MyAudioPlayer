@@ -53,7 +53,7 @@ void ControlButtonWidget::InitializeWidget()
     SetControlButtonStyle(ui->btnPrevious);
 
     // 初始化按钮状态
-    UpdateButtonStates();
+    UpdateButtonEnabledStates();
 }
 
 void ControlButtonWidget::ConnectSignals()
@@ -70,7 +70,7 @@ void ControlButtonWidget::UpdatePlayState(bool isPlaying)
 {
     if (isPlaying)
     {
-        ui->btnPlay->setText(tr("停止"));
+        ui->btnPlay->setText(tr("暂停"));
         ui->btnPlay->SetBackgroundColor(UIColorDefine::theme_color::Error);
     }
     else
@@ -99,7 +99,7 @@ void ControlButtonWidget::SetCurrentAudioFile(const QString& filePath)
     if (m_currentAudioFile != filePath)
     {
         m_currentAudioFile = filePath;
-        UpdateButtonStates();
+        UpdateButtonEnabledStates();
         emit SigCurrentAudioFileChanged(filePath);
     }
 }
@@ -109,7 +109,7 @@ QString ControlButtonWidget::GetCurrentAudioFile() const
     return m_currentAudioFile;
 }
 
-void ControlButtonWidget::UpdateButtonStates()
+void ControlButtonWidget::UpdateButtonEnabledStates()
 {
     bool hasFile = !m_currentAudioFile.isEmpty();
 

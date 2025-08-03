@@ -300,11 +300,12 @@ void AudioFFmpegPlayer::StartPlay(const QString& inputFilePath, bool bStart, dou
     // Start playback
     if (bStart)
     {
-        ResumePlay();
+        m_playInfo->BeginPlayAudio();
+        m_playState.SetPlaying(true);
     }
     else
     {
-        StopPlay();
+        PausePlay();
     }
     LOG_INFO("Audio playback started");
 
@@ -488,7 +489,6 @@ void AudioFFmpegPlayer::PausePlay()
     // 保存当前播放位置
     double currentPos = GetCurrentPosition();
     m_playState.SetPaused(true);
-
     m_playInfo->PauseAudio();
 }
 
@@ -538,7 +538,7 @@ bool AudioFFmpegPlayer::SeekAudio(double seconds)
     }
 
     // 重新初始化播放
-    StartPlay(GetCurrentFilePath(), seconds);
+    StartPlay(GetCurrentFilePath(),true, seconds);
 
     return true;
 }

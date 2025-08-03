@@ -4,6 +4,7 @@
 #include <memory>
 #include <QObject>
 #include <QString>
+#include <QThread>
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
 #include "BaseDataDefine/ST_AVFrame.h"
@@ -215,6 +216,11 @@ private:
 
 private:
     /// <summary>
+    /// 播放线程
+    /// </summary>
+    QThread* m_playThread = nullptr;
+
+    /// <summary>
     /// 格式上下文
     /// </summary>
     std::unique_ptr<ST_AVFormatContext> m_pFormatCtx = nullptr;
@@ -332,7 +338,6 @@ private:
     /// 暂停状态控制
     /// </summary>
     std::atomic<bool> m_bIsPaused = false;
-
     /// <summary>
     /// 停止播放标志
     /// </summary>

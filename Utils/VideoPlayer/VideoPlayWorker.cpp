@@ -19,6 +19,7 @@ VideoPlayWorker::VideoPlayWorker(QObject* parent)
 VideoPlayWorker::~VideoPlayWorker()
 {
     LOG_INFO("VideoPlayWorker destructor called");
+    SlotStopPlay();
     Cleanup();
 }
 
@@ -48,7 +49,7 @@ void VideoPlayWorker::SafeFreeChannelLayout(AVChannelLayout** layout)
 void VideoPlayWorker::Cleanup()
 {
     LOG_INFO("Cleaning up video player resources");
-    
+
     // 清理视频相关资源
     if (m_pSwsCtx)
     {
@@ -69,18 +70,33 @@ void VideoPlayWorker::Cleanup()
 
 void VideoPlayWorker::SlotStartPlay()
 {
+    if (m_pFormatCtx == nullptr || m_pVideoCodecCtx == nullptr)
+    {
+        LOG_WARN("VideoPlayWorker::SlotStartPlay: 播放器未初始化");
+        return;
+    }
+
+    LOG_INFO("VideoPlayWorker::SlotStartPlay: 开始播放");
+    m_bIsPlaying.store(true);
+    m_bNeedStop.store(false);
+    m_bIsPaused.store(false);
     m_startTime = av_gettime();
     m_totalPauseTime = 0;
     m_currentTime = 0.0;
-    
-    // 重置播放控制状态
-    m_bIsPlaying.store(true);
-    m_bIsPaused.store(false);
-    m_bNeedStop.store(false);
     m_bSeekRequested.store(false);
 
-    // 启动播放循环
-    PlayLoop();
+    // 创建播放线程
+    if (m_playThread == nullptr)
+    {
+        m_playThread = new QThread();
+        this->moveToThread(m_playThread);
+        connect(m_playThread, &QThread::started, this, &VideoPlayWorker::PlayLoop, Qt::QueuedConnection);
+        m_playThread->start();
+    }
+    else
+    {
+        QMetaObject::invokeMethod(this, "PlayLoop", Qt::QueuedConnection);
+    }
 
     LOG_INFO("Play thread started");
 }
@@ -88,8 +104,20 @@ void VideoPlayWorker::SlotStartPlay()
 void VideoPlayWorker::SlotStopPlay()
 {
     LOG_INFO("Stop play requested");
-    m_bNeedStop.store(true);
-    m_bIsPlaying.store(false);
+    {
+        m_bNeedStop.store(true);
+        m_bIsPlaying.store(false);
+        m_bIsPaused.store(false);
+    }
+
+    // 等待播放线程结束
+    if (m_playThread)
+    {
+        m_playThread->quit();
+        m_playThread->wait();
+        delete m_playThread;
+        m_playThread = nullptr;
+    }
 }
 
 void VideoPlayWorker::SlotPausePlay()
@@ -98,9 +126,6 @@ void VideoPlayWorker::SlotPausePlay()
     {
         m_bIsPaused.store(true);
         m_pauseStartTime = av_gettime();
-        
-        // 音频暂停由AudioFFmpegPlayer处理
-        
         LOG_INFO("Video playback paused");
     }
 }
@@ -110,16 +135,14 @@ void VideoPlayWorker::SlotResumePlay()
     if (m_bIsPlaying.load() && m_bIsPaused.load())
     {
         m_bIsPaused.store(false);
-        
+
         // 累计暂停时间
         if (m_pauseStartTime > 0)
         {
             m_totalPauseTime += (av_gettime() - m_pauseStartTime);
             m_pauseStartTime = 0;
         }
-        
-        // 音频恢复由AudioFFmpegPlayer处理
-        
+
         LOG_INFO("Video playback resumed");
     }
 }
@@ -127,7 +150,7 @@ void VideoPlayWorker::SlotResumePlay()
 void VideoPlayWorker::SlotSeekPlay(double seconds)
 {
     LOG_INFO("Video seek requested to: " + std::to_string(seconds) + " seconds");
-    
+
     if (seconds >= 0.0 && seconds <= m_videoInfo.m_duration)
     {
         m_seekTarget.store(seconds);
@@ -142,13 +165,12 @@ void VideoPlayWorker::PlayLoop()
     const int MAX_CONSECUTIVE_ERRORS = 10;
     int consecutiveErrors = 0;
 
-
     while (m_bIsPlaying.load() && !m_bNeedStop.load())
     {
-        // 处理暂停状态
+        // 如果处于暂停状态，等待恢复
         if (m_bIsPaused.load())
         {
-            SDL_Delay(10); // 暂停时减少CPU占用
+            SDL_Delay(50); // 50ms延迟避免CPU占用过高
             continue;
         }
 
@@ -227,8 +249,11 @@ void VideoPlayWorker::PlayLoop()
         }
     }
 
-    // 播放结束，设置状态
-    m_bIsPlaying.store(false);
+    // 播放结束，设置状态，没有中途结束时
+    if (!m_bNeedStop.load())
+    {
+        m_bIsPlaying.store(false);
+    }
     LOG_INFO("Video playback completed");
 }
 
@@ -340,7 +365,7 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
 {
     TIME_START("VideoPlayerInit");
     LOG_INFO("=== Initializing video player for: " + filePath.toStdString() + " ===");
-    
+
     if (filePath.isEmpty())
     {
         LOG_WARN("VideoPlayWorker::InitPlayer() : Invalid file path");
@@ -558,7 +583,7 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
         AVStream* videoStream = m_pFormatCtx->GetRawContext()->streams[m_videoStreamIndex];
         m_currentTime = frame->pts * av_q2d(videoStream->time_base);
     }
-    
+
     // 发送帧更新信号
     emit SigFrameUpdated();
 }

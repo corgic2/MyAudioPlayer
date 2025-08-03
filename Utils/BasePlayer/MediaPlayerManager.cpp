@@ -110,18 +110,14 @@ bool MediaPlayerManager::PlayMedia(const QString& filePath, double startPosition
     }
     else if (mediaType == EM_MediaType::VideoWithAudio)
     {
+        m_currentMediaType = EM_MediaType::VideoWithAudio;
         // 同时启动音频和视频播放器
         if (m_audioPlayer && m_videoPlayer)
         {
             LOG_INFO("Starting audio and video playback simultaneously");
-            
-            // 设置同步播放标志
-            m_isSyncPlaying.store(true);
-
-            m_audioPlayer->StartPlay(filePath,false, startPosition, args);
-            m_videoPlayer->StartPlay(filePath,true ,startPosition, args);
+            m_audioPlayer->StartPlay(filePath,true,startPosition, args);
+            m_videoPlayer->StartPlay(filePath,true,startPosition, args);
             success = true;
-            m_currentMediaType = EM_MediaType::VideoWithAudio;
         }
     }
 
@@ -192,7 +188,6 @@ void MediaPlayerManager::StopPlay()
     StopCurrentPlayer();
     m_currentMediaType = EM_MediaType::Unknown;
     m_currentFilePath.clear();
-    m_isSyncPlaying.store(false);
 }
 
 void MediaPlayerManager::SeekPlay(double seconds)

@@ -244,29 +244,4 @@ private:
     /// 当前文件路径
     /// </summary>
     QString m_currentFilePath;
-
-    /// <summary>
-    /// 播放次数统计
-    /// </summary>
-    std::atomic<size_t> m_playCount{0};
-
-    /// <summary>
-    /// 错误次数统计
-    /// </summary>
-    std::atomic<size_t> m_errorCount{0};
-
-    /// <summary>
-    /// 总播放时长（秒）
-    /// </summary>
-    std::atomic<double> m_totalPlayTime{0.0};
-
-    /// <summary>
-    /// 上次播放开始时间
-    /// </summary>
-    std::chrono::steady_clock::time_point m_lastPlayStartTime;
-
-    /// <summary>
-    /// 是否正在进行音视频同步播放
-    /// </summary>
-    std::atomic<bool> m_isSyncPlaying{false};
 }; 

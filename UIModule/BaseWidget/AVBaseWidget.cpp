@@ -206,6 +206,7 @@ void AVBaseWidget::SlotBtnPlayClicked()
                 LOG_INFO("开始播放");
                 StartAVPlay(m_currentAVFile);
             }
+            ui->ControlButtons->UpdatePlayState(true);
         }
         else
         {
@@ -213,6 +214,7 @@ void AVBaseWidget::SlotBtnPlayClicked()
             if (m_playerManager)
             {
                 m_playerManager->PausePlay();
+                ui->ControlButtons->UpdatePlayState(false);
             }
         }
     }
@@ -433,7 +435,7 @@ void AVBaseWidget::SlotAVFileDoubleClicked(const QString& filePath)
     m_currentPosition = 0.0;
     m_currentAVFile = filePath;
     ui->ControlButtons->SetCurrentAudioFile(filePath);
-    
+    ui->ControlButtons->UpdatePlayState(true);
     // 直接开始播放新文件，复用现有播放器
     StartAVPlay(filePath, 0.0);
     

@@ -67,9 +67,9 @@ public:
     QString GetCurrentAudioFile() const;
 
     /// <summary>
-    /// 更新按钮状态
+    /// 更新按钮使能状态
     /// </summary>
-    void UpdateButtonStates();
+    void UpdateButtonEnabledStates();
 
     /// <summary>
     /// 设置指定按钮的启用状态

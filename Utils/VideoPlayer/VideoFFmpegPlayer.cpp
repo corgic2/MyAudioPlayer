@@ -10,7 +10,7 @@
 #include "VideoWidget/PlayerVideoModuleWidget.h"
 
 VideoFFmpegPlayer::VideoFFmpegPlayer(QObject* parent)
-    : BaseFFmpegPlayer(parent), m_pPlayWorker(nullptr), m_pRecordWorker(nullptr), m_pVideoDisplayWidget(nullptr)
+    : BaseFFmpegPlayer(parent)
 {
 }
 
@@ -54,7 +54,7 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
 
     // 连接信号槽
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayProgressUpdated, this, &VideoFFmpegPlayer::SigPlayProgressUpdated);
-    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigFrameDataUpdated, this, &VideoFFmpegPlayer::SlotHandleFrameUpdate);
+    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigFrameDataUpdated, this, &VideoFFmpegPlayer::SlotHandleFrameUpdate,Qt::QueuedConnection);
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigError, this, &VideoFFmpegPlayer::SigError);
 
     connect(this, &VideoFFmpegPlayer::destroyed, m_pPlayWorker.get(), &VideoPlayWorker::deleteLater);
@@ -77,8 +77,8 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
     // 记录播放开始时间
     RecordPlayStartTime(startPosition);
 
-    m_pPlayWorker->SlotStartPlay();
     m_playState.SetPlaying(true);
+    m_pPlayWorker->SlotStartPlay();
 
     LOG_INFO("Video playback started successfully: " + videoPath.toStdString());
 }
