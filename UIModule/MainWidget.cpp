@@ -20,7 +20,6 @@
 #include <QTextCodec>
 #include <QToolBar>
 #include <QVBoxLayout>
-#include "FFmpegPublicUtils.h"
 #include "../AVFileSystem/AVFileSystem.h"
 #include "AudioWidget/PlayerAudioModuleWidget.h"
 #include "FileSystem/FileSystem.h"

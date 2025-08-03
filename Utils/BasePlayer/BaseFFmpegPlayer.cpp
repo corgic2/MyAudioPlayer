@@ -1,29 +1,29 @@
-﻿#include "BaseFFmpegUtils.h"
+﻿#include "BaseFFmpegPlayer.h"
 #include "LogSystem/LogSystem.h"
 #include "FileSystem/FileSystem.h"
 
-BaseFFmpegUtils::BaseFFmpegUtils(QObject* parent)
+BaseFFmpegPlayer::BaseFFmpegPlayer(QObject* parent)
     : QObject(parent)
 {
     ResetPlayState();
     ResetRecordState();
 }
 
-BaseFFmpegUtils::~BaseFFmpegUtils()
+BaseFFmpegPlayer::~BaseFFmpegPlayer()
 {
 }
 
-std::unique_ptr<ST_OpenFileResult> BaseFFmpegUtils::OpenMediaFile(const QString& filePath)
+std::unique_ptr<ST_OpenFileResult> BaseFFmpegPlayer::OpenMediaFile(const QString& filePath)
 {
     if (filePath.isEmpty())
     {
-        LOG_WARN("BaseFFmpegUtils::OpenMediaFile() : Empty file path");
+        LOG_WARN("BaseFFmpegPlayer::OpenMediaFile() : Empty file path");
         return nullptr;
     }
 
     if (!my_sdk::FileSystem::Exists(filePath.toStdString()))
     {
-        LOG_WARN("BaseFFmpegUtils::OpenMediaFile() : File does not exist: " + filePath.toStdString());
+        LOG_WARN("BaseFFmpegPlayer::OpenMediaFile() : File does not exist: " + filePath.toStdString());
         return nullptr;
     }
 
@@ -32,7 +32,7 @@ std::unique_ptr<ST_OpenFileResult> BaseFFmpegUtils::OpenMediaFile(const QString&
     
     if (!openFileResult->m_formatCtx || !openFileResult->m_formatCtx->GetRawContext())
     {
-        LOG_WARN("BaseFFmpegUtils::OpenMediaFile() : Failed to open file: " + filePath.toStdString());
+        LOG_WARN("BaseFFmpegPlayer::OpenMediaFile() : Failed to open file: " + filePath.toStdString());
         return nullptr;
     }
 
@@ -45,7 +45,7 @@ std::unique_ptr<ST_OpenFileResult> BaseFFmpegUtils::OpenMediaFile(const QString&
     return openFileResult;
 }
 
-void BaseFFmpegUtils::SetPlayState(EM_PlayState state)
+void BaseFFmpegPlayer::SetPlayState(EM_PlayState state)
 {
     EM_PlayState oldState = m_playState.load();
     m_playState.store(state);
@@ -58,7 +58,7 @@ void BaseFFmpegUtils::SetPlayState(EM_PlayState state)
     }
 }
 
-void BaseFFmpegUtils::SetRecordState(EM_RecordState state)
+void BaseFFmpegPlayer::SetRecordState(EM_RecordState state)
 {
     EM_RecordState oldState = m_recordState.load();
     m_recordState.store(state);
@@ -71,43 +71,43 @@ void BaseFFmpegUtils::SetRecordState(EM_RecordState state)
     }
 }
 
-void BaseFFmpegUtils::SetCurrentFilePath(const QString& filePath)
+void BaseFFmpegPlayer::SetCurrentFilePath(const QString& filePath)
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     m_currentFilePath = filePath;
 }
 
-QString BaseFFmpegUtils::GetCurrentFilePath() const
+QString BaseFFmpegPlayer::GetCurrentFilePath() const
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     return m_currentFilePath;
 }
 
-void BaseFFmpegUtils::SetDuration(double duration)
+void BaseFFmpegPlayer::SetDuration(double duration)
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     m_duration = duration;
 }
 
-void BaseFFmpegUtils::ResetPlayState()
+void BaseFFmpegPlayer::ResetPlayState()
 {
     SetPlayState(EM_PlayState::Stopped);
     m_startTime = 0.0;
 }
 
-void BaseFFmpegUtils::ResetRecordState()
+void BaseFFmpegPlayer::ResetRecordState()
 {
     SetRecordState(EM_RecordState::Stopped);
 }
 
-void BaseFFmpegUtils::RecordPlayStartTime(double startPosition)
+void BaseFFmpegPlayer::RecordPlayStartTime(double startPosition)
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     m_startTime = startPosition;
     m_playStartTimePoint = std::chrono::steady_clock::now();
 }
 
-double BaseFFmpegUtils::CalculateCurrentPosition() const
+double BaseFFmpegPlayer::CalculateCurrentPosition() const
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     
@@ -125,7 +125,7 @@ double BaseFFmpegUtils::CalculateCurrentPosition() const
     return std::min(currentPos, m_duration);
 }
 
-void BaseFFmpegUtils::ResetPlayerState()
+void BaseFFmpegPlayer::ResetPlayerState()
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     
@@ -144,7 +144,7 @@ void BaseFFmpegUtils::ResetPlayerState()
     LOG_INFO("Player state reset completed");
 }
 
-bool BaseFFmpegUtils::CanReusePlayer() const
+bool BaseFFmpegPlayer::CanReusePlayer() const
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     
@@ -153,7 +153,7 @@ bool BaseFFmpegUtils::CanReusePlayer() const
            m_recordState.load() != EM_RecordState::Recording;
 }
 
-void BaseFFmpegUtils::ForceStop()
+void BaseFFmpegPlayer::ForceStop()
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     

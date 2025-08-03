@@ -8,6 +8,7 @@
 #include "ControlButtonWidget.h"
 #include "CoreServerGlobal.h"
 #include "../AVFileSystem/AVFileSystem.h"
+#include "BasePlayer/MediaPlayerManager.h"
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "CoreWidget/CustomComboBox.h"
 #include "CoreWidget/CustomLabel.h"

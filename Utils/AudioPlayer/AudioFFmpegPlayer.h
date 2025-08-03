@@ -7,7 +7,7 @@
 #include <QString>
 #include <QStringList>
 #include "AudioResampler.h"
-#include "BaseFFmpegUtils.h"
+#include "../BasePlayer/BaseFFmpegPlayer.h"
 #include "DataDefine/ST_AudioPlayInfo.h"
 #include "DataDefine/ST_AudioPlayState.h"
 #include "DataDefine/ST_OpenAudioDevice.h"
@@ -25,9 +25,9 @@ extern "C"
 }
 
 /// <summary>
-/// FFmpeg音频工具类
+/// FFmpeg音频播放类
 /// </summary>
-class AudioFFmpegUtils : public BaseFFmpegUtils
+class AudioFFmpegPlayer : public BaseFFmpegPlayer
 {
     Q_OBJECT;
 
@@ -36,16 +36,12 @@ public:
     /// 构造函数
     /// </summary>
     /// <param name="parent">父对象</param>
-    explicit AudioFFmpegUtils(QObject* parent = nullptr);
+    explicit AudioFFmpegPlayer(QObject* parent = nullptr);
 
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~AudioFFmpegUtils() override;
-    /// <summary>
-    /// 注册设备
-    /// </summary>
-    static void ResigsterDevice();
+    ~AudioFFmpegPlayer() override;
 
     /// <summary>
     /// 开始录音
@@ -136,12 +132,6 @@ private:
     void ShowSpec(AVFormatContext* ctx);
 
     /// <summary>
-    /// 获取所有音频输入设备
-    /// </summary>
-    /// <returns>设备列表</returns>
-    QStringList GetInputAudioDevices();
-    
-    /// <summary>
     /// 设置输入设备
     /// </summary>
     /// <param name="deviceName">设备名称</param>
@@ -153,32 +143,6 @@ private:
     /// <param name="seconds">定位时间（秒）</param>
     /// <returns>是否定位成功</returns>
     bool SeekAudio(double seconds);
-
-    /// <summary>
-    /// 处理音频帧以生成波形数据
-    /// </summary>
-    /// <param name="frame">音频帧</param>
-    /// <param name="waveformData">波形数据输出</param>
-    /// <param name="samplesPerPixel">每像素采样数</param>
-    /// <param name="currentSum">当前累计值</param>
-    /// <param name="sampleCount">当前采样计数</param>
-    /// <param name="maxSample">最大采样值</param>
-    void ProcessAudioFrame(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample);
-
-    /// <summary>
-    /// 处理浮点采样格式
-    /// </summary>
-    void ProcessFloatSamples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample);
-
-    /// <summary>
-    /// 处理16位整数采样格式
-    /// </summary>
-    void ProcessInt16Samples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample);
-
-    /// <summary>
-    /// 处理32位整数采样格式
-    /// </summary>
-    void ProcessInt32Samples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample);
 
     /// <summary>
     /// 处理音频数据流

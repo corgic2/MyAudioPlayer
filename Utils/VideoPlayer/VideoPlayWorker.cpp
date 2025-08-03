@@ -1,7 +1,7 @@
 ﻿#include "VideoPlayWorker.h"
 #include <QMutexLocker>
 #include <QThread>
-#include "FFmpegPublicUtils.h"
+#include "../BasePlayer/FFmpegPublicUtils.h"
 #include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
@@ -44,12 +44,6 @@ void VideoPlayWorker::SafeFreeChannelLayout(AVChannelLayout** layout)
         *layout = nullptr;
     }
 }
-
-// InitAudioSystem方法已移除，音频初始化由AudioFFmpegUtils处理
-
-// CleanupAudioSystem方法已移除，音频清理由AudioFFmpegUtils处理
-
-
 
 void VideoPlayWorker::Cleanup()
 {
@@ -106,7 +100,7 @@ void VideoPlayWorker::SlotPausePlay()
         m_bIsPaused.store(true);
         m_pauseStartTime = av_gettime();
         
-        // 音频暂停由AudioFFmpegUtils处理
+        // 音频暂停由AudioFFmpegPlayer处理
         
         emit SigPlayStateChanged(EM_VideoPlayState::Paused);
         LOG_INFO("Video playback paused");
@@ -126,7 +120,7 @@ void VideoPlayWorker::SlotResumePlay()
             m_pauseStartTime = 0;
         }
         
-        // 音频恢复由AudioFFmpegUtils处理
+        // 音频恢复由AudioFFmpegPlayer处理
         
         emit SigPlayStateChanged(EM_VideoPlayState::Playing);
         LOG_INFO("Video playback resumed");
@@ -205,7 +199,7 @@ void VideoPlayWorker::PlayLoop()
                 consecutiveErrors = 0; // 重置错误计数
             }
         }
-        // 音频包跳过（由AudioFFmpegUtils处理）
+        // 音频包跳过（由AudioFFmpegPlayer处理）
         else if (m_pPacket.GetStreamIndex() == m_audioStreamIndex)
         {
             // 跳过音频包，因为音频播放由其他组件处理
@@ -242,7 +236,7 @@ void VideoPlayWorker::PlayLoop()
     LOG_INFO("Video playback completed");
 }
 
-// ProcessAudioFrame方法已移除，音频处理由AudioFFmpegUtils处理
+// ProcessAudioFrame方法已移除，音频处理由AudioFFmpegPlayer处理
 
 AVPixelFormat VideoPlayWorker::GetSafePixelFormat(AVPixelFormat format)
 {
@@ -498,7 +492,7 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
     if (m_bHasAudio)
     {
         LOG_INFO("Audio stream detected in video file (audio will be handled separately)");
-        // 注意：音频播放应该由AudioFFmpegUtils或统一的多媒体播放器处理
+        // 注意：音频播放应该由AudioFFmpegPlayer或统一的多媒体播放器处理
         // 这里只做检测，不做实际的音频播放处理
         m_bHasAudio = false; // 暂时禁用VideoPlayWorker中的音频处理
     }
@@ -541,7 +535,7 @@ bool VideoPlayWorker::DecodeVideoFrame()
     return false;
 }
 
-// DecodeAudioFrame方法已移除，音频解码由AudioFFmpegUtils处理
+// DecodeAudioFrame方法已移除，音频解码由AudioFFmpegPlayer处理
 
 void VideoPlayWorker::RenderFrame(AVFrame* frame)
 {

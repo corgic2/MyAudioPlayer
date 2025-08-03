@@ -6,7 +6,7 @@
 #include <QWidget>
 #include "ui_PlayerVideoModuleWidget.h"
 #include "BaseWidget/BaseModuleWidegt.h"
-#include "VideoPlayWorker.h"  // 包含视频类型定义
+#include "VideoPlayer/VideoPlayWorker.h"
 
 QT_BEGIN_NAMESPACE namespace Ui
 {
@@ -36,7 +36,7 @@ class PlayerVideoModuleWidget : public BaseModuleWidget
     /// 获取FFMpegUtils (已弃用，返回nullptr)
     /// </summary>
     /// <returns>FFmpeg工具类指针</returns>
-    BaseFFmpegUtils* GetFFMpegUtils() override;
+    BaseFFmpegPlayer* GetFFMpegUtils() override;
 
     /// <summary>
     /// 获取视频显示控件

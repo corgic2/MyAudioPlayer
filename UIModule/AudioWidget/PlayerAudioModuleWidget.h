@@ -34,7 +34,7 @@ public:
     /// 获取FFMpegUtils (已弃用，返回nullptr)
     /// </summary>
     /// <returns>FFmpeg工具类指针</returns>
-    BaseFFmpegUtils* GetFFMpegUtils() override;
+    BaseFFmpegPlayer* GetFFMpegUtils() override;
     /// <summary>
     /// 加载波形图
     /// </summary>

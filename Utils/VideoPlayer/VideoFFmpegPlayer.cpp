@@ -1,36 +1,36 @@
-﻿#include "VideoFFmpegUtils.h"
+﻿#include "VideoFFmpegPlayer.h"
 #include <QDebug>
 #include <QMutexLocker>
 #include <QThread>
 #include "AVFileSystem.h"
-#include "FFmpegPublicUtils.h"
+#include "../BasePlayer/FFmpegPublicUtils.h"
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 #include "VideoWidget/PlayerVideoModuleWidget.h"
 
-VideoFFmpegUtils::VideoFFmpegUtils(QObject* parent)
-    : BaseFFmpegUtils(parent), m_pPlayWorker(nullptr), m_pRecordWorker(nullptr), m_pVideoDisplayWidget(nullptr)
+VideoFFmpegPlayer::VideoFFmpegPlayer(QObject* parent)
+    : BaseFFmpegPlayer(parent), m_pPlayWorker(nullptr), m_pRecordWorker(nullptr), m_pVideoDisplayWidget(nullptr)
 {
 }
 
-VideoFFmpegUtils::~VideoFFmpegUtils()
+VideoFFmpegPlayer::~VideoFFmpegPlayer()
 {
     StopPlay();
     StopRecording();
 }
 
-void VideoFFmpegUtils::SetVideoDisplayWidget(PlayerVideoModuleWidget* videoWidget)
+void VideoFFmpegPlayer::SetVideoDisplayWidget(PlayerVideoModuleWidget* videoWidget)
 {
     m_pVideoDisplayWidget = videoWidget;
 }
 
-void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition, const QStringList& args)
+void VideoFFmpegPlayer::StartPlay(const QString& videoPath, double startPosition, const QStringList& args)
 {
     // 使用基类的文件验证功能
     if (!FFmpegPublicUtils::ValidateFilePath(videoPath))
     {
-        LOG_WARN("VideoFFmpegUtils::StartPlay() : Invalid video file path");
+        LOG_WARN("VideoFFmpegPlayer::StartPlay() : Invalid video file path");
         emit SigError("无效的视频文件路径");
         return;
     }
@@ -38,7 +38,7 @@ void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition,
     // 检查是否为支持的视频格式
     if (!av_fileSystem::AVFileSystem::IsVideoFile(videoPath.toStdString()))
     {
-        LOG_WARN("VideoFFmpegUtils::StartPlay() : Unsupported video format: " + videoPath.toStdString());
+        LOG_WARN("VideoFFmpegPlayer::StartPlay() : Unsupported video format: " + videoPath.toStdString());
         emit SigError("不支持的视频格式");
         return;
     }
@@ -53,17 +53,17 @@ void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition,
     m_pPlayWorker = std::make_unique<VideoPlayWorker>();
 
     // 连接信号槽
-    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayStateChanged, this, &VideoFFmpegUtils::SigPlayStateChanged);
-    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayProgressUpdated, this, &VideoFFmpegUtils::SigPlayProgressUpdated);
-    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigFrameDataUpdated, this, &VideoFFmpegUtils::SlotHandleFrameUpdate);
-    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigError, this, &VideoFFmpegUtils::SigError);
+    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayStateChanged, this, &VideoFFmpegPlayer::SigPlayStateChanged);
+    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayProgressUpdated, this, &VideoFFmpegPlayer::SigPlayProgressUpdated);
+    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigFrameDataUpdated, this, &VideoFFmpegPlayer::SlotHandleFrameUpdate);
+    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigError, this, &VideoFFmpegPlayer::SigError);
 
-    connect(this, &VideoFFmpegUtils::destroyed, m_pPlayWorker.get(), &VideoPlayWorker::deleteLater);
+    connect(this, &VideoFFmpegPlayer::destroyed, m_pPlayWorker.get(), &VideoPlayWorker::deleteLater);
 
     // 初始化播放器 - 不传入SDL参数，仅使用Qt显示
     if (!m_pPlayWorker->InitPlayer(videoPath, nullptr, nullptr))
     {
-        LOG_WARN("VideoFFmpegUtils::StartPlay() : Failed to initialize player");
+        LOG_WARN("VideoFFmpegPlayer::StartPlay() : Failed to initialize player");
         emit SigError("播放器初始化失败");
         // 清理资源
         m_pPlayWorker.reset();
@@ -85,7 +85,7 @@ void VideoFFmpegUtils::StartPlay(const QString& videoPath, double startPosition,
     LOG_INFO("Video playback started successfully: " + videoPath.toStdString());
 }
 
-void VideoFFmpegUtils::PausePlay()
+void VideoFFmpegPlayer::PausePlay()
 {
     if (IsPlaying() && m_pPlayWorker)
     {
@@ -94,7 +94,7 @@ void VideoFFmpegUtils::PausePlay()
     }
 }
 
-void VideoFFmpegUtils::ResumePlay()
+void VideoFFmpegPlayer::ResumePlay()
 {
     if (IsPaused() && m_pPlayWorker)
     {
@@ -103,7 +103,7 @@ void VideoFFmpegUtils::ResumePlay()
     }
 }
 
-void VideoFFmpegUtils::StopPlay()
+void VideoFFmpegPlayer::StopPlay()
 {
     if (!IsPlaying() && !IsPaused())
     {
@@ -122,11 +122,11 @@ void VideoFFmpegUtils::StopPlay()
     LOG_INFO("Video playback stopped");
 }
 
-void VideoFFmpegUtils::StartRecording(const QString& outputPath)
+void VideoFFmpegPlayer::StartRecording(const QString& outputPath)
 {
     if (outputPath.isEmpty())
     {
-        LOG_WARN("VideoFFmpegUtils::StartRecording() : Invalid output file path");
+        LOG_WARN("VideoFFmpegPlayer::StartRecording() : Invalid output file path");
         emit SigError("无效的输出文件路径");
         return;
     }
@@ -140,9 +140,9 @@ void VideoFFmpegUtils::StartRecording(const QString& outputPath)
     m_pRecordWorker = std::make_unique<VideoRecordWorker>();
 
     // 连接录制信号槽
-    connect(m_pRecordWorker.get(), &VideoRecordWorker::SigRecordStateChanged, this, &VideoFFmpegUtils::SigRecordStateChanged);
-    connect(m_pRecordWorker.get(), &VideoRecordWorker::SigError, this, &VideoFFmpegUtils::SigError);
-    connect(this, &VideoFFmpegUtils::destroyed, m_pRecordWorker.get(), &VideoRecordWorker::deleteLater);
+    connect(m_pRecordWorker.get(), &VideoRecordWorker::SigRecordStateChanged, this, &VideoFFmpegPlayer::SigRecordStateChanged);
+    connect(m_pRecordWorker.get(), &VideoRecordWorker::SigError, this, &VideoFFmpegPlayer::SigError);
+    connect(this, &VideoFFmpegPlayer::destroyed, m_pRecordWorker.get(), &VideoRecordWorker::deleteLater);
 
     // 启动录制线程
     m_pRecordWorker->SlotStartRecord(outputPath);
@@ -152,7 +152,7 @@ void VideoFFmpegUtils::StartRecording(const QString& outputPath)
     LOG_INFO("Video recording started: " + outputPath.toStdString());
 }
 
-void VideoFFmpegUtils::StopRecording()
+void VideoFFmpegPlayer::StopRecording()
 {
     if (!IsRecording())
     {
@@ -171,7 +171,7 @@ void VideoFFmpegUtils::StopRecording()
     LOG_INFO("Video recording stopped");
 }
 
-void VideoFFmpegUtils::SeekPlay(double seconds)
+void VideoFFmpegPlayer::SeekPlay(double seconds)
 {
     if (m_pPlayWorker && (IsPlaying() || IsPaused()))
     {
@@ -181,18 +181,18 @@ void VideoFFmpegUtils::SeekPlay(double seconds)
     }
 }
 
-double VideoFFmpegUtils::GetCurrentPosition() const
+double VideoFFmpegPlayer::GetCurrentPosition() const
 {
     // 使用基类的计算方法
     return CalculateCurrentPosition();
 }
 
-ST_VideoFrameInfo VideoFFmpegUtils::GetVideoInfo() const
+ST_VideoFrameInfo VideoFFmpegPlayer::GetVideoInfo() const
 {
     return m_videoInfo;
 }
 
-void VideoFFmpegUtils::SlotHandleFrameUpdate(const uint8_t* frameData, int width, int height)
+void VideoFFmpegPlayer::SlotHandleFrameUpdate(const uint8_t* frameData, int width, int height)
 {
     // 将帧数据传递给显示控件
     if (m_pVideoDisplayWidget)
@@ -204,9 +204,9 @@ void VideoFFmpegUtils::SlotHandleFrameUpdate(const uint8_t* frameData, int width
     emit SigFrameUpdated(frameData, width, height);
 }
 
-void VideoFFmpegUtils::ResetPlayerState()
+void VideoFFmpegPlayer::ResetPlayerState()
 {
-    LOG_INFO("Resetting VideoFFmpegUtils player state");
+    LOG_INFO("Resetting VideoFFmpegPlayer player state");
     
     // 强制停止播放和录制
     ForceStop();
@@ -228,14 +228,14 @@ void VideoFFmpegUtils::ResetPlayerState()
     m_videoInfo = ST_VideoFrameInfo();
     
     // 调用基类的重置方法
-    BaseFFmpegUtils::ResetPlayerState();
+    BaseFFmpegPlayer::ResetPlayerState();
     
-    LOG_INFO("VideoFFmpegUtils player state reset completed");
+    LOG_INFO("VideoFFmpegPlayer player state reset completed");
 }
 
-void VideoFFmpegUtils::ForceStop()
+void VideoFFmpegPlayer::ForceStop()
 {
-    LOG_INFO("Force stopping VideoFFmpegUtils");
+    LOG_INFO("Force stopping VideoFFmpegPlayer");
     
     // 强制停止播放工作对象
     if (m_pPlayWorker)
@@ -250,7 +250,7 @@ void VideoFFmpegUtils::ForceStop()
     }
     
     // 调用基类的强制停止
-    BaseFFmpegUtils::ForceStop();
+    BaseFFmpegPlayer::ForceStop();
     
-    LOG_INFO("VideoFFmpegUtils force stop completed");
+    LOG_INFO("VideoFFmpegPlayer force stop completed");
 }

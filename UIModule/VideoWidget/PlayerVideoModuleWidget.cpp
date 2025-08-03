@@ -29,7 +29,7 @@ PlayerVideoModuleWidget::~PlayerVideoModuleWidget()
     // m_videoFFmpeg 会由Qt的父子关系自动删除
 }
 
-BaseFFmpegUtils* PlayerVideoModuleWidget::GetFFMpegUtils()
+BaseFFmpegPlayer* PlayerVideoModuleWidget::GetFFMpegUtils()
 {
     // 已弃用：现在使用MediaPlayerManager统一管理
     return nullptr;
@@ -62,7 +62,7 @@ void PlayerVideoModuleWidget::InitializeWidget()
 
 void PlayerVideoModuleWidget::ConnectSignals()
 {
-    // 现在不再直接连接VideoFFmpegUtils信号
+    // 现在不再直接连接VideoFFmpegPlayer信号
     // 播放状态和进度信息将通过AVBaseWidget和MediaPlayerManager传递
 }
 

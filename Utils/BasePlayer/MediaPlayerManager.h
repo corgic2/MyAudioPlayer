@@ -5,8 +5,8 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
-#include "AudioFFmpegUtils.h"
-#include "VideoFFmpegUtils.h"
+#include "../AudioPlayer/AudioFFmpegPlayer.h"
+#include "../VideoPlayer/VideoFFmpegPlayer.h"
 #include <atomic>
 #include <chrono>
 
@@ -254,12 +254,12 @@ private:
     /// <summary>
     /// 音频播放器
     /// </summary>
-    std::unique_ptr<AudioFFmpegUtils> m_audioPlayer{nullptr};
+    std::unique_ptr<AudioFFmpegPlayer> m_audioPlayer{nullptr};
 
     /// <summary>
     /// 视频播放器
     /// </summary>
-    std::unique_ptr<VideoFFmpegUtils> m_videoPlayer{nullptr};
+    std::unique_ptr<VideoFFmpegPlayer> m_videoPlayer{nullptr};
 
     /// <summary>
     /// 当前活动的媒体类型

@@ -18,8 +18,8 @@ xcopy "%SDKDIR%\x64\Release\*" "%~dp0x64\Release\" /E /I /Y
 
 xcopy "%FFMPEGDIR%\lib\*" "%~dp0x64\Release\" /E /I /Y
 xcopy "%FFMPEGDIR%\bin\*" "%~dp0x64\Release\" /E /I /Y
-xcopy "%CustomUIDir%\x64\Release\MuCustomUiWidget.dll" "%~dp0x64\Release\" /E /I /Y
-xcopy "%CustomUIDir%\x64\Release\MuCustomUiWidget.lib" "%~dp0x64\Release\" /E /I /Y
+xcopy "%CustomUIDir%\x64\Release\*.dll" "%~dp0x64\Release\" /E /I /Y
+xcopy "%CustomUIDir%\x64\Release\*.lib" "%~dp0x64\Release\" /E /I /Y
 echo Operation completed.
 
 echo ========================================

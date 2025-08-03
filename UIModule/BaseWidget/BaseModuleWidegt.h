@@ -1,7 +1,7 @@
 ﻿#pragma once
 
 #include <QWidget>
-#include "BaseFFmpegUtils.h"
+#include "BasePlayer/BaseFFmpegPlayer.h"
 
 /// <summary>
 /// 基础模块控件类
@@ -26,6 +26,6 @@ public:
     /// 获取FFmpeg工具类指针（纯虚函数）
     /// </summary>
     /// <returns>FFmpeg工具类指针</returns>
-    virtual BaseFFmpegUtils* GetFFMpegUtils() = 0;
+    virtual BaseFFmpegPlayer* GetFFMpegUtils() = 0;
 };
 

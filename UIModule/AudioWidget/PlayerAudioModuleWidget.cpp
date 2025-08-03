@@ -2,7 +2,7 @@
 
 #include <QThread>
 #include "CoreServerGlobal.h"
-#include "MediaPlayerManager.h"
+#include "BasePlayer/MediaPlayerManager.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
 
@@ -25,7 +25,7 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
     SAFE_DELETE_POINTER_VALUE(ui);
 }
 
-BaseFFmpegUtils* PlayerAudioModuleWidget::GetFFMpegUtils()
+BaseFFmpegPlayer* PlayerAudioModuleWidget::GetFFMpegUtils()
 {
     // 已弃用：现在使用MediaPlayerManager统一管理
     return nullptr;
@@ -67,7 +67,7 @@ void PlayerAudioModuleWidget::UpdateWaveformPosition(double currentPos, double d
 
 void PlayerAudioModuleWidget::ConnectSignals()
 {
-    // 现在不再直接连接AudioFFmpegUtils信号
+    // 现在不再直接连接AudioFFmpegPlayer信号
     // 播放状态和进度信息将通过AVBaseWidget传递
 }
 

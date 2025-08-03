@@ -8,7 +8,7 @@
 #include <QThread>
 #include <QTimer>
 #include <QWidget>
-#include "BaseFFmpegUtils.h"
+#include "../BasePlayer/BaseFFmpegPlayer.h"
 #include "VideoPlayWorker.h"
 #include "VideoRecordWorker.h"
 
@@ -18,21 +18,21 @@ class VideoRecordWorker;
 class PlayerVideoModuleWidget;
 
 /// <summary>
-/// 视频FFmpeg工具类
+/// 视频FFmpeg播放类
 /// </summary>
-class VideoFFmpegUtils : public BaseFFmpegUtils
+class VideoFFmpegPlayer : public BaseFFmpegPlayer
 {
     Q_OBJECT public:
     /// <summary>
     /// 构造函数
     /// </summary>
     /// <param name="parent">父对象</param>
-    explicit VideoFFmpegUtils(QObject* parent = nullptr);
+    explicit VideoFFmpegPlayer(QObject* parent = nullptr);
 
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~VideoFFmpegUtils() override;
+    ~VideoFFmpegPlayer() override;
 
     /// <summary>
     /// 设置视频显示控件

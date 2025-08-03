@@ -53,7 +53,7 @@ enum class EM_RecordState
 /// <summary>
 /// FFmpeg工具基类
 /// </summary>
-class BaseFFmpegUtils : public QObject
+class BaseFFmpegPlayer : public QObject
 {
     Q_OBJECT 
 
@@ -62,12 +62,12 @@ public:
     /// 构造函数
     /// </summary>
     /// <param name="parent">父对象</param>
-    BaseFFmpegUtils(QObject* parent = nullptr);
+    BaseFFmpegPlayer(QObject* parent = nullptr);
 
     /// <summary>
     /// 析构函数
     /// </summary>
-    ~BaseFFmpegUtils() override;
+    ~BaseFFmpegPlayer() override;
 
     /// <summary>
     /// 开始录制
@@ -186,12 +186,6 @@ protected:
     /// 重置录制状态
     /// </summary>
     void ResetRecordState();
-
-    /// <summary>
-    /// 获取线程安全的互斥锁
-    /// </summary>
-    /// <returns>互斥锁引用</returns>
-    std::recursive_mutex& GetMutex() { return m_mutex; }
 
     /// <summary>
     /// 记录播放开始时间

@@ -5,7 +5,7 @@
 #include "AudioWidget/PlayerAudioModuleWidget.h"
 #include "DomainWidget/FilePathIconListWidgetItem.h"
 #include "VideoWidget/PlayerVideoModuleWidget.h"
-#include "MediaPlayerManager.h"
+#include "BasePlayer/MediaPlayerManager.h"
 
 QT_BEGIN_NAMESPACE namespace Ui
 {

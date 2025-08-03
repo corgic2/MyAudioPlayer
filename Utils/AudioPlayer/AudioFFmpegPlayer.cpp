@@ -1,8 +1,9 @@
-﻿#include "AudioFFmpegUtils.h"
+﻿#include "AudioFFmpegPlayer.h"
 #include <QFile>
+#include "AudioPlayerUtils.h"
 
 #include "AudioResampler.h"
-#include "FFmpegPublicUtils.h"
+#include "../BasePlayer/FFmpegPublicUtils.h"
 #include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVCodecParameters.h"
@@ -18,34 +19,27 @@
 #pragma execution_character_set("utf-8")
 
 // 根据不同设备进行修改，此电脑为USB音频设备
-AudioFFmpegUtils::AudioFFmpegUtils(QObject* parent)
-    : BaseFFmpegUtils(parent)
+AudioFFmpegPlayer::AudioFFmpegPlayer(QObject* parent)
+    : BaseFFmpegPlayer(parent)
 {
     m_playState.Reset();
     // 暂使用默认第一个设备
-    m_inputAudioDevices = GetInputAudioDevices();
+    m_inputAudioDevices = AudioPlayerUtils::GetInputAudioDevices();
     if (!m_inputAudioDevices.empty())
     {
         m_currentInputDevice = m_inputAudioDevices.first();
     }
 }
 
-AudioFFmpegUtils::~AudioFFmpegUtils()
+AudioFFmpegPlayer::~AudioFFmpegPlayer()
 {
     StopPlay();
     StopRecording();
 }
 
-void AudioFFmpegUtils::ResigsterDevice()
-{
-    avdevice_register_all();
-    if (SDL_Init(SDL_INIT_AUDIO))
-    {
-        LOG_WARN("SDL_Init failed:" + std::string(SDL_GetError()));
-    }
-}
 
-std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio)
+
+std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegPlayer::OpenDevice(const QString& devieceFormat, const QString& deviceName, bool bAudio)
 {
     auto openDeviceParam = std::make_unique<ST_OpenAudioDevice>();
     openDeviceParam->GetInputFormat().FindInputFormat(devieceFormat.toStdString());
@@ -61,7 +55,7 @@ std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegUtils::OpenDevice(const QString& 
     return openDeviceParam;
 }
 
-void AudioFFmpegUtils::StartRecording(const QString& outputFilePath)
+void AudioFFmpegPlayer::StartRecording(const QString& outputFilePath)
 {
     QString encoderFormat = QString::fromStdString(my_sdk::FileSystem::GetExtension(outputFilePath.toStdString()));
     LOG_INFO("Starting audio recording, output file: " + outputFilePath.toStdString() + ", encoder format: " + encoderFormat.toStdString());
@@ -149,7 +143,7 @@ void AudioFFmpegUtils::StartRecording(const QString& outputFilePath)
     outputFormatCtx.WriteFileTrailer();
 }
 
-void AudioFFmpegUtils::StopRecording()
+void AudioFFmpegPlayer::StopRecording()
 {
     if (!IsRecording())
     {
@@ -162,9 +156,9 @@ void AudioFFmpegUtils::StopRecording()
     m_recordDevice.reset();
 }
 
-void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosition, const QStringList& args)
+void AudioFFmpegPlayer::StartPlay(const QString& inputFilePath, double startPosition, const QStringList& args)
 {
-    std::lock_guard<std::recursive_mutex> lock(GetMutex());
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     PlayerStateReSet();
 
     if (startPosition > GetDuration())
@@ -323,7 +317,7 @@ void AudioFFmpegUtils::StartPlay(const QString& inputFilePath, double startPosit
     TimeSystem::Instance().StopTimingWithLog("AudioPlaybackTotal", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "Audio playback initialization completed");
 }
 
-void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams)
+void AudioFFmpegPlayer::ProcessAudioData(ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams)
 {
     TIME_START("AudioDataProcessing");
     LOG_INFO("=== Starting audio data processing ===");
@@ -480,9 +474,9 @@ void AudioFFmpegUtils::ProcessAudioData(ST_OpenFileResult& openFileResult, Audio
     TimeSystem::Instance().StopTimingWithLog("AudioDataProcessing", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "Audio data processing completed");
 }
 
-void AudioFFmpegUtils::PlayerStateReSet()
+void AudioFFmpegPlayer::PlayerStateReSet()
 {
-    std::lock_guard<std::recursive_mutex> lock(GetMutex());
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
     // 确保之前的资源被完全释放
     if (m_playInfo)
@@ -497,9 +491,9 @@ void AudioFFmpegUtils::PlayerStateReSet()
     m_playState.Reset();
 }
 
-void AudioFFmpegUtils::PausePlay()
+void AudioFFmpegPlayer::PausePlay()
 {
-    std::lock_guard<std::recursive_mutex> lock(GetMutex());
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
     if (!IsPlaying() || !m_playInfo)
     {
@@ -517,9 +511,9 @@ void AudioFFmpegUtils::PausePlay()
     m_playInfo->PauseAudio();
 }
 
-void AudioFFmpegUtils::ResumePlay()
+void AudioFFmpegPlayer::ResumePlay()
 {
-    std::lock_guard<std::recursive_mutex> lock(GetMutex());
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
     if (!IsPaused() || !m_playInfo)
     {
@@ -533,17 +527,17 @@ void AudioFFmpegUtils::ResumePlay()
     m_playInfo->ResumeAudio();
 }
 
-void AudioFFmpegUtils::StopPlay()
+void AudioFFmpegPlayer::StopPlay()
 {
-    std::lock_guard<std::recursive_mutex> lock(GetMutex());
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     PlayerStateReSet();
     SetPlayState(EM_PlayState::Stopped);
     m_playState.Reset();
 }
 
-bool AudioFFmpegUtils::SeekAudio(double seconds)
+bool AudioFFmpegPlayer::SeekAudio(double seconds)
 {
-    std::lock_guard<std::recursive_mutex> lock(GetMutex());
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
     if (GetCurrentFilePath().isEmpty() || !m_playInfo)
     {
@@ -574,7 +568,7 @@ bool AudioFFmpegUtils::SeekAudio(double seconds)
     return true;
 }
 
-void AudioFFmpegUtils::SeekPlay(double seconds)
+void AudioFFmpegPlayer::SeekPlay(double seconds)
 {
     if (IsPlaying())
     {
@@ -582,7 +576,7 @@ void AudioFFmpegUtils::SeekPlay(double seconds)
     }
 }
 
-void AudioFFmpegUtils::ShowSpec(AVFormatContext* ctx)
+void AudioFFmpegPlayer::ShowSpec(AVFormatContext* ctx)
 {
     if (!ctx)
     {
@@ -605,21 +599,12 @@ void AudioFFmpegUtils::ShowSpec(AVFormatContext* ctx)
     qDebug() << "Bits per Sample:" << params.GetBitPerSample();
 }
 
-QStringList AudioFFmpegUtils::GetInputAudioDevices()
-{
-    QStringList devices;
-    ST_AVInputFormat inputFormat;
-    inputFormat.FindInputFormat(FMT_NAME);
-    devices = inputFormat.GetDeviceLists(nullptr, nullptr);
-    return devices;
-}
-
-void AudioFFmpegUtils::SetInputDevice(const QString& deviceName)
+void AudioFFmpegPlayer::SetInputDevice(const QString& deviceName)
 {
     m_currentInputDevice = deviceName;
 }
 
-bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData)
+bool AudioFFmpegPlayer::LoadAudioWaveform(const QString& filePath, QVector<float>& waveformData)
 {
     TIME_START("AudioWaveformLoading");
     LOG_INFO("=== Starting audio waveform loading for: " + filePath.toStdString() + " ===");
@@ -664,7 +649,7 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
                 while (frame.GetCodecFrame(openFileResult.m_codecCtx->GetRawContext()))
                 {
                     // 处理不同的采样格式
-                    ProcessAudioFrame(frame.GetRawFrame(), waveformData, SAMPLES_PER_PIXEL, currentSum, sampleCount, maxSample);
+                    AudioPlayerUtils::ProcessAudioFrame(frame.GetRawFrame(), waveformData, SAMPLES_PER_PIXEL, currentSum, sampleCount, maxSample);
                 }
             }
             processedPackets++;
@@ -695,191 +680,17 @@ bool AudioFFmpegUtils::LoadAudioWaveform(const QString& filePath, QVector<float>
     return !waveformData.isEmpty();
 }
 
-void AudioFFmpegUtils::ProcessAudioFrame(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample)
-{
-    if (!frame || frame->nb_samples <= 0)
-    {
-        return;
-    }
-
-    auto format = static_cast<AVSampleFormat>(frame->format);
-    int channels = frame->ch_layout.nb_channels;
-    int samples = frame->nb_samples;
-
-    // 根据不同的采样格式处理
-    switch (format)
-    {
-        case AV_SAMPLE_FMT_FLT:  // 浮点格式，交错
-        case AV_SAMPLE_FMT_FLTP: // 浮点格式，平面
-        {
-            ProcessFloatSamples(frame, waveformData, samplesPerPixel, currentSum, sampleCount, maxSample);
-            break;
-        }
-        case AV_SAMPLE_FMT_S16:  // 16位整数，交错
-        case AV_SAMPLE_FMT_S16P: // 16位整数，平面
-        {
-            ProcessInt16Samples(frame, waveformData, samplesPerPixel, currentSum, sampleCount, maxSample);
-            break;
-        }
-        case AV_SAMPLE_FMT_S32:  // 32位整数，交错
-        case AV_SAMPLE_FMT_S32P: // 32位整数，平面
-        {
-            ProcessInt32Samples(frame, waveformData, samplesPerPixel, currentSum, sampleCount, maxSample);
-            break;
-        }
-        default:
-        {
-            LOG_WARN("ProcessAudioFrame() : Unsupported sample format: " + std::to_string(format));
-            break;
-        }
-    }
-}
-
-void AudioFFmpegUtils::ProcessFloatSamples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample)
-{
-    bool isPlanar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(frame->format));
-    int channels = frame->ch_layout.nb_channels;
-
-    for (int i = 0; i < frame->nb_samples; i++)
-    {
-        float sample = 0.0f;
-
-        if (isPlanar)
-        {
-            // 平面格式：每个通道分别存储
-            for (int ch = 0; ch < channels; ch++)
-            {
-                auto* data = reinterpret_cast<float*>(frame->data[ch]);
-                sample += std::abs(data[i]);
-            }
-            sample /= channels; // 取平均值
-        }
-        else
-        {
-            // 交错格式：所有通道交错存储
-            auto* data = reinterpret_cast<float*>(frame->data[0]);
-            for (int ch = 0; ch < channels; ch++)
-            {
-                sample += std::abs(data[i * channels + ch]);
-            }
-            sample /= channels; // 取平均值
-        }
-
-        currentSum += sample;
-        sampleCount++;
-
-        if (sampleCount >= samplesPerPixel)
-        {
-            float average = currentSum / sampleCount;
-            waveformData.append(average);
-            maxSample = std::max(maxSample, average);
-            currentSum = 0.0f;
-            sampleCount = 0;
-        }
-    }
-}
-
-void AudioFFmpegUtils::ProcessInt16Samples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample)
-{
-    bool isPlanar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(frame->format));
-    int channels = frame->ch_layout.nb_channels;
-    const float scale = 1.0f / 32768.0f; // 16位整数的归一化因子
-
-    for (int i = 0; i < frame->nb_samples; i++)
-    {
-        float sample = 0.0f;
-
-        if (isPlanar)
-        {
-            // 平面格式
-            for (int ch = 0; ch < channels; ch++)
-            {
-                auto* data = reinterpret_cast<int16_t*>(frame->data[ch]);
-                sample += std::abs(data[i]) * scale;
-            }
-            sample /= channels;
-        }
-        else
-        {
-            // 交错格式
-            auto* data = reinterpret_cast<int16_t*>(frame->data[0]);
-            for (int ch = 0; ch < channels; ch++)
-            {
-                sample += std::abs(data[i * channels + ch]) * scale;
-            }
-            sample /= channels;
-        }
-
-        currentSum += sample;
-        sampleCount++;
-
-        if (sampleCount >= samplesPerPixel)
-        {
-            float average = currentSum / sampleCount;
-            waveformData.append(average);
-            maxSample = std::max(maxSample, average);
-            currentSum = 0.0f;
-            sampleCount = 0;
-        }
-    }
-}
-
-void AudioFFmpegUtils::ProcessInt32Samples(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample)
-{
-    bool isPlanar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(frame->format));
-    int channels = frame->ch_layout.nb_channels;
-    const float scale = 1.0f / 2147483648.0f; // 32位整数的归一化因子
-
-    for (int i = 0; i < frame->nb_samples; i++)
-    {
-        float sample = 0.0f;
-
-        if (isPlanar)
-        {
-            // 平面格式
-            for (int ch = 0; ch < channels; ch++)
-            {
-                auto* data = reinterpret_cast<int32_t*>(frame->data[ch]);
-                sample += std::abs(data[i]) * scale;
-            }
-            sample /= channels;
-        }
-        else
-        {
-            // 交错格式
-            auto* data = reinterpret_cast<int32_t*>(frame->data[0]);
-            for (int ch = 0; ch < channels; ch++)
-            {
-                sample += std::abs(data[i * channels + ch]) * scale;
-            }
-            sample /= channels;
-        }
-
-        currentSum += sample;
-        sampleCount++;
-
-        if (sampleCount >= samplesPerPixel)
-        {
-            float average = currentSum / sampleCount;
-            waveformData.append(average);
-            maxSample = std::max(maxSample, average);
-            currentSum = 0.0f;
-            sampleCount = 0;
-        }
-    }
-}
-
-double AudioFFmpegUtils::GetCurrentPosition() const
+double AudioFFmpegPlayer::GetCurrentPosition() const
 {
     // 使用基类的计算方法
     return CalculateCurrentPosition();
 }
 
-void AudioFFmpegUtils::ResetPlayerState()
+void AudioFFmpegPlayer::ResetPlayerState()
 {
-    std::lock_guard<std::recursive_mutex> lock(GetMutex());
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-    LOG_INFO("Resetting AudioFFmpegUtils player state");
+    LOG_INFO("Resetting AudioFFmpegPlayer player state");
 
     // 强制停止播放和录制
     ForceStop();
@@ -891,16 +702,16 @@ void AudioFFmpegUtils::ResetPlayerState()
     m_recordDevice.reset();
 
     // 调用基类的重置方法
-    BaseFFmpegUtils::ResetPlayerState();
+    BaseFFmpegPlayer::ResetPlayerState();
 
-    LOG_INFO("AudioFFmpegUtils player state reset completed");
+    LOG_INFO("AudioFFmpegPlayer player state reset completed");
 }
 
-void AudioFFmpegUtils::ForceStop()
+void AudioFFmpegPlayer::ForceStop()
 {
-    std::lock_guard<std::recursive_mutex> lock(GetMutex());
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-    LOG_INFO("Force stopping AudioFFmpegUtils");
+    LOG_INFO("Force stopping AudioFFmpegPlayer");
 
     // 强制停止播放
     if (m_playInfo)
@@ -916,10 +727,10 @@ void AudioFFmpegUtils::ForceStop()
     }
 
     // 调用基类的强制停止
-    BaseFFmpegUtils::ForceStop();
+    BaseFFmpegPlayer::ForceStop();
 
     // 重置播放状态
     m_playState.Reset();
 
-    LOG_INFO("AudioFFmpegUtils force stop completed");
+    LOG_INFO("AudioFFmpegPlayer force stop completed");
 }

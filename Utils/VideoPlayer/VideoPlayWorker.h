@@ -234,7 +234,7 @@ private:
     /// <param name="frame">视频帧</param>
     void RenderFrame(AVFrame* frame);
 
-    // 音频相关方法已移除，音频播放由AudioFFmpegUtils处理
+    // 音频相关方法已移除，音频播放由AudioFFmpegPlayer处理
 
     /// <summary>
     /// 计算帧时间延迟
@@ -319,7 +319,7 @@ private:
     /// </summary>
     ST_SDL_Texture* m_pTexture = nullptr;
 
-    // 注意：音频相关成员已移除，音频播放由AudioFFmpegUtils处理
+    // 注意：音频相关成员已移除，音频播放由AudioFFmpegPlayer处理
 
     /// <summary>
     /// 视频信息

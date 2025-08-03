@@ -4,8 +4,9 @@
 #include "CoreServerGlobal.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 #include "UIModule/MainWidget.h"
-#include "Utils/AudioFFmpegUtils.h"
-#include "Utils/FFmpegPublicUtils.h"
+#include "AudioPlayer//AudioFFmpegPlayer.h"
+#include "AudioPlayer/AudioPlayerUtils.h"
+#include "BasePlayer//FFmpegPublicUtils.h"
 void custom_log(void* ptr, int level, const char* fmt, va_list vl)
 {
     if (level <= av_log_get_level())
@@ -17,7 +18,7 @@ void custom_log(void* ptr, int level, const char* fmt, va_list vl)
 
 void InitCoreObject()
 {
-    AudioFFmpegUtils::ResigsterDevice();
+    AudioPlayerUtils::ResigsterDevice();
     av_log_set_level(AV_LOG_DEBUG);
     // 在初始化时设置回调
     av_log_set_callback(custom_log);

@@ -34,8 +34,8 @@ MediaPlayerManager::MediaPlayerManager(QObject* parent)
     LOG_INFO("Initializing MediaPlayerManager");
 
     // 创建音频和视频播放器实例（但不立即使用）
-    m_audioPlayer = std::make_unique<AudioFFmpegUtils>(this);
-    m_videoPlayer = std::make_unique<VideoFFmpegUtils>(this);
+    m_audioPlayer = std::make_unique<AudioFFmpegPlayer>(this);
+    m_videoPlayer = std::make_unique<VideoFFmpegPlayer>(this);
 
     // 连接信号槽
     ConnectPlayerSignals();
@@ -55,18 +55,18 @@ void MediaPlayerManager::ConnectPlayerSignals()
     // 连接音频播放器信号
     if (m_audioPlayer)
     {
-        connect(m_audioPlayer.get(), &BaseFFmpegUtils::SigPlayStateChanged, this, &MediaPlayerManager::SigPlayStateChanged);
-        connect(m_audioPlayer.get(), &BaseFFmpegUtils::SigRecordStateChanged, this, &MediaPlayerManager::SigRecordStateChanged);
-        connect(m_audioPlayer.get(), &AudioFFmpegUtils::SigProgressChanged, this, &MediaPlayerManager::SigProgressChanged);
+        connect(m_audioPlayer.get(), &BaseFFmpegPlayer::SigPlayStateChanged, this, &MediaPlayerManager::SigPlayStateChanged);
+        connect(m_audioPlayer.get(), &BaseFFmpegPlayer::SigRecordStateChanged, this, &MediaPlayerManager::SigRecordStateChanged);
+        connect(m_audioPlayer.get(), &AudioFFmpegPlayer::SigProgressChanged, this, &MediaPlayerManager::SigProgressChanged);
     }
 
     // 连接视频播放器信号
     if (m_videoPlayer)
     {
-        connect(m_videoPlayer.get(), &BaseFFmpegUtils::SigPlayStateChanged, this, &MediaPlayerManager::SigPlayStateChanged);
-        connect(m_videoPlayer.get(), &BaseFFmpegUtils::SigRecordStateChanged, this, &MediaPlayerManager::SigRecordStateChanged);
-        connect(m_videoPlayer.get(), &VideoFFmpegUtils::SigFrameUpdated, this, &MediaPlayerManager::SigFrameUpdated);
-        connect(m_videoPlayer.get(), &VideoFFmpegUtils::SigError, this, &MediaPlayerManager::SigError);
+        connect(m_videoPlayer.get(), &BaseFFmpegPlayer::SigPlayStateChanged, this, &MediaPlayerManager::SigPlayStateChanged);
+        connect(m_videoPlayer.get(), &BaseFFmpegPlayer::SigRecordStateChanged, this, &MediaPlayerManager::SigRecordStateChanged);
+        connect(m_videoPlayer.get(), &VideoFFmpegPlayer::SigFrameUpdated, this, &MediaPlayerManager::SigFrameUpdated);
+        connect(m_videoPlayer.get(), &VideoFFmpegPlayer::SigError, this, &MediaPlayerManager::SigError);
     }
 }
 
@@ -121,7 +121,7 @@ bool MediaPlayerManager::PlayMedia(const QString& filePath, double startPosition
             
             // 设置同步播放标志
             m_isSyncPlaying.store(true);
-            
+            // 会导致音频先一步视频播放 
             // 先启动音频播放器（音频作为时钟基准）
             m_audioPlayer->StartPlay(filePath, startPosition, args);
             
