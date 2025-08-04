@@ -128,7 +128,7 @@ private slots:
     /// <summary>
     /// 处理视频帧更新
     /// </summary>
-    void SlotHandleFrameUpdate(const uint8_t* frameData, int width, int height);
+    void SlotHandleFrameUpdate(std::vector<uint8_t> frameData, int width, int height);
 
 private:
     /// <summary>

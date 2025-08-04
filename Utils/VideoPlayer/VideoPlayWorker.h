@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <QObject>
 #include <QString>
 #include "BaseDataDefine/ST_AVCodecContext.h"
@@ -97,10 +98,7 @@ class VideoPlayWorker : public QObject
     /// 获取视频信息
     /// </summary>
     /// <returns>视频帧信息</returns>
-    ST_VideoFrameInfo GetVideoInfo() const
-    {
-        return m_videoInfo;
-    }
+    ST_VideoFrameInfo GetVideoInfo();
 
 public slots:
     /// <summary>
@@ -154,7 +152,7 @@ signals:
     /// <param name="frameData">帧数据</param>
     /// <param name="width">帧宽度</param>
     /// <param name="height">帧高度</param>
-    void SigFrameDataUpdated(const uint8_t* frameData, int width, int height);
+    void SigFrameDataUpdated(std::vector<uint8_t> frameData, int width, int height);
 
 private:
     /// <summary>
@@ -313,6 +311,11 @@ private:
     /// </summary>
     std::vector<uint8_t> m_rgbBuffer;
 
+    /// <summary>
+    /// 视频播放互斥锁
+    /// </summary>
+    std::recursive_mutex m_mutex;
+
     // 音频相关成员已移除
 
     /// <summary>
@@ -338,4 +341,6 @@ private:
     /// 停止播放标志
     /// </summary>
     std::atomic<bool> m_bNeedStop = false;
+
+    size_t m_threadId;
 };

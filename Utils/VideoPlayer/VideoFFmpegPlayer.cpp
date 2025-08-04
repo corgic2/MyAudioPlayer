@@ -42,13 +42,6 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
         emit SigError("不支持的视频格式");
         return;
     }
-
-    // 停止当前播放
-    if (IsPlaying())
-    {
-        StopPlay();
-    }
-
     // 创建播放线程和工作对象
     m_pPlayWorker = std::make_unique<VideoPlayWorker>();
 
@@ -112,6 +105,7 @@ void VideoFFmpegPlayer::StopPlay()
     {
         m_pPlayWorker->SlotStopPlay();
         m_pPlayWorker.reset();
+        SDL_Delay(20);
     }
 
     m_playState.TransitionTo(AVPlayState::Stopped);
@@ -185,16 +179,16 @@ ST_VideoFrameInfo VideoFFmpegPlayer::GetVideoInfo() const
     return m_videoInfo;
 }
 
-void VideoFFmpegPlayer::SlotHandleFrameUpdate(const uint8_t* frameData, int width, int height)
+void VideoFFmpegPlayer::SlotHandleFrameUpdate(std::vector<uint8_t> frameData, int width, int height)
 {
     // 将帧数据传递给显示控件
     if (m_pVideoDisplayWidget)
     {
-        m_pVideoDisplayWidget->SetVideoFrame(frameData, width, height);
+        m_pVideoDisplayWidget->SetVideoFrame(frameData.data(), width, height);
     }
 
     // 同时发送信号供其他模块使用
-    emit SigFrameUpdated(frameData, width, height);
+    emit SigFrameUpdated(frameData.data(), width, height);
 }
 
 void VideoFFmpegPlayer::ResetPlayerState()
