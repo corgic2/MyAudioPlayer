@@ -42,6 +42,15 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
         emit SigError("不支持的视频格式");
         return;
     }
+    // 打开媒体文件（统一使用基类方法）
+    auto openFileResult = OpenMediaFile(videoPath);
+    if (!openFileResult || !openFileResult->m_formatCtx)
+    {
+        LOG_WARN("VideoFFmpegPlayer::StartPlay() : Failed to open media file: " + videoPath.toStdString());
+        emit SigError("无法打开媒体文件");
+        return;
+    }
+
     // 创建播放线程和工作对象
     m_pPlayWorker = std::make_unique<VideoPlayWorker>();
 
@@ -51,9 +60,9 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigError, this, &VideoFFmpegPlayer::SigError);
 
     connect(this, &VideoFFmpegPlayer::destroyed, m_pPlayWorker.get(), &VideoPlayWorker::deleteLater);
-
+    
     // 初始化播放器 - 不传入SDL参数，仅使用Qt显示
-    if (!m_pPlayWorker->InitPlayer(videoPath, nullptr, nullptr))
+    if (!m_pPlayWorker->InitPlayer(std::move(openFileResult), nullptr, nullptr))
     {
         LOG_WARN("VideoFFmpegPlayer::StartPlay() : Failed to initialize player");
         emit SigError("播放器初始化失败");
@@ -66,6 +75,12 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
     m_videoInfo = m_pPlayWorker->GetVideoInfo();
     SetCurrentFilePath(videoPath);
     SetDuration(m_videoInfo.m_duration);
+    
+    // 确保基类的时长信息正确设置
+    if (m_videoInfo.m_duration <= 0.0)
+    {
+        LOG_WARN("VideoFFmpegPlayer::StartPlay() : Video duration is 0 or invalid");
+    }
 
     // 记录播放开始时间
     RecordPlayStartTime(startPosition);

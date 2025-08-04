@@ -83,11 +83,11 @@ class VideoPlayWorker : public QObject
     /// <summary>
     /// 初始化播放器
     /// </summary>
-    /// <param name="filePath">视频文件路径</param>
+    /// <param name="openFileResult">打开文件结果</param>
     /// <param name="renderer">SDL渲染器（可选，可为nullptr表示仅使用Qt显示）</param>
     /// <param name="texture">SDL纹理（可选，可为nullptr表示仅使用Qt显示）</param>
     /// <returns>是否初始化成功</returns>
-    bool InitPlayer(const QString& filePath, ST_SDL_Renderer* renderer = nullptr, ST_SDL_Texture* texture = nullptr);
+    bool InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResult, ST_SDL_Renderer* renderer = nullptr, ST_SDL_Texture* texture = nullptr);
 
     /// <summary>
     /// 清理资源
@@ -248,11 +248,6 @@ private:
     /// 视频帧
     /// </summary>
     ST_AVFrame m_pVideoFrame;
-
-    /// <summary>
-    /// 音频帧（已不使用）
-    /// </summary>
-    ST_AVFrame m_pAudioFrame;
 
     /// <summary>
     /// RGB帧

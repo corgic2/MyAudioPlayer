@@ -161,11 +161,6 @@ void AudioFFmpegPlayer::StartPlay(const QString& inputFilePath, bool bStart, dou
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     PlayerStateReSet();
 
-    if (startPosition > GetDuration())
-    {
-        return;
-    }
-
     // 记录播放开始时间和位置
     RecordPlayStartTime(startPosition);
 
@@ -185,6 +180,13 @@ void AudioFFmpegPlayer::StartPlay(const QString& inputFilePath, bool bStart, dou
     TimeSystem::Instance().StopTimingWithLog("AudioFileOpen", EM_TimingLogLevel::Info);
 
     LOG_INFO("Audio duration: " + std::to_string(GetDuration()) + " seconds");
+
+    // 确保起始位置在有效范围内
+    if (startPosition > GetDuration())
+    {
+        LOG_WARN("Start position exceeds audio duration, adjusting to end");
+        startPosition = GetDuration();
+    }
 
     // 如果指定了起始位置，执行定位
     if (startPosition > 0.0)

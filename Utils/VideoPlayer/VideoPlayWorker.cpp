@@ -366,16 +366,16 @@ SwsContext* VideoPlayWorker::CreateSafeSwsContext(AVPixelFormat srcFormat, AVPix
     return swsCtx;
 }
 
-bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* renderer, ST_SDL_Texture* texture)
+bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResult, ST_SDL_Renderer* renderer, ST_SDL_Texture* texture)
 {
-    TIME_START("VideoPlayerInit");
-    LOG_INFO("=== Initializing video player for: " + filePath.toStdString() + " ===");
-
-    if (filePath.isEmpty())
+    if (!openFileResult || !openFileResult->m_formatCtx)
     {
-        LOG_WARN("VideoPlayWorker::InitPlayer() : Invalid file path");
+        LOG_ERROR("Invalid open file result");
         return false;
     }
+
+    TIME_START("VideoPlayerInit");
+    LOG_INFO("=== Initializing video player with pre-opened file ===");
 
     // renderer和texture可以为nullptr，表示仅使用Qt显示
     m_pRenderer = renderer;
@@ -383,15 +383,9 @@ bool VideoPlayWorker::InitPlayer(const QString& filePath, ST_SDL_Renderer* rende
 
     std::lock_guard<std::recursive_mutex> contextLock(m_mutex);
 
-    // 创建格式上下文
-    TIME_START("VideoFormatCtxOpen");
-    m_pFormatCtx = std::make_unique<ST_AVFormatContext>();
-    if (!m_pFormatCtx->OpenInputFilePath(filePath.toLocal8Bit().constData()))
-    {
-        return false;
-    }
-
-    TimeSystem::Instance().StopTimingWithLog("VideoFormatCtxOpen", EM_TimingLogLevel::Info);
+    // 使用传入的已打开格式上下文
+    m_pFormatCtx = std::unique_ptr<ST_AVFormatContext>(openFileResult->m_formatCtx);
+    openFileResult->m_formatCtx = nullptr; // 转移所有权
 
     // 查找视频流
     TIME_START("VideoStreamFind");
