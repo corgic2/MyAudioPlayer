@@ -14,17 +14,17 @@ BaseFFmpegPlayer::~BaseFFmpegPlayer()
 
 bool BaseFFmpegPlayer::IsPlaying()
 {
-    return m_playState.IsPlaying();
+    return m_playState.GetCurrentState() == AVPlayState::Playing;
 }
 
 bool BaseFFmpegPlayer::IsPaused()
 {
-    return m_playState.IsPaused();
+    return m_playState.GetCurrentState() == AVPlayState::Paused;
 }
 
 bool BaseFFmpegPlayer::IsRecording()
 {
-    return m_playState.IsRecording();
+    return m_playState.GetCurrentState() == AVPlayState::Recording;
 }
 
 double BaseFFmpegPlayer::GetDuration()
@@ -135,7 +135,7 @@ void BaseFFmpegPlayer::ForceStop()
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
     // 强制设置状态为停止
-    m_playState.SetPaused(true);
+    m_playState.TransitionTo(AVPlayState::Stopped);
 
     LOG_INFO("Force stop completed");
 }

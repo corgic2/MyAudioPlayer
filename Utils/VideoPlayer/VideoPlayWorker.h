@@ -4,15 +4,14 @@
 #include <memory>
 #include <QObject>
 #include <QString>
-#include <QThread>
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
 #include "BaseDataDefine/ST_AVFrame.h"
 #include "BaseDataDefine/ST_AVPacket.h"
+#include "DataDefine/ST_AVPlayState.h"
 #include "DataDefine/ST_OpenFileResult.h"
 #include "DataDefine/ST_SDL_Renderer.h"
 #include "DataDefine/ST_SDL_Texture.h"
-#include "DataDefine/ST_AVPlayState.h"
 
 extern "C"
 {
@@ -25,7 +24,6 @@ extern "C"
 #include <libavutil/pixdesc.h>
 #include <SDL3/SDL.h>
 }
-
 
 
 /// <summary>
@@ -69,9 +67,7 @@ struct ST_VideoFrameInfo
 /// </summary>
 class VideoPlayWorker : public QObject
 {
-    Q_OBJECT
-
-public:
+    Q_OBJECT public:
     /// <summary>
     /// 构造函数
     /// </summary>
@@ -176,7 +172,7 @@ private:
     /// 安全释放AVChannelLayout
     /// </summary>
     /// <param name="layout">要释放的布局指针</param>
-    void SafeFreeChannelLayout(AVChannelLayout** layout);
+    // 已废弃：使用FFmpegRAII.h中的RAII包装器
 
     /// <summary>
     /// 解码视频帧
@@ -218,7 +214,7 @@ private:
     /// <summary>
     /// 播放线程
     /// </summary>
-    QThread* m_playThread = nullptr;
+    // 使用第三方线程池，无需QThread成员变量
 
     /// <summary>
     /// 格式上下文
@@ -330,14 +326,14 @@ private:
     std::atomic<double> m_seekTarget = 0.0;
 
     /// <summary>
-    /// 播放状态控制
+    /// 播放状态管理器
+    /// </summary>
+    ST_AVPlayState m_playState;
+    /// <summary>
+    /// 是否正在播放
     /// </summary>
     std::atomic<bool> m_bIsPlaying = false;
 
-    /// <summary>
-    /// 暂停状态控制
-    /// </summary>
-    std::atomic<bool> m_bIsPaused = false;
     /// <summary>
     /// 停止播放标志
     /// </summary>

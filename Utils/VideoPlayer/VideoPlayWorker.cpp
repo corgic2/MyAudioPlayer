@@ -1,6 +1,6 @@
 ﻿#include "VideoPlayWorker.h"
-#include <QMutexLocker>
-#include <QThread>
+#include <ThreadPool/ThreadPool.h>
+#include "CoreServerGlobal.h"
 #include "../BasePlayer/FFmpegPublicUtils.h"
 #include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
@@ -36,16 +36,6 @@ bool VideoPlayWorker::InitSDLSystem()
     return true;
 }
 
-void VideoPlayWorker::SafeFreeChannelLayout(AVChannelLayout** layout)
-{
-    if (layout && *layout)
-    {
-        av_channel_layout_uninit(*layout);
-        av_free(*layout);
-        *layout = nullptr;
-    }
-}
-
 void VideoPlayWorker::Cleanup()
 {
     LOG_INFO("Cleaning up video player resources");
@@ -77,26 +67,18 @@ void VideoPlayWorker::SlotStartPlay()
     }
 
     LOG_INFO("VideoPlayWorker::SlotStartPlay: 开始播放");
-    m_bIsPlaying.store(true);
+    m_playState.TransitionTo(AVPlayState::Playing);
     m_bNeedStop.store(false);
-    m_bIsPaused.store(false);
     m_startTime = av_gettime();
     m_totalPauseTime = 0;
     m_currentTime = 0.0;
     m_bSeekRequested.store(false);
 
-    // 创建播放线程
-    if (m_playThread == nullptr)
+    // 使用第三方线程池直接提交任务
+    CoreServerGlobal::Instance().GetThreadPool().Submit([this]()
     {
-        m_playThread = new QThread();
-        this->moveToThread(m_playThread);
-        connect(m_playThread, &QThread::started, this, &VideoPlayWorker::PlayLoop, Qt::QueuedConnection);
-        m_playThread->start();
-    }
-    else
-    {
-        QMetaObject::invokeMethod(this, "PlayLoop", Qt::QueuedConnection);
-    }
+        PlayLoop();
+    }, EM_TaskPriority::Normal);
 
     LOG_INFO("Play thread started");
 }
@@ -105,26 +87,18 @@ void VideoPlayWorker::SlotStopPlay()
 {
     LOG_INFO("Stop play requested");
     {
+        m_playState.TransitionTo(AVPlayState::Stopped);
         m_bNeedStop.store(true);
-        m_bIsPlaying.store(false);
-        m_bIsPaused.store(false);
     }
 
-    // 等待播放线程结束
-    if (m_playThread)
-    {
-        m_playThread->quit();
-        m_playThread->wait();
-        delete m_playThread;
-        m_playThread = nullptr;
-    }
+    // 线程池自动管理线程，无需手动清理
 }
 
 void VideoPlayWorker::SlotPausePlay()
 {
-    if (m_bIsPlaying.load() && !m_bIsPaused.load())
+    if (m_playState.GetCurrentState() == AVPlayState::Playing)
     {
-        m_bIsPaused.store(true);
+        m_playState.TransitionTo(AVPlayState::Paused);
         m_pauseStartTime = av_gettime();
         LOG_INFO("Video playback paused");
     }
@@ -132,9 +106,9 @@ void VideoPlayWorker::SlotPausePlay()
 
 void VideoPlayWorker::SlotResumePlay()
 {
-    if (m_bIsPlaying.load() && m_bIsPaused.load())
+    if (m_playState.GetCurrentState() == AVPlayState::Paused)
     {
-        m_bIsPaused.store(false);
+        m_playState.TransitionTo(AVPlayState::Playing);
 
         // 累计暂停时间
         if (m_pauseStartTime > 0)
@@ -165,10 +139,10 @@ void VideoPlayWorker::PlayLoop()
     const int MAX_CONSECUTIVE_ERRORS = 10;
     int consecutiveErrors = 0;
 
-    while (m_bIsPlaying.load() && !m_bNeedStop.load())
+    while (m_playState.GetCurrentState() == AVPlayState::Playing && !m_bNeedStop.load())
     {
         // 如果处于暂停状态，等待恢复
-        if (m_bIsPaused.load())
+        if (m_playState.GetCurrentState() == AVPlayState::Paused)
         {
             SDL_Delay(50); // 50ms延迟避免CPU占用过高
             continue;

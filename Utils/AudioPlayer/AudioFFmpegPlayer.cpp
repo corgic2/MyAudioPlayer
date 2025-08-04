@@ -2,7 +2,9 @@
 #include <QFile>
 #include "AudioPlayerUtils.h"
 
+#include <ThreadPool/ThreadPool.h>
 #include "AudioResampler.h"
+#include "CoreServerGlobal.h"
 #include "../BasePlayer/FFmpegPublicUtils.h"
 #include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
@@ -58,7 +60,7 @@ void AudioFFmpegPlayer::StartRecording(const QString& outputFilePath)
     QString encoderFormat = QString::fromStdString(my_sdk::FileSystem::GetExtension(outputFilePath.toStdString()));
     LOG_INFO("Starting audio recording, output file: " + outputFilePath.toStdString() + ", encoder format: " + encoderFormat.toStdString());
 
-    if (IsRecording())
+    if (m_playState.GetCurrentState() == AVPlayState::Recording)
     {
         LOG_WARN("Recording failed: Another recording task is already in progress");
         return;
@@ -112,7 +114,7 @@ void AudioFFmpegPlayer::StartRecording(const QString& outputFilePath)
     }
 
     LOG_INFO("Audio recording initialization completed, starting recording");
-    m_playState.SetRecording(true);
+    m_playState.TransitionTo(AVPlayState::Recording);
 
     ST_AVPacket pkt;
     int count = 50;
@@ -143,14 +145,14 @@ void AudioFFmpegPlayer::StartRecording(const QString& outputFilePath)
 
 void AudioFFmpegPlayer::StopRecording()
 {
-    if (!IsRecording())
+    if (m_playState.GetCurrentState() != AVPlayState::Recording)
     {
         LOG_WARN("Stop recording failed: No recording task in progress");
         return;
     }
 
     LOG_INFO("Stopping audio recording");
-    m_playState.SetRecording(false);
+    m_playState.TransitionTo(AVPlayState::Stopped);
     m_recordDevice.reset();
 }
 
@@ -230,30 +232,31 @@ void AudioFFmpegPlayer::StartPlay(const QString& inputFilePath, bool bStart, dou
     resampleParams.GetInput().SetSampleRate(inputSampleRate);
     resampleParams.GetInput().SetSampleFormat(ST_AVSampleFormat(inputFormat));
 
-    auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
+    // 使用RAII包装器管理输入通道布局
+    AVChannelLayoutRAII inLayout;
+    if (codecCtx->ch_layout.nb_channels > 0)
+    {
+        inLayout = AVChannelLayoutRAII::copyFrom(&codecCtx->ch_layout);
+    }
+    else
+    {
+        inLayout = AVChannelLayoutRAII::copyFrom(&codecpar->ch_layout);
+    }
+
     if (inLayout)
     {
-        // 优先使用解码器上下文的通道布局
-        if (codecCtx->ch_layout.nb_channels > 0)
-        {
-            av_channel_layout_copy(inLayout, &codecCtx->ch_layout);
-        }
-        else
-        {
-            av_channel_layout_copy(inLayout, &codecpar->ch_layout);
-        }
-        resampleParams.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
+        resampleParams.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout.release()));
     }
 
     // 设置标准的输出参数
     resampleParams.GetOutput().SetSampleRate(44100);                                  // 标准采样率
     resampleParams.GetOutput().SetSampleFormat(ST_AVSampleFormat(AV_SAMPLE_FMT_S16)); // 16位整数格式，兼容性最好
 
-    auto outLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
+    // 使用RAII包装器管理输出通道布局
+    auto outLayout = AVChannelLayoutRAII::createDefault(2); // 立体声输出
     if (outLayout)
     {
-        av_channel_layout_default(outLayout, 2); // 立体声输出
-        resampleParams.GetOutput().SetChannelLayout(ST_AVChannelLayout(outLayout));
+        resampleParams.GetOutput().SetChannelLayout(ST_AVChannelLayout(outLayout.release()));
     }
 
     LOG_INFO("Audio parameters - Input: " + std::to_string(inputSampleRate) + "Hz, " + std::to_string(codecpar->ch_layout.nb_channels) + " channels, format: " + std::to_string(static_cast<int>(inputFormat)));
@@ -301,21 +304,18 @@ void AudioFFmpegPlayer::StartPlay(const QString& inputFilePath, bool bStart, dou
     if (bStart)
     {
         m_playInfo->BeginPlayAudio();
-        m_playState.SetPlaying(true);
+        m_playState.TransitionTo(AVPlayState::Playing);
     }
     else
     {
-        PausePlay();
+        m_playState.TransitionTo(AVPlayState::Paused);
     }
     LOG_INFO("Audio playback started");
-
-    // 改进音频数据处理流程
     ProcessAudioData(*openFileResult, resampler, resampleParams);
-
     TimeSystem::Instance().StopTimingWithLog("AudioPlaybackTotal", EM_TimingLogLevel::Info, EM_TimeUnit::Milliseconds, "Audio playback initialization completed");
 }
 
-void AudioFFmpegPlayer::ProcessAudioData(ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams)
+void AudioFFmpegPlayer::ProcessAudioData(const ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams)
 {
     TIME_START("AudioDataProcessing");
     LOG_INFO("=== Starting audio data processing ===");
@@ -367,14 +367,13 @@ void AudioFFmpegPlayer::ProcessAudioData(ST_OpenFileResult& openFileResult, Audi
                         resampleParams.GetInput().SetSampleRate(actualSampleRate);
                     }
 
-                    // 更新通道布局
+                    // 使用RAII包装器更新通道布局
                     if (rawFrame->ch_layout.nb_channels > 0)
                     {
-                        auto inLayout = static_cast<AVChannelLayout*>(av_mallocz(sizeof(AVChannelLayout)));
+                        auto inLayout = AVChannelLayoutRAII::copyFrom(&rawFrame->ch_layout);
                         if (inLayout)
                         {
-                            av_channel_layout_copy(inLayout, &rawFrame->ch_layout);
-                            resampleParams.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout));
+                            resampleParams.GetInput().SetChannelLayout(ST_AVChannelLayout(inLayout.release()));
                         }
                     }
 
@@ -478,7 +477,7 @@ void AudioFFmpegPlayer::PausePlay()
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-    if (!IsPlaying() || !m_playInfo)
+    if (m_playState.GetCurrentState() != AVPlayState::Playing || !m_playInfo)
     {
         LOG_WARN("Pause failed: No audio is currently playing");
         return;
@@ -488,7 +487,7 @@ void AudioFFmpegPlayer::PausePlay()
 
     // 保存当前播放位置
     double currentPos = GetCurrentPosition();
-    m_playState.SetPaused(true);
+    m_playState.TransitionTo(AVPlayState::Paused);
     m_playInfo->PauseAudio();
 }
 
@@ -496,12 +495,12 @@ void AudioFFmpegPlayer::ResumePlay()
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
-    if (!IsPaused() || !m_playInfo)
+    if (m_playState.GetCurrentState() != AVPlayState::Paused || !m_playInfo)
     {
         return;
     }
 
-    m_playState.SetPlaying(true);
+    m_playState.TransitionTo(AVPlayState::Playing);
     m_playInfo->ResumeAudio();
 }
 
@@ -509,7 +508,7 @@ void AudioFFmpegPlayer::StopPlay()
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     PlayerStateReSet();
-    m_playState.SetPaused(true);
+    m_playState.TransitionTo(AVPlayState::Stopped);
 }
 
 bool AudioFFmpegPlayer::SeekAudio(double seconds)
@@ -531,21 +530,21 @@ bool AudioFFmpegPlayer::SeekAudio(double seconds)
     // 更新开始时间和时间点
     RecordPlayStartTime(seconds);
     // 暂停当前播放
-    bool wasPlaying = IsPlaying() && !IsPaused();
+    bool wasPlaying = m_playState.GetCurrentState() == AVPlayState::Playing;
     if (wasPlaying)
     {
         m_playInfo->PauseAudio();
     }
 
     // 重新初始化播放
-    StartPlay(GetCurrentFilePath(),true, seconds);
+    StartPlay(GetCurrentFilePath(), true, seconds);
 
     return true;
 }
 
 void AudioFFmpegPlayer::SeekPlay(double seconds)
 {
-    if (IsPlaying())
+    if (m_playState.GetCurrentState() == AVPlayState::Playing)
     {
         SeekAudio(seconds);
     }

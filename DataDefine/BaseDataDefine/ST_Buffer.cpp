@@ -1,12 +1,3 @@
-﻿#include "ST_Buffer.h"
+#include "ST_Buffer.h"
 
-
-ST_Buffer::ST_Buffer(int bufferSize)
-{
-    buffer = static_cast<uint8_t*>(av_malloc(bufferSize));
-}
-
-ST_Buffer::~ST_Buffer()
-{
-    av_free(buffer);
-}
+// 构造函数和析构函数已在头文件中实现，此处不需要重复定义

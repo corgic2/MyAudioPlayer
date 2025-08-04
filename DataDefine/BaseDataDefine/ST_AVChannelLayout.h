@@ -1,46 +1,61 @@
-﻿#pragma once
+#pragma once
 
-extern "C" {
-#include "libavutil/channel_layout.h"
-#include "libavutil/mem.h"
-}
-/// <summary>
-/// 音频通道布局封装类
-/// </summary>
+#include "../FFmpegRAII.h"
+
 class ST_AVChannelLayout
 {
-  public:
+public:
     ST_AVChannelLayout() = default;
 
-    ST_AVChannelLayout &operator=(const ST_AVChannelLayout &obj)
+    ST_AVChannelLayout(const ST_AVChannelLayout &other) : m_layout(AVChannelLayoutRAII::copyFrom(other.m_layout.get())) {}
+
+    ST_AVChannelLayout &operator=(const ST_AVChannelLayout &other)
     {
-        if (this != &obj)
+        if (this != &other)
         {
-            if (channel)
-            {
-                av_channel_layout_uninit(channel);
-                av_free(channel);
-            }
-            channel = static_cast<AVChannelLayout *>(av_mallocz(sizeof(AVChannelLayout)));
-            if (channel)
-            {
-                *channel = *obj.channel; // 复制布局
-            }
+            m_layout = AVChannelLayoutRAII::copyFrom(other.m_layout.get());
         }
         return *this;
     }
 
-    explicit ST_AVChannelLayout(AVChannelLayout *ptr);
-    ~ST_AVChannelLayout() = default;
+    ST_AVChannelLayout(ST_AVChannelLayout &&other) noexcept : m_layout(std::move(other.m_layout)) {}
 
-    /// <summary>
-    /// 获取原始通道布局指针
-    /// </summary>
-    AVChannelLayout *GetRawLayout() const
+    ST_AVChannelLayout &operator=(ST_AVChannelLayout &&other) noexcept
     {
-        return channel;
+        if (this != &other)
+        {
+            m_layout = std::move(other.m_layout);
+        }
+        return *this;
     }
 
-  private:
-    AVChannelLayout *channel = nullptr;
+    explicit ST_AVChannelLayout(AVChannelLayout *layout) : m_layout(layout) {}
+
+    ~ST_AVChannelLayout() = default;
+
+    AVChannelLayout *GetRawLayout() const { return m_layout.get(); }
+
+    // 创建默认布局
+    static ST_AVChannelLayout CreateDefault(int channels)
+    {
+        return ST_AVChannelLayout(AVChannelLayoutRAII::createDefault(channels).release());
+    }
+
+    // 从现有布局复制
+    static ST_AVChannelLayout CopyFrom(const AVChannelLayout *layout)
+    {
+        return ST_AVChannelLayout(AVChannelLayoutRAII::copyFrom(layout).release());
+    }
+
+    // 检查是否有效
+    bool IsValid() const { return static_cast<bool>(m_layout); }
+
+    // 释放并重置
+    void Reset() { m_layout.reset(); }
+
+    // 释放并重置为新布局
+    void Reset(AVChannelLayout *layout) { m_layout.reset(layout); }
+
+private:
+    AVChannelLayoutRAII m_layout;
 };

@@ -1,6 +1,3 @@
-﻿#pragma once
 #include "ST_AVChannelLayout.h"
 
-ST_AVChannelLayout::ST_AVChannelLayout(AVChannelLayout *ptr) : channel(ptr)
-{
-}
+// 构造函数已在头文件中实现，此处不需要重复定义

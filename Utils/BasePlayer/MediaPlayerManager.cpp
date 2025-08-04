@@ -115,8 +115,8 @@ bool MediaPlayerManager::PlayMedia(const QString& filePath, double startPosition
         if (m_audioPlayer && m_videoPlayer)
         {
             LOG_INFO("Starting audio and video playback simultaneously");
-            m_audioPlayer->StartPlay(filePath,true,startPosition, args);
-            m_videoPlayer->StartPlay(filePath,true,startPosition, args);
+            m_audioPlayer->StartPlay(filePath, true, startPosition, args);
+            m_videoPlayer->StartPlay(filePath, true, startPosition, args);
             success = true;
         }
     }
@@ -434,7 +434,7 @@ EM_MediaType MediaPlayerManager::DetectVideoWithAudio(const QString& filePath)
     for (unsigned int i = 0; i < formatCtx->nb_streams; i++)
     {
         AVCodecParameters* codecParams = formatCtx->streams[i]->codecpar;
-        
+
         if (codecParams->codec_type == AVMEDIA_TYPE_VIDEO)
         {
             hasVideo = true;

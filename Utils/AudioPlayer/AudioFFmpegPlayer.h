@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <atomic>
 #include <memory>
@@ -86,7 +86,7 @@ public:
     /// 获取当前播放位置
     /// </summary>
     /// <returns>当前播放位置（秒）</returns>
-    double GetCurrentPosition() ;
+    double GetCurrentPosition();
 
     /// <summary>
     /// 重置播放器状态（重写基类方法）
@@ -135,15 +135,16 @@ private:
     /// <param name="openFileResult">打开文件结果</param>
     /// <param name="resampler">重采样器</param>
     /// <param name="resampleParams">重采样参数</param>
-    void ProcessAudioData(ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams);
-    
+    void ProcessAudioData(const ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams);
+
     /// <summary>
     /// 重置播放器状态
     /// </summary>
     void PlayerStateReSet();
+
 private:
-    QString m_currentInputDevice;                                            /// 当前选择的FFmpeg输入设备
-    std::unique_ptr<ST_OpenAudioDevice> m_recordDevice{nullptr};             /// 录制设备
-    std::unique_ptr<ST_AudioPlayInfo> m_playInfo{nullptr};                   /// 播放信息
-    QStringList m_inputAudioDevices;                                         /// 音频输入设备列表
+    QString m_currentInputDevice;                                /// 当前选择的FFmpeg输入设备
+    std::unique_ptr<ST_OpenAudioDevice> m_recordDevice{nullptr}; /// 录制设备
+    std::unique_ptr<ST_AudioPlayInfo> m_playInfo{nullptr};       /// 播放信息
+    QStringList m_inputAudioDevices;                             /// 音频输入设备列表
 };

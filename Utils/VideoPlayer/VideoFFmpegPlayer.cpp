@@ -54,7 +54,7 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
 
     // 连接信号槽
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayProgressUpdated, this, &VideoFFmpegPlayer::SigPlayProgressUpdated);
-    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigFrameDataUpdated, this, &VideoFFmpegPlayer::SlotHandleFrameUpdate,Qt::QueuedConnection);
+    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigFrameDataUpdated, this, &VideoFFmpegPlayer::SlotHandleFrameUpdate, Qt::QueuedConnection);
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigError, this, &VideoFFmpegPlayer::SigError);
 
     connect(this, &VideoFFmpegPlayer::destroyed, m_pPlayWorker.get(), &VideoPlayWorker::deleteLater);
@@ -77,7 +77,7 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
     // 记录播放开始时间
     RecordPlayStartTime(startPosition);
 
-    m_playState.SetPlaying(true);
+    m_playState.TransitionTo(AVPlayState::Playing);
     m_pPlayWorker->SlotStartPlay();
 
     LOG_INFO("Video playback started successfully: " + videoPath.toStdString());
@@ -88,7 +88,7 @@ void VideoFFmpegPlayer::PausePlay()
     if (IsPlaying() && m_pPlayWorker)
     {
         m_pPlayWorker->SlotPausePlay();
-        m_playState.SetPaused(true);
+        m_playState.TransitionTo(AVPlayState::Paused);
     }
 }
 
@@ -97,7 +97,7 @@ void VideoFFmpegPlayer::ResumePlay()
     if (IsPaused() && m_pPlayWorker)
     {
         m_pPlayWorker->SlotResumePlay();
-        m_playState.SetPlaying(true);
+        m_playState.TransitionTo(AVPlayState::Playing);
     }
 }
 
@@ -114,7 +114,7 @@ void VideoFFmpegPlayer::StopPlay()
         m_pPlayWorker.reset();
     }
 
-    m_playState.SetPaused(true);
+    m_playState.TransitionTo(AVPlayState::Stopped);
     LOG_INFO("Video playback stopped");
 }
 
@@ -141,7 +141,7 @@ void VideoFFmpegPlayer::StartRecording(const QString& outputPath)
 
     // 启动录制线程
     m_pRecordWorker->SlotStartRecord(outputPath);
-    m_playState.SetRecording(true);
+    m_playState.TransitionTo(AVPlayState::Recording);
 
     LOG_INFO("Video recording started: " + outputPath.toStdString());
 }
@@ -159,7 +159,7 @@ void VideoFFmpegPlayer::StopRecording()
         m_pRecordWorker.reset();
     }
 
-    m_playState.SetRecording(false);
+    m_playState.TransitionTo(AVPlayState::Stopped);
 
     LOG_INFO("Video recording stopped");
 }
