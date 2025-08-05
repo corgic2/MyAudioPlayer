@@ -61,7 +61,6 @@ void MediaPlayerManager::ConnectPlayerSignals()
     // 连接视频播放器信号
     if (m_videoPlayer)
     {
-        connect(m_videoPlayer.get(), &VideoFFmpegPlayer::SigFrameUpdated, this, &MediaPlayerManager::SigFrameUpdated);
         connect(m_videoPlayer.get(), &VideoFFmpegPlayer::SigError, this, &MediaPlayerManager::SigError);
     }
 }

@@ -12,6 +12,7 @@
 VideoFFmpegPlayer::VideoFFmpegPlayer(QObject* parent)
     : BaseFFmpegPlayer(parent)
 {
+    connect(this, &VideoFFmpegPlayer::SigFrameUpdated, this, &VideoFFmpegPlayer::SlotFrameUpdated);
 }
 
 VideoFFmpegPlayer::~VideoFFmpegPlayer()
@@ -196,15 +197,17 @@ ST_VideoFrameInfo VideoFFmpegPlayer::GetVideoInfo() const
 
 void VideoFFmpegPlayer::SlotHandleFrameUpdate(std::vector<uint8_t> frameData, int width, int height)
 {
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
+    // 同步信号
+    emit SigFrameUpdated(frameData, width, height);
+}
+
+void VideoFFmpegPlayer::SlotFrameUpdated(std::vector<uint8_t> frameData, int width, int height)
+{
     // 将帧数据传递给显示控件
     if (m_pVideoDisplayWidget)
     {
         m_pVideoDisplayWidget->SetVideoFrame(frameData.data(), width, height);
     }
-
-    // 同时发送信号供其他模块使用
-    emit SigFrameUpdated(frameData.data(), width, height);
 }
 
 void VideoFFmpegPlayer::ResetPlayerState()

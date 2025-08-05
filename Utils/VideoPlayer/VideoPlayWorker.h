@@ -223,12 +223,6 @@ private:
     /// 视频解码器上下文
     /// </summary>
     std::unique_ptr<ST_AVCodecContext> m_pVideoCodecCtx = nullptr;
-
-    /// <summary>
-    /// 音频解码器上下文（用于流信息检测，不用于播放）
-    /// </summary>
-    std::unique_ptr<ST_AVCodecContext> m_pAudioCodecCtx = nullptr;
-
     /// <summary>
     /// 视频流索引
     /// </summary>

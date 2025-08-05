@@ -116,7 +116,7 @@ signals:
     /// <param name="frameData">帧数据</param>
     /// <param name="width">帧宽度</param>
     /// <param name="height">帧高度</param>
-    void SigFrameUpdated(const uint8_t* frameData, int width, int height);
+    void SigFrameUpdated(std::vector<uint8_t> frameData, int width, int height);
 
     /// <summary>
     /// 错误信号
@@ -129,6 +129,13 @@ private slots:
     /// 处理视频帧更新
     /// </summary>
     void SlotHandleFrameUpdate(std::vector<uint8_t> frameData, int width, int height);
+    /// <summary>
+    /// 同步信号处理
+    /// </summary>
+    /// <param name="frameData"></param>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    void SlotFrameUpdated(std::vector<uint8_t> frameData, int width, int height);
 
 private:
     /// <summary>
@@ -150,6 +157,4 @@ private:
     /// 视频显示控件指针
     /// </summary>
     PlayerVideoModuleWidget* m_pVideoDisplayWidget{nullptr};
-
-    std::recursive_mutex m_mutex;
 };

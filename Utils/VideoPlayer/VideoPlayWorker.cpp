@@ -48,7 +48,6 @@ void VideoPlayWorker::Cleanup()
     }
 
     m_pVideoCodecCtx.reset();
-    m_pAudioCodecCtx.reset(); // 虽然不处理音频，但仍需清理解码器上下文
     m_pFormatCtx.reset();
 
     // 清理帧和缓冲区
@@ -95,6 +94,7 @@ void VideoPlayWorker::SlotStopPlay()
     m_playState.TransitionTo(AVPlayState::Stopped);
     m_bNeedStop.store(true);
     CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_threadId);
+    SDL_Delay(20);
 }
 
 void VideoPlayWorker::SlotPausePlay()
@@ -174,14 +174,11 @@ void VideoPlayWorker::PlayLoop()
                 {
                     m_pVideoCodecCtx->FlushBuffer();
                 }
-                if (m_pAudioCodecCtx && m_bHasAudio)
-                {
-                    m_pAudioCodecCtx->FlushBuffer();
-                }
-
                 m_currentTime = seekTarget;
                 m_startTime = av_gettime();
                 m_totalPauseTime = 0;
+
+                LOG_INFO("Seek completed, time reset to: " + std::to_string(seekTarget) + " seconds");
             }
             m_bSeekRequested.store(false);
         }
@@ -576,6 +573,21 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
         AVStream* videoStream = m_pFormatCtx->GetRawContext()->streams[m_videoStreamIndex];
         m_currentTime = frame->pts * av_q2d(videoStream->time_base);
     }
+    else
+    {
+        // 如果pts无效，根据帧率估算时间
+        m_currentTime += (1.0 / m_videoInfo.m_frameRate);
+    }
+
+    // 限制当前时间在合理范围内
+    if (m_currentTime < 0.0)
+    {
+        m_currentTime = 0.0;
+    }
+    if (m_currentTime > m_videoInfo.m_duration)
+    {
+        m_currentTime = m_videoInfo.m_duration;
+    }
 
     // 发送帧更新信号
     emit SigFrameUpdated();
@@ -583,9 +595,11 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
 
 int VideoPlayWorker::CalculateFrameDelay(int64_t pts)
 {
-    double frameRate = 25.0;
-    frameRate = m_videoInfo.m_frameRate;
-
+    double frameRate = m_videoInfo.m_frameRate;
+    if (frameRate <= 0.0)
+    {
+        frameRate = 25.0;
+    }
 
     if (pts == AV_NOPTS_VALUE)
     {
@@ -601,17 +615,29 @@ int VideoPlayWorker::CalculateFrameDelay(int64_t pts)
     AVStream* videoStream = m_pFormatCtx->GetRawContext()->streams[m_videoStreamIndex];
     double frameTime = pts * av_q2d(videoStream->time_base);
 
+    // 限制frameTime在合理范围内，避免seek后的异常延迟
+    if (frameTime < 0.0 || frameTime > m_videoInfo.m_duration + 10.0)
+    {
+        return static_cast<int>(1000.0 / frameRate);
+    }
+
     // 计算已播放时间
     int64_t currentTime = av_gettime();
     double playedTime = (currentTime - m_startTime - m_totalPauseTime) / 1000000.0;
 
-    // 计算需要延迟的时间
+    // 限制延迟时间在合理范围内，避免过长的等待
     double delay = frameTime - playedTime;
+    double maxDelay = 1.0 / frameRate * 2.0; // 最大延迟为2帧时间
+    double minDelay = -0.1;                  // 允许少量负延迟来追赶
 
-    if (delay > 0)
+    if (delay > maxDelay)
     {
-        return static_cast<int>(delay * 1000); // 转换为毫秒
+        delay = maxDelay;
+    }
+    else if (delay < minDelay)
+    {
+        delay = 0; // 如果落后太多，立即显示
     }
 
-    return 0;
+    return static_cast<int>(delay * 1000); // 转换为毫秒
 }
