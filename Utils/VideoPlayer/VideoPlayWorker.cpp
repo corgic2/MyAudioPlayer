@@ -39,32 +39,28 @@ void VideoPlayWorker::Cleanup()
 {
     LOG_INFO("Cleaning up video player resources");
 
+
+    // 清理视频相关资源
+    if (m_pSwsCtx)
     {
-        std::lock_guard<std::recursive_mutex> contextLock(m_mutex);
-
-        // 清理视频相关资源
-        if (m_pSwsCtx)
-        {
-            sws_freeContext(m_pSwsCtx);
-            m_pSwsCtx = nullptr;
-        }
-
-        m_pVideoCodecCtx.reset();
-        m_pAudioCodecCtx.reset(); // 虽然不处理音频，但仍需清理解码器上下文
-        m_pFormatCtx.reset();
-
-        // 清理帧和缓冲区
-        m_pRGBFrame = ST_AVFrame();   // 重置RGB帧
-        m_pVideoFrame = ST_AVFrame(); // 重置视频帧
-        m_rgbBuffer.clear();
-        m_rgbBuffer.shrink_to_fit();
-
-        m_videoInfo = ST_VideoFrameInfo();
-        m_currentTime = 0.0;
-        m_videoStreamIndex = -1;
-        m_audioStreamIndex = -1;
+        sws_freeContext(m_pSwsCtx);
+        m_pSwsCtx = nullptr;
     }
 
+    m_pVideoCodecCtx.reset();
+    m_pAudioCodecCtx.reset(); // 虽然不处理音频，但仍需清理解码器上下文
+    m_pFormatCtx.reset();
+
+    // 清理帧和缓冲区
+    m_pRGBFrame = ST_AVFrame();   // 重置RGB帧
+    m_pVideoFrame = ST_AVFrame(); // 重置视频帧
+    m_rgbBuffer.clear();
+    m_rgbBuffer.shrink_to_fit();
+
+    m_videoInfo = ST_VideoFrameInfo();
+    m_currentTime = 0.0;
+    m_videoStreamIndex = -1;
+    m_audioStreamIndex = -1;
     m_bSeekRequested.store(false);
     m_bNeedStop.store(false);
 
@@ -73,13 +69,10 @@ void VideoPlayWorker::Cleanup()
 
 void VideoPlayWorker::SlotStartPlay()
 {
+    if (m_pFormatCtx == nullptr || m_pVideoCodecCtx == nullptr)
     {
-        std::lock_guard<std::recursive_mutex> contextLock(m_mutex);
-        if (m_pFormatCtx == nullptr || m_pVideoCodecCtx == nullptr)
-        {
-            LOG_WARN("VideoPlayWorker::SlotStartPlay: 播放器未初始化");
-            return;
-        }
+        LOG_WARN("VideoPlayWorker::SlotStartPlay: 播放器未初始化");
+        return;
     }
 
     LOG_INFO("VideoPlayWorker::SlotStartPlay: 开始播放");
@@ -136,10 +129,7 @@ void VideoPlayWorker::SlotSeekPlay(double seconds)
     LOG_INFO("Video seek requested to: " + std::to_string(seconds) + " seconds");
 
     double duration = 0.0;
-    {
-        std::lock_guard<std::recursive_mutex> contextLock(m_mutex);
-        duration = m_videoInfo.m_duration;
-    }
+    duration = m_videoInfo.m_duration;
 
     if (seconds >= 0.0 && seconds <= duration)
     {
@@ -154,7 +144,6 @@ void VideoPlayWorker::PlayLoop()
 
     const int MAX_CONSECUTIVE_ERRORS = 10;
     int consecutiveErrors = 0;
-    std::lock_guard<std::recursive_mutex> contextLock(m_mutex);
     while (m_playState.GetCurrentState() == AVPlayState::Playing && !m_bNeedStop.load())
     {
         // 如果处于暂停状态，等待恢复
@@ -380,9 +369,6 @@ bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResu
     // renderer和texture可以为nullptr，表示仅使用Qt显示
     m_pRenderer = renderer;
     m_pTexture = texture;
-
-    std::lock_guard<std::recursive_mutex> contextLock(m_mutex);
-
     // 使用传入的已打开格式上下文
     m_pFormatCtx = std::unique_ptr<ST_AVFormatContext>(openFileResult->m_formatCtx);
     openFileResult->m_formatCtx = nullptr; // 转移所有权
@@ -574,7 +560,6 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
     }
 
     // 发送Qt显示信号（确保RGB缓冲区锁定）
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     // 检查缓冲区是否有效
     if (!m_rgbBuffer.empty())
     {
@@ -599,8 +584,6 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
 int VideoPlayWorker::CalculateFrameDelay(int64_t pts)
 {
     double frameRate = 25.0;
-
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     frameRate = m_videoInfo.m_frameRate;
 
 

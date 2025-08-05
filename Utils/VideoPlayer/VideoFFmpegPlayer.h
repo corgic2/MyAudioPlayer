@@ -150,4 +150,6 @@ private:
     /// 视频显示控件指针
     /// </summary>
     PlayerVideoModuleWidget* m_pVideoDisplayWidget{nullptr};
+
+    std::recursive_mutex m_mutex;
 };

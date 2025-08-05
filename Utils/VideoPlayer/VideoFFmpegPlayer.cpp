@@ -196,6 +196,7 @@ ST_VideoFrameInfo VideoFFmpegPlayer::GetVideoInfo() const
 
 void VideoFFmpegPlayer::SlotHandleFrameUpdate(std::vector<uint8_t> frameData, int width, int height)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_mutex);
     // 将帧数据传递给显示控件
     if (m_pVideoDisplayWidget)
     {

@@ -268,9 +268,7 @@ private:
     /// SDL纹理
     /// </summary>
     ST_SDL_Texture* m_pTexture = nullptr;
-
-    // 注意：音频相关成员已移除，音频播放由AudioFFmpegPlayer处理
-
+     
     /// <summary>
     /// 视频信息
     /// </summary>
@@ -307,13 +305,6 @@ private:
     std::vector<uint8_t> m_rgbBuffer;
 
     /// <summary>
-    /// 视频播放互斥锁
-    /// </summary>
-    std::recursive_mutex m_mutex;
-
-    // 音频相关成员已移除
-
-    /// <summary>
     /// 是否请求seek操作
     /// </summary>
     std::atomic<bool> m_bSeekRequested = false;
@@ -336,6 +327,8 @@ private:
     /// 停止播放标志
     /// </summary>
     std::atomic<bool> m_bNeedStop = false;
-
+    /// <summary>
+    /// 线程信息
+    /// </summary>
     size_t m_threadId;
 };
