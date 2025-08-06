@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <atomic>
 #include <memory>
@@ -135,7 +135,8 @@ private:
     /// <param name="openFileResult">打开文件结果</param>
     /// <param name="resampler">重采样器</param>
     /// <param name="resampleParams">重采样参数</param>
-    void ProcessAudioData(const ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams);
+    /// <param name="startSeconds">起始播放位置（秒），默认从当前位置开始</param>
+    void ProcessAudioData(const ST_OpenFileResult& openFileResult, AudioResampler& resampler, ST_ResampleParams& resampleParams, double startSeconds = 0.0);
 
     /// <summary>
     /// 重置播放器状态
@@ -147,4 +148,13 @@ private:
     std::unique_ptr<ST_OpenAudioDevice> m_recordDevice{nullptr}; /// 录制设备
     std::unique_ptr<ST_AudioPlayInfo> m_playInfo{nullptr};       /// 播放信息
     QStringList m_inputAudioDevices;                             /// 音频输入设备列表
+    
+    std::vector<uint8_t> m_audioBuffer;                          /// 音频数据缓冲区
+    std::recursive_mutex m_bufferMutex;                        /// 缓冲区互斥锁
+    
+    // 缓存的重采样相关资源
+    std::unique_ptr<AudioResampler> m_resampler{nullptr};       /// 重采样器实例
+    std::unique_ptr<ST_ResampleParams> m_resampleParams{nullptr}; /// 重采样参数
+    int m_audioStreamIdx{-1};                                   /// 音频流索引
+    bool m_bResampleParamsUpdated{false};                       /// 重采样参数是否已更新
 };

@@ -1,4 +1,4 @@
-﻿#include "ST_AudioPlayInfo.h"
+#include "ST_AudioPlayInfo.h"
 
 #include <qDebug>
 #include "SDL3/SDL_timer.h"
@@ -209,6 +209,14 @@ void ST_AudioPlayInfo::FlushAudioStream()
     if (m_audioStream.GetRawStream())
     {
         SDL_FlushAudioStream(m_audioStream.GetRawStream());
+    }
+}
+
+void ST_AudioPlayInfo::ClearAudioDeviceBuffer()
+{
+    if (m_audioStream.GetRawStream())
+    {
+        SDL_ClearAudioStream(m_audioStream.GetRawStream());
     }
 }
 

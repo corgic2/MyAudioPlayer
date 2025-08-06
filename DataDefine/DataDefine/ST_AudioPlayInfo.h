@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include "BaseDataDefine/ST_AVPacket.h"
 #include "BaseDataDefine/ST_SDLAudioDeviceID.h"
@@ -109,6 +109,11 @@ class ST_AudioPlayInfo
     /// 清空音频流
     /// </summary>
     void FlushAudioStream();
+
+    /// <summary>
+    /// 清空音频设备缓冲
+    /// </summary>
+    void ClearAudioDeviceBuffer();
 
     /// <summary>
     /// 获取音频流缓冲区大小（字节）
