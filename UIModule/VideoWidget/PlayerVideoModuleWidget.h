@@ -42,6 +42,11 @@ class PlayerVideoModuleWidget : public BaseModuleWidget
     /// </summary>
     /// <returns>SDL窗口指针</returns>
     void* GetSDLWindowHandle();
+    /// <summary>
+    /// 获取SDL占位控件ID
+    /// </summary>
+    /// <returns></returns>
+    WId GetSDLPlaceholderId();
 
     /// <summary>
     /// 显示/隐藏SDL窗口

@@ -88,7 +88,7 @@ class VideoPlayWorker : public QObject
     /// <param name="renderer">SDL渲染器（可选，可为nullptr表示仅使用Qt显示）</param>
     /// <param name="texture">SDL纹理（可选，可为nullptr表示仅使用Qt显示）</param>
     /// <returns>是否初始化成功</returns>
-    bool InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResult, ST_SDL_Renderer* renderer = nullptr, ST_SDL_Texture* texture = nullptr);
+    bool InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResult, WId parentWindowId, ST_SDL_Renderer* renderer = nullptr, ST_SDL_Texture* texture = nullptr);
 
     /// <summary>
     /// 清理资源

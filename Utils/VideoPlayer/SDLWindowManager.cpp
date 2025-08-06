@@ -59,6 +59,68 @@ bool SDLWindowManager::CreateWindow(int width, int height, const QString& title)
     return true;
 }
 
+bool SDLWindowManager::CreateEmbeddedWindow(int width, int height, WId parentWindowId)
+{
+    if (m_window)
+    {
+        LOG_WARN("SDL window already exists");
+        return true;
+    }
+
+    // 使用SDL3的新API创建嵌入父窗口的SDL窗口
+    SDL_PropertiesID props = SDL_CreateProperties();
+    if (!props) {
+        QString error = QString("Failed to create SDL properties: %1").arg(SDL_GetError());
+        LOG_ERROR(error.toStdString());
+        emit ErrorOccurred(error);
+        return false;
+    }
+
+    // 设置窗口属性
+    SDL_SetStringProperty(props, SDL_PROP_WINDOW_CREATE_TITLE_STRING, "SDL Embedded Window");
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_WIDTH_NUMBER, width);
+    SDL_SetNumberProperty(props, SDL_PROP_WINDOW_CREATE_HEIGHT_NUMBER, height);
+    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_HIDDEN_BOOLEAN, true);
+    SDL_SetBooleanProperty(props, SDL_PROP_WINDOW_CREATE_BORDERLESS_BOOLEAN, true);
+    SDL_SetPointerProperty(props, SDL_PROP_WINDOW_CREATE_WIN32_HWND_POINTER, reinterpret_cast<void*>(parentWindowId));
+
+    // 创建窗口
+    m_window = SDL_CreateWindowWithProperties(props);
+    SDL_DestroyProperties(props);
+
+    if (!m_window)
+    {
+        QString error = QString("Failed to create embedded SDL window: %1").arg(SDL_GetError());
+        LOG_ERROR(error.toStdString());
+        emit ErrorOccurred(error);
+        return false;
+    }
+
+    // 显示窗口
+    SDL_ShowWindow(m_window);
+
+    // 创建渲染器
+    m_renderer = SDL_CreateRenderer(m_window, nullptr);
+    if (!m_renderer)
+    {
+        QString error = QString("Failed to create SDL renderer for embedded window: %1").arg(SDL_GetError());
+        LOG_ERROR(error.toStdString());
+        emit ErrorOccurred(error);
+        SDL_DestroyWindow(m_window);
+        m_window = nullptr;
+        return false;
+    }
+
+    // 启用垂直同步
+    SDL_SetRenderVSync(m_renderer, 1);
+
+    m_windowValid = true;
+    m_windowVisible = true;
+    
+    LOG_INFO("SDL embedded window created successfully: " + std::to_string(width) + "x" + std::to_string(height));
+    return true;
+}
+
 void SDLWindowManager::DestroyWindow()
 {
     if (m_texture)

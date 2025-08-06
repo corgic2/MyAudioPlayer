@@ -353,7 +353,7 @@ SwsContext* VideoPlayWorker::CreateSafeSwsContext(AVPixelFormat srcFormat, AVPix
     return swsCtx;
 }
 
-bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResult, ST_SDL_Renderer* renderer, ST_SDL_Texture* texture)
+bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResult, WId parentWindowId, ST_SDL_Renderer* renderer, ST_SDL_Texture* texture)
 {
     if (!openFileResult || !openFileResult->m_formatCtx)
     {
@@ -476,10 +476,23 @@ bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResu
     }
 
     // 使用SDLWindowManager创建窗口和渲染器
-    if (!m_sdlManager->CreateWindow(m_videoInfo.m_width, m_videoInfo.m_height, "MyAudioPlayer Video"))
+    if (parentWindowId != 0)
     {
-        LOG_ERROR("Failed to create SDL window for video rendering");
-        return false;
+        // 创建嵌入Qt控件的SDL窗口
+        if (!m_sdlManager->CreateEmbeddedWindow(m_videoInfo.m_width, m_videoInfo.m_height, parentWindowId))
+        {
+            LOG_ERROR("Failed to create embedded SDL window for video rendering");
+            return false;
+        }
+    }
+    else
+    {
+        // 创建独立SDL窗口
+        if (!m_sdlManager->CreateWindow(m_videoInfo.m_width, m_videoInfo.m_height, "MyAudioPlayer Video"))
+        {
+            LOG_ERROR("Failed to create SDL window for video rendering");
+            return false;
+        }
     }
 
     // 创建视频纹理

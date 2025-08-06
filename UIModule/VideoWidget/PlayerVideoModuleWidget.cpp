@@ -38,6 +38,11 @@ void* PlayerVideoModuleWidget::GetSDLWindowHandle()
     return nullptr;
 }
 
+WId PlayerVideoModuleWidget::GetSDLPlaceholderId() 
+{
+    return m_sdlPlaceholder ? m_sdlPlaceholder->winId() : 0;
+}
+
 void PlayerVideoModuleWidget::ShowSDLWindow(bool show)
 {
     m_isSDLWindowVisible = show;

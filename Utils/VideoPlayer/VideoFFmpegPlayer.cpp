@@ -58,9 +58,16 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayProgressUpdated, this, &VideoFFmpegPlayer::SigPlayProgressUpdated);
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigError, this, &VideoFFmpegPlayer::SigError);
     connect(this, &VideoFFmpegPlayer::destroyed, m_pPlayWorker.get(), &VideoPlayWorker::deleteLater);
-    
-    // 初始化播放器 - 不传入SDL参数，仅使用Qt显示
-    if (!m_pPlayWorker->InitPlayer(std::move(openFileResult), nullptr, nullptr))
+
+    // 获取父窗口句柄（用于嵌入Qt控件）
+    WId parentWindowId = 0;
+    if (m_pVideoDisplayWidget)
+    {
+        parentWindowId = m_pVideoDisplayWidget->GetSDLPlaceholderId();
+    }
+
+    // 初始化播放器 - 传入父窗口句柄以创建嵌入Qt的SDL窗口
+    if (!m_pPlayWorker->InitPlayer(std::move(openFileResult), parentWindowId, nullptr, nullptr))
     {
         LOG_WARN("VideoFFmpegPlayer::StartPlay() : Failed to initialize player");
         emit SigError("播放器初始化失败");

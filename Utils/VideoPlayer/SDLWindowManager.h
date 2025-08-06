@@ -4,6 +4,7 @@
 #include <QString>
 #include <atomic>
 #include <memory>
+#include <qwindowdefs.h>
 #include "DataDefine/ST_SDL_Renderer.h"
 #include "DataDefine/ST_SDL_Texture.h"
 
@@ -32,13 +33,22 @@ public:
     ~SDLWindowManager() override;
     static void RegisterDevice();
     /// <summary>
-    /// 创建SDL窗口和渲染器
+    /// 创建SDL窗口
     /// </summary>
     /// <param name="width">窗口宽度</param>
     /// <param name="height">窗口高度</param>
     /// <param name="title">窗口标题</param>
     /// <returns>是否创建成功</returns>
-    bool CreateWindow(int width, int height, const QString& title = "MyAudioPlayer Video");
+    bool CreateWindow(int width, int height, const QString& title = "SDL Window");
+
+    /// <summary>
+    /// 创建嵌入Qt控件的SDL窗口
+    /// </summary>
+    /// <param name="width">窗口宽度</param>
+    /// <param name="height">窗口高度</param>
+    /// <param name="parentWindowId">父窗口句柄（Qt控件）</param>
+    /// <returns>是否创建成功</returns>
+    bool CreateEmbeddedWindow(int width, int height, WId parentWindowId);
 
     /// <summary>
     /// 销毁SDL窗口和渲染器
