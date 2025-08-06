@@ -5,6 +5,7 @@
 #include <mutex>
 #include <QObject>
 #include <QString>
+#include "SDLWindowManager.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
 #include "BaseDataDefine/ST_AVFrame.h"
@@ -35,12 +36,12 @@ struct ST_VideoFrameInfo
     /// <summary>
     /// 视频宽度
     /// </summary>
-    int m_width{0};
+    float m_width{0.0};
 
     /// <summary>
     /// 视频高度
     /// </summary>
-    int m_height{0};
+    float m_height{0.0};
 
     /// <summary>
     /// 帧率
@@ -147,12 +148,14 @@ signals:
     void SigError(const QString& errorMsg);
 
     /// <summary>
-    /// 视频帧数据更新信号（用于Qt显示）
+    /// SDL窗口创建完成信号
     /// </summary>
-    /// <param name="frameData">帧数据</param>
-    /// <param name="width">帧宽度</param>
-    /// <param name="height">帧高度</param>
-    void SigFrameDataUpdated(std::vector<uint8_t> frameData, int width, int height);
+    void SigSDLWindowCreated();
+
+    /// <summary>
+    /// SDL窗口关闭信号
+    /// </summary>
+    void SigSDLWindowClosed();
 
 private:
     /// <summary>
@@ -165,6 +168,11 @@ private:
     /// </summary>
     /// <returns>是否初始化成功</returns>
     bool InitSDLSystem();
+
+    /// <summary>
+    /// SDL窗口管理器
+    /// </summary>
+    std::unique_ptr<SDLWindowManager> m_sdlManager;
 
     /// <summary>
     /// 安全释放AVChannelLayout
@@ -254,14 +262,21 @@ private:
     SwsContext* m_pSwsCtx = nullptr;
 
     /// <summary>
+    /// SDL窗口
+    /// </summary>
+    SDL_Window* m_pSDLWindow = nullptr;
+
+    /// <summary>
     /// SDL渲染器
     /// </summary>
-    ST_SDL_Renderer* m_pRenderer = nullptr;
+    SDL_Renderer* m_pSDLRenderer = nullptr;
 
     /// <summary>
     /// SDL纹理
     /// </summary>
-    ST_SDL_Texture* m_pTexture = nullptr;
+    SDL_Texture* m_pSDLTexture = nullptr;
+
+
      
     /// <summary>
     /// 视频信息

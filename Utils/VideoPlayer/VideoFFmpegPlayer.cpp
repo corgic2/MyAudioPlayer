@@ -12,7 +12,6 @@
 VideoFFmpegPlayer::VideoFFmpegPlayer(QObject* parent)
     : BaseFFmpegPlayer(parent)
 {
-    connect(this, &VideoFFmpegPlayer::SigFrameUpdated, this, &VideoFFmpegPlayer::SlotFrameUpdated);
 }
 
 VideoFFmpegPlayer::~VideoFFmpegPlayer()
@@ -57,9 +56,7 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
 
     // 连接信号槽
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayProgressUpdated, this, &VideoFFmpegPlayer::SigPlayProgressUpdated);
-    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigFrameDataUpdated, this, &VideoFFmpegPlayer::SlotHandleFrameUpdate, Qt::QueuedConnection);
     connect(m_pPlayWorker.get(), &VideoPlayWorker::SigError, this, &VideoFFmpegPlayer::SigError);
-
     connect(this, &VideoFFmpegPlayer::destroyed, m_pPlayWorker.get(), &VideoPlayWorker::deleteLater);
     
     // 初始化播放器 - 不传入SDL参数，仅使用Qt显示
@@ -193,21 +190,6 @@ double VideoFFmpegPlayer::GetCurrentPosition()
 ST_VideoFrameInfo VideoFFmpegPlayer::GetVideoInfo() const
 {
     return m_videoInfo;
-}
-
-void VideoFFmpegPlayer::SlotHandleFrameUpdate(std::vector<uint8_t> frameData, int width, int height)
-{
-    // 同步信号
-    emit SigFrameUpdated(frameData, width, height);
-}
-
-void VideoFFmpegPlayer::SlotFrameUpdated(std::vector<uint8_t> frameData, int width, int height)
-{
-    // 将帧数据传递给显示控件
-    if (m_pVideoDisplayWidget)
-    {
-        m_pVideoDisplayWidget->SetVideoFrame(frameData.data(), width, height);
-    }
 }
 
 void VideoFFmpegPlayer::ResetPlayerState()

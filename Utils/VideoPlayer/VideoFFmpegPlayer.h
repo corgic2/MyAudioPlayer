@@ -124,19 +124,6 @@ signals:
     /// <param name="errorMsg">错误信息</param>
     void SigError(const QString& errorMsg);
 
-private slots:
-    /// <summary>
-    /// 处理视频帧更新
-    /// </summary>
-    void SlotHandleFrameUpdate(std::vector<uint8_t> frameData, int width, int height);
-    /// <summary>
-    /// 同步信号处理
-    /// </summary>
-    /// <param name="frameData"></param>
-    /// <param name="width"></param>
-    /// <param name="height"></param>
-    void SlotFrameUpdated(std::vector<uint8_t> frameData, int width, int height);
-
 private:
     /// <summary>
     /// 视频播放工作对象

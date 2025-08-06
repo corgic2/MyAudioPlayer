@@ -1,6 +1,5 @@
-﻿#pragma once
+#pragma once
 
-#include <QLabel>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -16,7 +15,7 @@ QT_BEGIN_NAMESPACE namespace Ui
 QT_END_NAMESPACE
 
 /// <summary>
-/// 视频播放器模块控件类
+/// 视频播放器模块控件类 - 基于SDL3
 /// </summary>
 class PlayerVideoModuleWidget : public BaseModuleWidget
 {
@@ -39,23 +38,22 @@ class PlayerVideoModuleWidget : public BaseModuleWidget
     BaseFFmpegPlayer* GetFFMpegUtils() override;
 
     /// <summary>
-    /// 获取视频显示控件
+    /// 获取SDL窗口句柄
     /// </summary>
-    /// <returns>视频显示控件指针</returns>
-    QWidget* GetVideoDisplayWidget();
+    /// <returns>SDL窗口指针</returns>
+    void* GetSDLWindowHandle();
 
     /// <summary>
-    /// 设置视频帧数据
+    /// 显示/隐藏SDL窗口
     /// </summary>
-    /// <param name="frameData">帧数据</param>
-    /// <param name="width">帧宽度</param>
-    /// <param name="height">帧高度</param>
-    void SetVideoFrame(const uint8_t* frameData, int width, int height);
+    /// <param name="show">是否显示</param>
+    void ShowSDLWindow(bool show);
 
     /// <summary>
-    /// 清空视频显示
+    /// 设置SDL窗口标题
     /// </summary>
-    void ClearVideoDisplay();
+    /// <param name="title">窗口标题</param>
+    void SetSDLWindowTitle(const QString& title);
 
 protected slots:
     /// <summary>
@@ -86,16 +84,16 @@ private:
     /// 连接信号槽
     /// </summary>
     void ConnectSignals();
-
     /// <summary>
-    /// 调整视频显示尺寸
+    /// 创建SDL窗口占位控件
     /// </summary>
-    void ResizeVideoDisplay();
+    void CreateSDLPlaceholder();
 
 private:
     Ui::PlayerVideoModuleWidgetClass* ui;
-    QLabel* m_videoDisplayLabel{nullptr};            /// 视频显示标签
+    QWidget* m_sdlPlaceholder{nullptr};              /// SDL窗口占位控件
     QVBoxLayout* m_mainLayout{nullptr};              /// 主布局
     ST_VideoFrameInfo* m_currentVideoInfo{nullptr};  /// 当前视频信息（使用指针）
     QTimer* m_updateTimer{nullptr};                  /// 更新定时器
+    bool m_isSDLWindowVisible{false};                /// SDL窗口是否可见
 };

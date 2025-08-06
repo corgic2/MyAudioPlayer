@@ -1,8 +1,5 @@
-﻿#include "PlayerVideoModuleWidget.h"
+#include "PlayerVideoModuleWidget.h"
 #include <QDebug>
-#include <QPainter>
-#include <QPixmap>
-#include <QResizeEvent>
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
@@ -26,7 +23,6 @@ PlayerVideoModuleWidget::~PlayerVideoModuleWidget()
     }
     SAFE_DELETE_POINTER_VALUE(m_currentVideoInfo);
     SAFE_DELETE_POINTER_VALUE(ui);
-    // m_videoFFmpeg 会由Qt的父子关系自动删除
 }
 
 BaseFFmpegPlayer* PlayerVideoModuleWidget::GetFFMpegUtils()
@@ -35,9 +31,28 @@ BaseFFmpegPlayer* PlayerVideoModuleWidget::GetFFMpegUtils()
     return nullptr;
 }
 
-QWidget* PlayerVideoModuleWidget::GetVideoDisplayWidget()
+void* PlayerVideoModuleWidget::GetSDLWindowHandle()
 {
-    return m_videoDisplayLabel;
+    // SDL窗口由VideoPlayWorker管理，这里返回nullptr
+    // 实际的SDL窗口创建在VideoPlayWorker中
+    return nullptr;
+}
+
+void PlayerVideoModuleWidget::ShowSDLWindow(bool show)
+{
+    m_isSDLWindowVisible = show;
+    // SDL窗口的显示/隐藏由VideoPlayWorker控制
+    // 这里只是更新占位控件的显示状态
+    if (m_sdlPlaceholder)
+    {
+        m_sdlPlaceholder->setVisible(true); // 占位控件始终可见
+    }
+}
+
+void PlayerVideoModuleWidget::SetSDLWindowTitle(const QString& title)
+{
+    // SDL窗口标题由VideoPlayWorker设置
+    Q_UNUSED(title);
 }
 
 void PlayerVideoModuleWidget::InitializeWidget()
@@ -47,69 +62,22 @@ void PlayerVideoModuleWidget::InitializeWidget()
     m_mainLayout->setContentsMargins(0, 0, 0, 0);
     m_mainLayout->setSpacing(0);
 
-    // 创建视频显示标签
-    m_videoDisplayLabel = new QLabel(this);
-    m_videoDisplayLabel->setMinimumSize(1080, 720);
-    m_videoDisplayLabel->setStyleSheet(QString("background-color: %1; border: 1px solid %2;").arg(UIColorDefine::color_convert::ToCssString(UIColorDefine::background_color::Dark)).arg(UIColorDefine::color_convert::ToCssString(UIColorDefine::border_color::Default)));
-    m_videoDisplayLabel->setAlignment(Qt::AlignCenter);
-    m_videoDisplayLabel->setText("选择视频文件开始播放");
-    m_videoDisplayLabel->setScaledContents(true);
+    // 创建SDL窗口占位控件
+    CreateSDLPlaceholder();
 
-    // 添加到布局
-    m_mainLayout->addWidget(m_videoDisplayLabel);
     setLayout(m_mainLayout);
+}
+
+void PlayerVideoModuleWidget::CreateSDLPlaceholder()
+{
+    m_sdlPlaceholder = new QWidget(this);
+    m_sdlPlaceholder->setMinimumSize(1080, 720);
+    m_sdlPlaceholder->setStyleSheet(QString("background-color: %1; border: 1px solid %2;").arg(UIColorDefine::color_convert::ToCssString(UIColorDefine::background_color::Dark)).arg(UIColorDefine::color_convert::ToCssString(UIColorDefine::border_color::Default)));
+    m_mainLayout->addWidget(m_sdlPlaceholder);
 }
 
 void PlayerVideoModuleWidget::ConnectSignals()
 {
-    // 现在不再直接连接VideoFFmpegPlayer信号
-    // 播放状态和进度信息将通过AVBaseWidget和MediaPlayerManager传递
-}
-
-void PlayerVideoModuleWidget::SetVideoFrame(const uint8_t* frameData, int width, int height)
-{
-    if (!frameData || width <= 0 || height <= 0)
-    {
-        return;
-    }
-
-    // 创建QImage从RGBA数据
-    QImage image(frameData, width, height, QImage::Format_RGBA8888);
-    if (image.isNull())
-    {
-        return;
-    }
-
-    // 转换为QPixmap并显示
-    QPixmap pixmap = QPixmap::fromImage(image);
-    if (!pixmap.isNull())
-    {
-        // 计算保持纵横比的缩放尺寸
-        QSize labelSize = m_videoDisplayLabel->size();
-        QSize scaledSize = pixmap.size().scaled(labelSize, Qt::KeepAspectRatio);
-
-        QPixmap scaledPixmap = pixmap.scaled(scaledSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-        m_videoDisplayLabel->setPixmap(scaledPixmap);
-    }
-    QApplication::processEvents();
-}
-
-void PlayerVideoModuleWidget::ClearVideoDisplay()
-{
-    m_videoDisplayLabel->clear();
-    m_videoDisplayLabel->setText("选择视频文件开始播放");
-}
-
-void PlayerVideoModuleWidget::ResizeVideoDisplay()
-{
-    // 使用新的QLabel::pixmap()接口
-    QPixmap currentPixmap = m_videoDisplayLabel->pixmap(Qt::ReturnByValue);
-    if (!currentPixmap.isNull())
-    {
-        QSize labelSize = m_videoDisplayLabel->size();
-        QPixmap scaledPixmap = currentPixmap.scaled(labelSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-        m_videoDisplayLabel->setPixmap(scaledPixmap);
-    }
 }
 
 void PlayerVideoModuleWidget::SlotVideoProgressUpdated(double currentTime, double totalTime)
@@ -127,5 +95,5 @@ void PlayerVideoModuleWidget::SlotVideoFrameUpdated()
 void PlayerVideoModuleWidget::SlotVideoError(const QString& errorMsg)
 {
     qDebug() << "Video error:" << errorMsg;
-    m_videoDisplayLabel->setText("视频播放错误: " + errorMsg);
+    // SDL窗口错误由VideoPlayWorker处理
 }

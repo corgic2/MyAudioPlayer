@@ -1,4 +1,5 @@
 ﻿#include "VideoPlayWorker.h"
+#include <SDL3/SDL.h>
 #include <ThreadPool/ThreadPool.h>
 #include "CoreServerGlobal.h"
 #include "../BasePlayer/FFmpegPublicUtils.h"
@@ -11,28 +12,15 @@
 #include "TimeSystem/TimeSystem.h"
 
 VideoPlayWorker::VideoPlayWorker(QObject* parent)
-    : QObject(parent)
+    : QObject(parent), m_sdlManager(std::make_unique<SDLWindowManager>())
 {
-    InitSDLSystem();
+    // SDL初始化由SDLWindowManager处理
 }
 
 VideoPlayWorker::~VideoPlayWorker()
 {
     LOG_INFO("VideoPlayWorker destructor called");
     Cleanup();
-}
-
-bool VideoPlayWorker::InitSDLSystem()
-{
-    // 初始化SDL音频子系统
-    if (SDL_Init(SDL_INIT_AUDIO) < 0)
-    {
-        LOG_WARN("Failed to initialize SDL audio: " + std::string(SDL_GetError()));
-        return false;
-    }
-
-    LOG_INFO("SDL audio system initialized successfully");
-    return true;
 }
 
 void VideoPlayWorker::Cleanup()
@@ -138,6 +126,7 @@ void VideoPlayWorker::SlotSeekPlay(double seconds)
     }
 }
 
+
 void VideoPlayWorker::PlayLoop()
 {
     LOG_INFO("Video playback loop started");
@@ -146,6 +135,9 @@ void VideoPlayWorker::PlayLoop()
     int consecutiveErrors = 0;
     while (m_playState.GetCurrentState() == AVPlayState::Playing && !m_bNeedStop.load())
     {
+        // 处理SDL事件
+        m_sdlManager->ProcessEvents();
+
         // 如果处于暂停状态，等待恢复
         if (m_playState.GetCurrentState() == AVPlayState::Paused)
         {
@@ -363,9 +355,6 @@ bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResu
     TIME_START("VideoPlayerInit");
     LOG_INFO("=== Initializing video player with pre-opened file ===");
 
-    // renderer和texture可以为nullptr，表示仅使用Qt显示
-    m_pRenderer = renderer;
-    m_pTexture = texture;
     // 使用传入的已打开格式上下文
     m_pFormatCtx = std::unique_ptr<ST_AVFormatContext>(openFileResult->m_formatCtx);
     openFileResult->m_formatCtx = nullptr; // 转移所有权
@@ -450,7 +439,7 @@ bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResu
 
     // 创建安全的图像转换上下文
     TIME_START("VideoSwsCtxCreate");
-    m_pSwsCtx = CreateSafeSwsContext(m_videoInfo.m_pixelFormat, AV_PIX_FMT_RGBA);
+    m_pSwsCtx = CreateSafeSwsContext(m_videoInfo.m_pixelFormat, AV_PIX_FMT_RGB24);
     if (!m_pSwsCtx)
     {
         LOG_ERROR("Failed to create swscale context");
@@ -459,7 +448,7 @@ bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResu
     TimeSystem::Instance().StopTimingWithLog("VideoSwsCtxCreate", EM_TimingLogLevel::Info);
 
     // 为RGB帧分配缓冲区（线程安全）
-    int bufferSize = av_image_get_buffer_size(AV_PIX_FMT_RGBA, m_videoInfo.m_width, m_videoInfo.m_height, 1);
+    int bufferSize = av_image_get_buffer_size(AV_PIX_FMT_RGB24, m_videoInfo.m_width, m_videoInfo.m_height, 1);
     if (bufferSize <= 0)
     {
         LOG_WARN("Invalid buffer size: " + std::to_string(bufferSize));
@@ -468,7 +457,7 @@ bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResu
 
     // 确保缓冲区足够大（加锁保护）
     m_rgbBuffer.resize(bufferSize);
-    int ret = av_image_fill_arrays(m_pRGBFrame.GetRawFrame()->data, m_pRGBFrame.GetRawFrame()->linesize, m_rgbBuffer.data(), AV_PIX_FMT_RGBA, m_videoInfo.m_width, m_videoInfo.m_height, 1);
+    int ret = av_image_fill_arrays(m_pRGBFrame.GetRawFrame()->data, m_pRGBFrame.GetRawFrame()->linesize, m_rgbBuffer.data(), AV_PIX_FMT_RGB24, m_videoInfo.m_width, m_videoInfo.m_height, 1);
     if (ret < 0)
     {
         char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
@@ -476,6 +465,28 @@ bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResu
         LOG_WARN("Failed to fill RGB frame arrays: " + std::string(errbuf));
         return false;
     }
+
+    // 使用SDLWindowManager创建窗口和渲染器
+    if (!m_sdlManager->CreateWindow(m_videoInfo.m_width, m_videoInfo.m_height, "MyAudioPlayer Video"))
+    {
+        LOG_ERROR("Failed to create SDL window for video rendering");
+        return false;
+    }
+
+    // 创建视频纹理
+    if (!m_sdlManager->CreateVideoTexture(m_videoInfo.m_width, m_videoInfo.m_height))
+    {
+        LOG_ERROR("Failed to create SDL texture for video rendering");
+        return false;
+    }
+
+    // 连接窗口大小改变信号
+    connect(m_sdlManager.get(), &SDLWindowManager::WindowResized, this, [this](int width, int height)
+    {
+        LOG_INFO("Window resized to: " + std::to_string(width) + "x" + std::to_string(height));
+        // 这里可以添加响应窗口大小改变的逻辑
+        // 例如：重新创建纹理或调整显示比例
+    });
 
     // 查找音频流
     m_audioStreamIndex = -1;
@@ -542,12 +553,12 @@ bool VideoPlayWorker::DecodeVideoFrame()
 
 void VideoPlayWorker::RenderFrame(AVFrame* frame)
 {
-    if (!frame || !m_pSwsCtx)
+    if (!frame || !m_pSwsCtx || !m_sdlManager)
     {
         return;
     }
 
-    // 转换图像格式（线程安全）
+    // 转换图像格式到RGB24（SDL纹理格式）
     int ret = sws_scale(m_pSwsCtx, frame->data, frame->linesize, 0, m_videoInfo.m_height, m_pRGBFrame.GetRawFrame()->data, m_pRGBFrame.GetRawFrame()->linesize);
 
     if (ret <= 0)
@@ -556,15 +567,20 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
         return;
     }
 
-    // 发送Qt显示信号（确保RGB缓冲区锁定）
-    // 检查缓冲区是否有效
-    if (!m_rgbBuffer.empty())
+    // 获取RGB帧数据
+    uint8_t* rgbData = m_pRGBFrame.GetRawFrame()->data[0];
+    float width = m_videoInfo.m_width;
+    float height = m_videoInfo.m_height;
+
+    // 更新SDL纹理并渲染
+    if (m_sdlManager->UpdateTextureFromRGBData(rgbData, width, height))
     {
-        // 深拷贝RGB帧的data[0]
-        int dataSize = m_videoInfo.m_width * m_videoInfo.m_height * 4; // RGBA格式每个像素4字节
-        std::vector<uint8_t> frameDataCopy(dataSize);
-        std::memcpy(frameDataCopy.data(), m_pRGBFrame.GetRawFrame()->data[0], dataSize);
-        emit SigFrameDataUpdated(frameDataCopy, m_videoInfo.m_width, m_videoInfo.m_height);
+        m_sdlManager->RenderFrame();
+    }
+    else
+    {
+        LOG_WARN("Failed to update SDL texture");
+        return;
     }
 
     // 更新当前时间
@@ -589,7 +605,7 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
         m_currentTime = m_videoInfo.m_duration;
     }
 
-    // 发送帧更新信号
+    // 发送帧更新信号（保留用于进度显示）
     emit SigFrameUpdated();
 }
 
