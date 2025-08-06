@@ -3,17 +3,17 @@
 
 SDLWindowManager::SDLWindowManager(QObject* parent)
     : QObject(parent)
-    , m_window(nullptr)
-    , m_renderer(nullptr)
-    , m_texture(nullptr)
-    , m_windowVisible(false)
-    , m_windowValid(false)
 {
 }
 
 SDLWindowManager::~SDLWindowManager()
 {
     DestroyWindow();
+}
+
+void SDLWindowManager::RegisterDevice()
+{
+    SDL_Init(SDL_INIT_VIDEO);
 }
 
 bool SDLWindowManager::CreateWindow(int width, int height, const QString& title)
@@ -170,7 +170,7 @@ void SDLWindowManager::RenderFrame()
     SDL_RenderPresent(m_renderer);
 }
 
-bool SDLWindowManager::UpdateTextureFromRGBData(const uint8_t* rgbData, float width, float height)
+bool SDLWindowManager::UpdateTextureFromRGBData(const uint8_t* rgbData, int pitch, float width, float height)
 {
     if (!m_texture || !rgbData || width <= 0 || height <= 0)
     {
@@ -189,7 +189,6 @@ bool SDLWindowManager::UpdateTextureFromRGBData(const uint8_t* rgbData, float wi
         }
     }
 
-    int pitch = width * 3; // RGB24: 3 bytes per pixel
     return UpdateTexture(rgbData, pitch);
 }
 
@@ -200,22 +199,19 @@ void SDLWindowManager::ProcessEvents()
     {
         switch (event.type)
         {
-        case SDL_EVENT_QUIT:
-            emit WindowClosed();
-            break;
-        case SDL_EVENT_WINDOW_RESIZED:
-        case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED:
-            emit WindowResized(event.window.data1, event.window.data2);
-            break;
-        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-            emit WindowClosed();
-            break;
-        case SDL_EVENT_KEY_DOWN:
-            // 处理键盘事件
-            break;
-        case SDL_EVENT_MOUSE_BUTTON_DOWN:
-            // 处理鼠标事件
-            break;
+            case SDL_EVENT_QUIT: emit WindowClosed();
+                break;
+            case SDL_EVENT_WINDOW_RESIZED:
+            case SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED: emit WindowResized(event.window.data1, event.window.data2);
+                break;
+            case SDL_EVENT_WINDOW_CLOSE_REQUESTED: emit WindowClosed();
+                break;
+            case SDL_EVENT_KEY_DOWN:
+                // 处理键盘事件
+                break;
+            case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                // 处理鼠标事件
+                break;
         }
     }
 }
@@ -244,35 +240,6 @@ void SDLWindowManager::CenterWindow()
     {
         SDL_SetWindowPosition(m_window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     }
-}
-
-bool SDLWindowManager::RecreateTexture(int width, int height)
-{
-    if (!m_renderer)
-    {
-        LOG_ERROR("Cannot recreate texture: renderer not initialized");
-        return false;
-    }
-
-    // 销毁旧纹理
-    if (m_texture)
-    {
-        SDL_DestroyTexture(m_texture);
-        m_texture = nullptr;
-    }
-
-    // 创建新纹理
-    m_texture = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, width, height);
-    if (!m_texture)
-    {
-        QString error = QString("Failed to recreate SDL texture: %1").arg(SDL_GetError());
-        LOG_ERROR(error.toStdString());
-        emit ErrorOccurred(error);
-        return false;
-    }
-
-    LOG_INFO("SDL texture recreated successfully: " + std::to_string(width) + "x" + std::to_string(height));
-    return true;
 }
 
 void SDLWindowManager::GetWindowSize(int& width, int& height)

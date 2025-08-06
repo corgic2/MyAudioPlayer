@@ -30,7 +30,7 @@ public:
     /// 析构函数
     /// </summary>
     ~SDLWindowManager() override;
-
+    static void RegisterDevice();
     /// <summary>
     /// 创建SDL窗口和渲染器
     /// </summary>
@@ -98,8 +98,7 @@ public:
     /// <param name="width">图像宽度</param>
     /// <param name="height">图像高度</param>
     /// <returns>是否更新成功</returns>
-    bool UpdateTextureFromRGBData(const uint8_t* rgbData, float width, float height);
-
+    bool UpdateTextureFromRGBData(const uint8_t* rgbData, int pitch, float width, float height);
     /// <summary>
     /// 渲染当前帧
     /// </summary>
@@ -133,15 +132,6 @@ public:
     /// 窗口居中
     /// </summary>
     void CenterWindow();
-
-    /// <summary>
-    /// 重新创建纹理
-    /// </summary>
-    /// <param name="width">纹理宽度</param>
-    /// <param name="height">纹理高度</param>
-    /// <returns>是否创建成功</returns>
-    bool RecreateTexture(int width, int height);
-
     /// <summary>
     /// 获取窗口尺寸
     /// </summary>

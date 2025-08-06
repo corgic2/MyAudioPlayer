@@ -14,7 +14,16 @@
 VideoPlayWorker::VideoPlayWorker(QObject* parent)
     : QObject(parent), m_sdlManager(std::make_unique<SDLWindowManager>())
 {
-    // SDL初始化由SDLWindowManager处理
+    // 例如在 VideoFFmpegPlayer.cpp
+    connect(this, &VideoPlayWorker::SigRenderFrameOnMainThread, this, [this](const uint8_t* rgbData, int pitch, float width, float height)
+    {
+        // 这里一定在主线程
+        if (m_sdlManager)
+        {
+            m_sdlManager->UpdateTextureFromRGBData(rgbData, pitch, width, height);
+            m_sdlManager->RenderFrame();
+        }
+    });
 }
 
 VideoPlayWorker::~VideoPlayWorker()
@@ -571,18 +580,8 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
     uint8_t* rgbData = m_pRGBFrame.GetRawFrame()->data[0];
     float width = m_videoInfo.m_width;
     float height = m_videoInfo.m_height;
-
-    // 更新SDL纹理并渲染
-    if (m_sdlManager->UpdateTextureFromRGBData(rgbData, width, height))
-    {
-        m_sdlManager->RenderFrame();
-    }
-    else
-    {
-        LOG_WARN("Failed to update SDL texture");
-        return;
-    }
-
+    int pitch = m_pRGBFrame.GetRawFrame()->linesize[0];
+    emit SigRenderFrameOnMainThread(rgbData, pitch, width, height);
     // 更新当前时间
     if (frame->pts != AV_NOPTS_VALUE)
     {

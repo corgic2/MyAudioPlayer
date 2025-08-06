@@ -156,6 +156,14 @@ signals:
     /// SDL窗口关闭信号
     /// </summary>
     void SigSDLWindowClosed();
+    /// <summary>
+    /// 主线程更新画面
+    /// </summary>
+    /// <param name="rgbData"></param>
+    /// <param name="pitch"></param>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    void SigRenderFrameOnMainThread(const uint8_t* rgbData, int pitch, float width, float height);
 
 private:
     /// <summary>
