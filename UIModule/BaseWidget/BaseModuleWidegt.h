@@ -21,11 +21,5 @@ public:
     /// 析构函数
     /// </summary>
     ~BaseModuleWidget();
-
-    /// <summary>
-    /// 获取FFmpeg工具类指针（纯虚函数）
-    /// </summary>
-    /// <returns>FFmpeg工具类指针</returns>
-    virtual BaseFFmpegPlayer* GetFFMpegUtils() = 0;
 };
 

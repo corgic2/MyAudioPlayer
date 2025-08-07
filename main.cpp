@@ -18,8 +18,7 @@ void custom_log(void* ptr, int level, const char* fmt, va_list vl)
 
 void InitCoreObject()
 {
-    AudioPlayerUtils::ResigsterDevice();
-    SDLWindowManager::RegisterDevice();
+    FFmpegPublicUtils::ResigsterDevice();
     av_log_set_level(AV_LOG_DEBUG);
     // 在初始化时设置回调
     av_log_set_callback(custom_log);

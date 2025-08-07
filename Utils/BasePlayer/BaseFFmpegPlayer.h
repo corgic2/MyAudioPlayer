@@ -89,13 +89,6 @@ class BaseFFmpegPlayer : public QObject
     /// </summary>
     /// <returns>总时长（秒）</returns>
     virtual double GetDuration();
-    /// <summary>
-    /// 准备播放但不播放，等待同步开始
-    /// </summary>
-    /// <param name="filePath"></param>
-    /// <param name="startPosition"></param>
-    /// <param name="args"></param>
-    virtual void PreparePlay(const QString& filePath, double startPosition, const QStringList& args);
 
 protected:
     /// <summary>

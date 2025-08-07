@@ -96,8 +96,8 @@
         </property>
         <property name="maximumSize">
          <size>
-          <width>1080</width>
-          <height>720</height>
+          <width>16777215</width>
+          <height>16777215</height>
          </size>
         </property>
         <property name="frameShape">
@@ -141,9 +141,6 @@
           <property name="value">
            <number>0</number>
           </property>
-          <property name="progressBarStyle" stdset="0">
-           <enum>CustomProgressBar::ProgressBarStyle_Rounded</enum>
-          </property>
           <property name="enableGradient" stdset="0">
            <bool>true</bool>
           </property>
@@ -152,9 +149,6 @@
           </property>
           <property name="animationDuration" stdset="0">
            <number>300</number>
-          </property>
-          <property name="textPosition" stdset="0">
-           <enum>CustomProgressBar::TextPosition_Center</enum>
           </property>
           <property name="enableShadow" stdset="0">
            <bool>true</bool>
@@ -170,9 +164,6 @@
           </property>
           <property name="enableStripes" stdset="0">
            <bool>false</bool>
-          </property>
-          <property name="stripeDirection" stdset="0">
-           <enum>CustomProgressBar::StripeDirection_LeftToRight</enum>
           </property>
          </widget>
         </item>

@@ -4,9 +4,9 @@
 #include <QFileInfo>
 #include <QProcess>
 #include "CoreServerGlobal.h"
-#include "ThreadPool/ThreadPool.h"
 #include "../AVFileSystem/AVFileSystem.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
+#include "ThreadPool/ThreadPool.h"
 
 MediaService* MediaService::m_instance = nullptr;
 
@@ -37,57 +37,44 @@ MediaService::~MediaService()
 {
 }
 
-QStringList MediaService::GetAudioFilesFromDirectory(const QString& directory, bool recursive) 
+QStringList MediaService::GetAudioFilesFromDirectory(const QString& directory, bool recursive)
 {
     QStringList result;
 
-    try
-    {
-        std::vector<std::string> audioFiles = av_fileSystem::AVFileSystem::GetAudioFiles(my_sdk::FileSystem::QtPathToStdPath(directory.toStdString()), recursive);
+    std::vector<std::string> audioFiles = av_fileSystem::AVFileSystem::GetAudioFiles(my_sdk::FileSystem::QtPathToStdPath(directory.toStdString()), recursive);
 
-        for (const auto& file : audioFiles)
-        {
-            result << QString::fromStdString(my_sdk::FileSystem::StdPathToQtPath(file));
-        }
-    } catch (const std::exception& e)
+    for (const auto& file : audioFiles)
     {
-        emit SigErrorOccurred(QString("获取音频文件失败: %1").arg(e.what()));
+        result << QString::fromStdString(my_sdk::FileSystem::StdPathToQtPath(file));
+    }
+    return result;
+}
+
+QStringList MediaService::GetVideoFilesFromDirectory(const QString& directory, bool recursive)
+{
+    QStringList result;
+
+    std::vector<std::string> videoFiles = av_fileSystem::AVFileSystem::GetVideoFiles(my_sdk::FileSystem::QtPathToStdPath(directory.toStdString()), recursive);
+
+    for (const auto& file : videoFiles)
+    {
+        result << QString::fromStdString(my_sdk::FileSystem::StdPathToQtPath(file));
     }
 
     return result;
 }
 
-QStringList MediaService::GetVideoFilesFromDirectory(const QString& directory, bool recursive) 
-{
-    QStringList result;
-
-    try
-    {
-        std::vector<std::string> videoFiles = av_fileSystem::AVFileSystem::GetVideoFiles(my_sdk::FileSystem::QtPathToStdPath(directory.toStdString()), recursive);
-
-        for (const auto& file : videoFiles)
-        {
-            result << QString::fromStdString(my_sdk::FileSystem::StdPathToQtPath(file));
-        }
-    } catch (const std::exception& e)
-    {
-        emit SigErrorOccurred(QString("获取视频文件失败: %1").arg(e.what()));
-    }
-
-    return result;
-}
-
-bool MediaService::IsAudioFile(const QString& filePath) 
+bool MediaService::IsAudioFile(const QString& filePath)
 {
     return av_fileSystem::AVFileSystem::IsAudioFile(filePath.toStdString());
 }
 
-bool MediaService::IsVideoFile(const QString& filePath) 
+bool MediaService::IsVideoFile(const QString& filePath)
 {
     return av_fileSystem::AVFileSystem::IsVideoFile(filePath.toStdString());
 }
 
-QString MediaService::GetFileFilter() 
+QString MediaService::GetFileFilter()
 {
     return QString::fromStdString(av_fileSystem::AVFileSystem::GetAVFileFilter());
 }
@@ -104,34 +91,34 @@ bool MediaService::ConvertVideoFormat(const QString& inputFile, const QString& o
     return ExecuteFFmpegCommand(command);
 }
 
-QString MediaService::NormalizeFilePath(const QString& filePath) 
+QString MediaService::NormalizeFilePath(const QString& filePath)
 {
     return QDir::fromNativeSeparators(filePath);
 }
 
-QString MediaService::GetAudioExtension(const QString& format) 
+QString MediaService::GetAudioExtension(const QString& format)
 {
     return m_audioExtensions.value(format, format);
 }
 
-QString MediaService::GetVideoExtension(const QString& format) 
+QString MediaService::GetVideoExtension(const QString& format)
 {
     return m_videoExtensions.value(format, format);
 }
 
-QString MediaService::BuildAudioConvertCommand(const QString& inputFile, const QString& outputFile, const ST_AudioConvertParams& params) 
+QString MediaService::BuildAudioConvertCommand(const QString& inputFile, const QString& outputFile, const ST_AudioConvertParams& params)
 {
     QStringList arguments = BuildAudioConvertArguments(inputFile, outputFile, params);
     return "ffmpeg " + arguments.join(" ");
 }
 
-QString MediaService::BuildVideoConvertCommand(const QString& inputFile, const QString& outputFile, const ST_VideoConvertParams& params) 
+QString MediaService::BuildVideoConvertCommand(const QString& inputFile, const QString& outputFile, const ST_VideoConvertParams& params)
 {
     QStringList arguments = BuildVideoConvertArguments(inputFile, outputFile, params);
     return "ffmpeg " + arguments.join(" ");
 }
 
-QStringList MediaService::BuildAudioConvertArguments(const QString& inputFile, const QString& outputFile, const ST_AudioConvertParams& params) 
+QStringList MediaService::BuildAudioConvertArguments(const QString& inputFile, const QString& outputFile, const ST_AudioConvertParams& params)
 {
     QStringList arguments;
 
@@ -185,7 +172,7 @@ QStringList MediaService::BuildAudioConvertArguments(const QString& inputFile, c
     return arguments;
 }
 
-QStringList MediaService::BuildVideoConvertArguments(const QString& inputFile, const QString& outputFile, const ST_VideoConvertParams& params) 
+QStringList MediaService::BuildVideoConvertArguments(const QString& inputFile, const QString& outputFile, const ST_VideoConvertParams& params)
 {
     QStringList arguments;
 
@@ -225,7 +212,7 @@ QStringList MediaService::BuildVideoConvertArguments(const QString& inputFile, c
     return arguments;
 }
 
-bool MediaService::ExecuteFFmpegCommand(const QString& command) 
+bool MediaService::ExecuteFFmpegCommand(const QString& command)
 {
     QProcess process;
     process.start(command);

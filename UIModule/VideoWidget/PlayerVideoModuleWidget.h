@@ -32,17 +32,6 @@ class PlayerVideoModuleWidget : public BaseModuleWidget
     ~PlayerVideoModuleWidget() override;
 
     /// <summary>
-    /// 获取FFMpegUtils (已弃用，返回nullptr)
-    /// </summary>
-    /// <returns>FFmpeg工具类指针</returns>
-    BaseFFmpegPlayer* GetFFMpegUtils() override;
-
-    /// <summary>
-    /// 获取SDL窗口句柄
-    /// </summary>
-    /// <returns>SDL窗口指针</returns>
-    void* GetSDLWindowHandle();
-    /// <summary>
     /// 获取SDL占位控件ID
     /// </summary>
     /// <returns></returns>
@@ -67,17 +56,6 @@ protected slots:
     /// <param name="currentTime">当前时间</param>
     /// <param name="totalTime">总时间</param>
     void SlotVideoProgressUpdated(double currentTime, double totalTime);
-
-    /// <summary>
-    /// 视频帧更新槽函数
-    /// </summary>
-    void SlotVideoFrameUpdated();
-
-    /// <summary>
-    /// 视频错误槽函数
-    /// </summary>
-    /// <param name="errorMsg">错误信息</param>
-    void SlotVideoError(const QString& errorMsg);
 
 private:
     /// <summary>

@@ -4,7 +4,7 @@
 #include <unordered_map>
 #include "LogSystem/LogSystem.h"
 #include "FileSystem/FileSystem.h"
-
+#include "SDL3/SDL_init.h"
 
 const AVCodec* FFmpegPublicUtils::FindEncoder(const char* formatName)
 {
@@ -66,6 +66,15 @@ const AVCodec* FFmpegPublicUtils::FindEncoder(const char* formatName)
     }
 
     return nullptr;
+}
+
+void FFmpegPublicUtils::ResigsterDevice()
+{
+    avdevice_register_all();
+    if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO))
+    {
+        LOG_WARN("SDL_Init failed:" + std::string(SDL_GetError()));
+    }
 }
 
 const AVCodec* FFmpegPublicUtils::FindDecoder(AVCodecID codecId)

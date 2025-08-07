@@ -27,10 +27,7 @@ class AudioPlayerUtils  : public QObject
 public:
     AudioPlayerUtils(QObject *parent);
     ~AudioPlayerUtils();
-    /// <summary>
-    /// 注册设备
-    /// </summary>
-    static void ResigsterDevice();
+
     /// <summary>
     /// 处理音频帧以生成波形数据
     /// </summary>

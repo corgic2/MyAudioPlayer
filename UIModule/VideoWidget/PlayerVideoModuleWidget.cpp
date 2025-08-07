@@ -25,19 +25,6 @@ PlayerVideoModuleWidget::~PlayerVideoModuleWidget()
     SAFE_DELETE_POINTER_VALUE(ui);
 }
 
-BaseFFmpegPlayer* PlayerVideoModuleWidget::GetFFMpegUtils()
-{
-    // 已弃用：现在使用MediaPlayerManager统一管理
-    return nullptr;
-}
-
-void* PlayerVideoModuleWidget::GetSDLWindowHandle()
-{
-    // SDL窗口由VideoPlayWorker管理，这里返回nullptr
-    // 实际的SDL窗口创建在VideoPlayWorker中
-    return nullptr;
-}
-
 WId PlayerVideoModuleWidget::GetSDLPlaceholderId() 
 {
     return m_sdlPlaceholder ? m_sdlPlaceholder->winId() : 0;
@@ -90,15 +77,4 @@ void PlayerVideoModuleWidget::SlotVideoProgressUpdated(double currentTime, doubl
     // 可以在这里更新进度条或时间显示
     Q_UNUSED(currentTime);
     Q_UNUSED(totalTime);
-}
-
-void PlayerVideoModuleWidget::SlotVideoFrameUpdated()
-{
-    // 这个槽函数现在不需要特殊处理，帧数据直接通过SetVideoFrame设置
-}
-
-void PlayerVideoModuleWidget::SlotVideoError(const QString& errorMsg)
-{
-    qDebug() << "Video error:" << errorMsg;
-    // SDL窗口错误由VideoPlayWorker处理
 }

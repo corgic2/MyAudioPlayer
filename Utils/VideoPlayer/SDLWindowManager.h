@@ -31,7 +31,6 @@ public:
     /// 析构函数
     /// </summary>
     ~SDLWindowManager() override;
-    static void RegisterDevice();
     /// <summary>
     /// 创建SDL窗口
     /// </summary>

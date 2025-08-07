@@ -16,6 +16,7 @@ extern "C"
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 #include <libavutil/imgutils.h>
+#include "libavdevice/avdevice.h"
 }
 
 #include <SDL3/SDL_audio.h>
@@ -68,7 +69,10 @@ class FFmpegPublicUtils
 public:
     FFmpegPublicUtils() = default;
     ~FFmpegPublicUtils() = default;
-
+    /// <summary>
+    /// 注册设备
+    /// </summary>
+    static void ResigsterDevice();
     /// <summary>
     /// 根据输出格式自动选择编码器
     /// </summary>

@@ -26,12 +26,6 @@ PlayerAudioModuleWidget::~PlayerAudioModuleWidget()
     SAFE_DELETE_POINTER_VALUE(ui);
 }
 
-BaseFFmpegPlayer* PlayerAudioModuleWidget::GetFFMpegUtils()
-{
-    // 已弃用：现在使用MediaPlayerManager统一管理
-    return nullptr;
-}
-
 void PlayerAudioModuleWidget::LoadWaveWidegt(const QString& inputFilePath)
 {
     m_waveformData.clear();

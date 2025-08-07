@@ -11,11 +11,6 @@ SDLWindowManager::~SDLWindowManager()
     DestroyWindow();
 }
 
-void SDLWindowManager::RegisterDevice()
-{
-    SDL_Init(SDL_INIT_VIDEO);
-}
-
 bool SDLWindowManager::CreateWindow(int width, int height, const QString& title)
 {
     if (m_window)

@@ -16,14 +16,6 @@ AudioPlayerUtils::~AudioPlayerUtils()
 {
 }
 
-void AudioPlayerUtils::ResigsterDevice()
-{
-    avdevice_register_all();
-    if (SDL_Init(SDL_INIT_AUDIO))
-    {
-        LOG_WARN("SDL_Init failed:" + std::string(SDL_GetError()));
-    }
-}
 
 void AudioPlayerUtils::ProcessAudioFrame(AVFrame* frame, QVector<float>& waveformData, int samplesPerPixel, float& currentSum, int& sampleCount, float& maxSample)
 {
