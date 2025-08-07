@@ -91,11 +91,19 @@ void BaseFFmpegPlayer::RecordPlayStartTime(double startPosition)
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
     m_startTime = startPosition;
     m_playStartTimePoint = std::chrono::steady_clock::now();
+    m_pauseTime = 0.0;
+    m_isPaused = false;
 }
 
 double BaseFFmpegPlayer::CalculateCurrentPosition() const
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
+
+    if (m_isPaused)
+    {
+        // 如果暂停了，返回暂停时的位置
+        return m_pauseTime;
+    }
 
     if (!m_playState.IsPlaying())
     {

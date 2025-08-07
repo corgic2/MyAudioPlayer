@@ -32,29 +32,32 @@ int VideoAudioSync::SyncVideoFrame(double videoPTS, bool isKeyFrame)
         return 0; /// 无法获取音频时钟，直接显示
     }
 
-    /// 计算时间差
+    /// 计算时间差   
     double diff = videoPTS - audioClock;
 
     /// 同步策略
-    if (diff < -m_syncThreshold) {
+    if (diff < -m_syncThreshold)
+    {
         /// 视频落后太多，丢弃当前帧
         m_dropFrameCount++;
         m_consecutiveDrops++;
 
         /// 防止过度丢弃，遇到关键帧时强制显示
-        if (isKeyFrame || m_consecutiveDrops >= 10) {
+        if (isKeyFrame || m_consecutiveDrops >= 10)
+        {
             m_consecutiveDrops = 0;
             return 0; /// 显示关键帧
         }
 
         return 1; /// 丢弃帧
     }
-    else if (diff > m_syncThreshold) {
+    else if (diff > m_syncThreshold)
+    {
         /// 视频超前太多，等待
         if (diff > m_maxWaitTime) {
             diff = m_maxWaitTime; /// 限制最大等待时间
         }
-        
+
         PreciseWait(diff);
         m_consecutiveDrops = 0;
         return 2; /// 等待后显示
@@ -101,7 +104,7 @@ double VideoAudioSync::GetAudioPosition() const
     if (!m_audioPlayer) {
         return -1.0;
     }
-    
+
     return m_audioPlayer->GetCurrentPosition();
 }
 

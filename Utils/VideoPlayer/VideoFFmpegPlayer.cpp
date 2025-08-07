@@ -78,8 +78,6 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
     }
 
     // 设置音频播放器用于音视频同步
-    // 注意：这里假设有一个全局的音频播放器实例，实际应用中需要通过适当方式获取
-    // 在集成环境中，可能需要从上层应用获取音频播放器实例
     m_pPlayWorker->SetAudioPlayer(MediaPlayerManager::Instance()->GetAudioPlayerPtr());
 
     // 获取视频信息并设置到基类
@@ -106,6 +104,11 @@ void VideoFFmpegPlayer::PausePlay()
 {
     if (IsPlaying() && m_pPlayWorker)
     {
+        // 保存当前播放位置
+        double currentPos = GetCurrentPosition();
+        m_pauseTime = currentPos;
+        m_isPaused = true;
+        
         m_pPlayWorker->SlotPausePlay();
         m_playState.TransitionTo(AVPlayState::Paused);
     }
@@ -115,6 +118,14 @@ void VideoFFmpegPlayer::ResumePlay()
 {
     if (IsPaused() && m_pPlayWorker)
     {
+        // 恢复播放时，重置播放起始时间点为当前暂停位置
+        if (m_isPaused)
+        {
+            m_startTime = m_pauseTime;
+            m_playStartTimePoint = std::chrono::steady_clock::now();
+            m_isPaused = false;
+        }
+        
         m_pPlayWorker->SlotResumePlay();
         m_playState.TransitionTo(AVPlayState::Playing);
     }

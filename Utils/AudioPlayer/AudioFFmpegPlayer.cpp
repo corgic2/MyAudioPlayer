@@ -540,6 +540,8 @@ void AudioFFmpegPlayer::PausePlay()
 
     // 保存当前播放位置
     double currentPos = GetCurrentPosition();
+    m_pauseTime = currentPos;
+    m_isPaused = true;
     m_playState.TransitionTo(AVPlayState::Paused);
     m_playInfo->PauseAudio();
 }
@@ -551,6 +553,14 @@ void AudioFFmpegPlayer::ResumePlay()
     if (m_playState.GetCurrentState() != AVPlayState::Paused || !m_playInfo)
     {
         return;
+    }
+
+    // 恢复播放时，重置播放起始时间点为当前暂停位置
+    if (m_isPaused)
+    {
+        m_startTime = m_pauseTime;
+        m_playStartTimePoint = std::chrono::steady_clock::now();
+        m_isPaused = false;
     }
 
     m_playState.TransitionTo(AVPlayState::Playing);

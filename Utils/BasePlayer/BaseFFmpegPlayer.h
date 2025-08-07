@@ -173,6 +173,16 @@ protected:
     std::chrono::steady_clock::time_point m_playStartTimePoint;
 
     /// <summary>
+    /// 暂停时的位置（秒）
+    /// </summary>
+    double m_pauseTime{0.0};
+
+    /// <summary>
+    /// 是否已暂停
+    /// </summary>
+    bool m_isPaused{false};
+
+    /// <summary>
     /// 线程安全互斥锁
     /// </summary>
     mutable std::recursive_mutex m_mutex;

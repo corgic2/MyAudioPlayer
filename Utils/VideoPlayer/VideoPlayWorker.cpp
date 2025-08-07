@@ -116,7 +116,6 @@ void VideoPlayWorker::SlotResumePlay()
             m_totalPauseTime += (av_gettime() - m_pauseStartTime);
             m_pauseStartTime = 0;
         }
-
         LOG_INFO("Video playback resumed");
     }
 }
@@ -142,7 +141,7 @@ void VideoPlayWorker::PlayLoop()
 
     const int MAX_CONSECUTIVE_ERRORS = 10;
     int consecutiveErrors = 0;
-    while (m_playState.GetCurrentState() == AVPlayState::Playing && !m_bNeedStop.load())
+    while (!m_bNeedStop.load())
     {
         // 处理SDL事件
         m_sdlManager->ProcessEvents();
@@ -244,6 +243,8 @@ void VideoPlayWorker::PlayLoop()
         {
             emit SigPlayProgressUpdated(m_currentTime, m_videoInfo.m_duration);
         }
+
+        LOG_DEBUG("Looping ---------------------------");
     }
 
     // 播放结束，设置状态，没有中途结束时
@@ -600,12 +601,15 @@ bool VideoPlayWorker::DecodeVideoFrame()
             switch (syncResult)
             {
                 case 0: // 正常显示
+                    LOG_DEBUG("The SyncResult is 0 ---------------------> Normal display");
                     RenderFrame(frame);
                     break;
                 case 1: // 丢弃帧
                     // 跳过渲染，继续解码下一帧
+                    LOG_DEBUG("The SyncResult is 1 ---------------------> Drop frame to display");
                     continue;
                 case 2: // 等待后显示
+                    LOG_DEBUG("The SyncResult is 1 ---------------------> Wait frame to display");
                     RenderFrame(frame);
                     break;
             }
