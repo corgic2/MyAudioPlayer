@@ -1,4 +1,4 @@
-﻿#include "VideoPlayWorker.h"
+#include "VideoPlayWorker.h"
 #include <SDL3/SDL.h>
 #include <ThreadPool/ThreadPool.h>
 #include "CoreServerGlobal.h"
@@ -12,7 +12,7 @@
 #include "TimeSystem/TimeSystem.h"
 
 VideoPlayWorker::VideoPlayWorker(QObject* parent)
-    : QObject(parent), m_sdlManager(std::make_unique<SDLWindowManager>())
+    : QObject(parent), m_sdlManager(std::make_unique<SDLWindowManager>()), m_videoAudioSync(std::make_unique<VideoAudioSync>())
 {
     // 例如在 VideoFFmpegPlayer.cpp
     connect(this, &VideoPlayWorker::SigRenderFrameOnMainThread, this, [this](const uint8_t* rgbData, int pitch, float width, float height)
@@ -179,6 +179,12 @@ void VideoPlayWorker::PlayLoop()
                 m_startTime = av_gettime();
                 m_totalPauseTime = 0;
 
+                // 重置音视频同步器状态
+                if (m_videoAudioSync)
+                {
+                    m_videoAudioSync->Reset();
+                }
+
                 LOG_INFO("Seek completed, time reset to: " + std::to_string(seekTarget) + " seconds");
             }
             m_bSeekRequested.store(false);
@@ -253,7 +259,14 @@ ST_VideoFrameInfo VideoPlayWorker::GetVideoInfo()
     return m_videoInfo;
 }
 
-// ProcessAudioFrame方法已移除，音频处理由AudioFFmpegPlayer处理
+void VideoPlayWorker::SetAudioPlayer(AudioFFmpegPlayer* audioPlayer)
+{
+    m_audioPlayer = audioPlayer;
+    if (m_videoAudioSync && audioPlayer)
+    {
+        m_videoAudioSync->SetAudioPlayer(audioPlayer);
+    }
+}
 
 AVPixelFormat VideoPlayWorker::GetSafePixelFormat(AVPixelFormat format)
 {
@@ -556,13 +569,58 @@ bool VideoPlayWorker::DecodeVideoFrame()
     // 接收解码后的视频帧
     while (m_pVideoFrame.GetCodecFrame(m_pVideoCodecCtx->GetRawContext()))
     {
-        RenderFrame(m_pVideoFrame.GetRawFrame());
+        AVFrame* frame = m_pVideoFrame.GetRawFrame();
 
-        // 计算时间延迟
-        int delay = CalculateFrameDelay(m_pVideoFrame.GetRawFrame()->pts);
-        if (delay > 0)
+        // 获取视频帧时间戳
+        double videoPTS = 0.0;
+        if (frame->pts != AV_NOPTS_VALUE)
         {
-            SDL_Delay(delay);
+            AVStream* videoStream = m_pFormatCtx->GetRawContext()->streams[m_videoStreamIndex];
+            videoPTS = frame->pts * av_q2d(videoStream->time_base);
+        }
+        else
+        {
+            // 如果PTS无效，根据帧率估算
+            static double estimatedPTS = 0.0;
+            if (m_videoInfo.m_frameRate > 0)
+            {
+                estimatedPTS += 1.0 / m_videoInfo.m_frameRate;
+            }
+            videoPTS = estimatedPTS;
+        }
+
+        // 检查是否为关键帧
+        bool isKeyFrame = (frame->flags & AV_FRAME_FLAG_KEY) != 0;
+
+        // 音视频同步处理
+        if (m_videoAudioSync && m_audioPlayer)
+        {
+            int syncResult = m_videoAudioSync->SyncVideoFrame(videoPTS, isKeyFrame);
+
+            switch (syncResult)
+            {
+                case 0: // 正常显示
+                    RenderFrame(frame);
+                    break;
+                case 1: // 丢弃帧
+                    // 跳过渲染，继续解码下一帧
+                    continue;
+                case 2: // 等待后显示
+                    RenderFrame(frame);
+                    break;
+            }
+        }
+        else
+        {
+            // 无音频同步，使用原始延迟计算
+            RenderFrame(frame);
+
+            // 计算时间延迟
+            int delay = CalculateFrameDelay(frame->pts);
+            if (delay > 0)
+            {
+                SDL_Delay(delay);
+            }
         }
 
         return true;
@@ -570,8 +628,6 @@ bool VideoPlayWorker::DecodeVideoFrame()
 
     return false;
 }
-
-// DecodeAudioFrame方法已移除，音频解码由AudioFFmpegPlayer处理
 
 void VideoPlayWorker::RenderFrame(AVFrame* frame)
 {

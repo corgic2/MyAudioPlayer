@@ -145,6 +145,16 @@ public:
     /// </summary>
     /// <param name="videoWidget">视频显示控件</param>
     void SetVideoDisplayWidget(PlayerVideoModuleWidget* videoWidget);
+    /// <summary>
+    /// 获取音频指针
+    /// </summary>
+    /// <returns></returns>
+    AudioFFmpegPlayer* GetAudioPlayerPtr();
+    /// <summary>
+    /// 获取视频指针
+    /// </summary>
+    /// <returns></returns>
+    VideoFFmpegPlayer* GetVideoPlayerPtr();
 signals:
     /// <summary>
     /// 录制状态改变信号

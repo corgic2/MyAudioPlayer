@@ -1,9 +1,10 @@
-﻿#include "VideoFFmpegPlayer.h"
+#include "VideoFFmpegPlayer.h"
 #include <QDebug>
 #include <QMutexLocker>
 #include <QThread>
 #include "AVFileSystem.h"
 #include "../BasePlayer/FFmpegPublicUtils.h"
+#include "BasePlayer/MediaPlayerManager.h"
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
@@ -75,6 +76,11 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
         m_pPlayWorker.reset();
         return;
     }
+
+    // 设置音频播放器用于音视频同步
+    // 注意：这里假设有一个全局的音频播放器实例，实际应用中需要通过适当方式获取
+    // 在集成环境中，可能需要从上层应用获取音频播放器实例
+    m_pPlayWorker->SetAudioPlayer(MediaPlayerManager::Instance()->GetAudioPlayerPtr());
 
     // 获取视频信息并设置到基类
     m_videoInfo = m_pPlayWorker->GetVideoInfo();
@@ -197,6 +203,14 @@ double VideoFFmpegPlayer::GetCurrentPosition()
 ST_VideoFrameInfo VideoFFmpegPlayer::GetVideoInfo() const
 {
     return m_videoInfo;
+}
+
+void VideoFFmpegPlayer::SetAudioPlayer(AudioFFmpegPlayer* audioPlayer)
+{
+    if (m_pPlayWorker)
+    {
+        m_pPlayWorker->SetAudioPlayer(audioPlayer);
+    }
 }
 
 void VideoFFmpegPlayer::ResetPlayerState()

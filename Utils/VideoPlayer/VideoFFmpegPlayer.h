@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <atomic>
 #include <memory>
@@ -16,6 +16,7 @@
 class VideoPlayWorker;
 class VideoRecordWorker;
 class PlayerVideoModuleWidget;
+class AudioFFmpegPlayer;
 
 /// <summary>
 /// 视频FFmpeg播放类
@@ -91,6 +92,12 @@ class VideoFFmpegPlayer : public BaseFFmpegPlayer
     /// </summary>
     /// <returns>视频帧信息</returns>
     ST_VideoFrameInfo GetVideoInfo() const;
+
+    /// <summary>
+    /// 设置音频播放器（用于音视频同步）
+    /// </summary>
+    /// <param name="audioPlayer">音频播放器实例</param>
+    void SetAudioPlayer(AudioFFmpegPlayer* audioPlayer);
 
     /// <summary>
     /// 重置播放器状态（重写基类方法）

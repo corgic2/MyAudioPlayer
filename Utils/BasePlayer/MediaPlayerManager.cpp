@@ -363,6 +363,16 @@ void MediaPlayerManager::SetVideoDisplayWidget(PlayerVideoModuleWidget* videoWid
     }
 }
 
+AudioFFmpegPlayer* MediaPlayerManager::GetAudioPlayerPtr()
+{
+    return m_audioPlayer.get();
+}
+
+VideoFFmpegPlayer* MediaPlayerManager::GetVideoPlayerPtr()
+{
+    return m_videoPlayer.get();
+}
+
 EM_MediaType MediaPlayerManager::DetectMediaType(const QString& filePath)
 {
     if (filePath.isEmpty())

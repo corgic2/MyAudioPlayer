@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QString>
 #include "SDLWindowManager.h"
+#include "VideoAudioSync.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
 #include "BaseDataDefine/ST_AVFrame.h"
@@ -26,6 +27,9 @@ extern "C"
 #include <libavutil/pixdesc.h>
 #include <SDL3/SDL.h>
 }
+
+// 前向声明
+class AudioFFmpegPlayer;
 
 
 /// <summary>
@@ -62,6 +66,11 @@ struct ST_VideoFrameInfo
     /// 像素格式
     /// </summary>
     AVPixelFormat m_pixelFormat{AV_PIX_FMT_NONE};
+
+    /// <summary>
+    /// 文件路径
+    /// </summary>
+    std::string m_filePath;
 };
 
 /// <summary>
@@ -87,8 +96,9 @@ class VideoPlayWorker : public QObject
     /// <param name="openFileResult">打开文件结果</param>
     /// <param name="renderer">SDL渲染器（可选，可为nullptr表示仅使用Qt显示）</param>
     /// <param name="texture">SDL纹理（可选，可为nullptr表示仅使用Qt显示）</param>
+    /// <param name="parentWindowId">父窗口句柄（用于嵌入到Qt控件）</param>
     /// <returns>是否初始化成功</returns>
-    bool InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResult, WId parentWindowId, ST_SDL_Renderer* renderer = nullptr, ST_SDL_Texture* texture = nullptr);
+    bool InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResult, WId parentWindowId = 0, ST_SDL_Renderer* renderer = nullptr, ST_SDL_Texture* texture = nullptr);
 
     /// <summary>
     /// 清理资源
@@ -100,6 +110,12 @@ class VideoPlayWorker : public QObject
     /// </summary>
     /// <returns>视频帧信息</returns>
     ST_VideoFrameInfo GetVideoInfo();
+
+    /// <summary>
+    /// 设置音频播放器（用于音视频同步）
+    /// </summary>
+    /// <param name="audioPlayer">音频播放器实例</param>
+    void SetAudioPlayer(AudioFFmpegPlayer* audioPlayer);
 
 public slots:
     /// <summary>
@@ -157,36 +173,23 @@ signals:
     /// </summary>
     void SigSDLWindowClosed();
     /// <summary>
-    /// 主线程更新画面
+    /// 提交给主线程渲染帧信号
     /// </summary>
     /// <param name="rgbData"></param>
     /// <param name="pitch"></param>
     /// <param name="width"></param>
     /// <param name="height"></param>
     void SigRenderFrameOnMainThread(const uint8_t* rgbData, int pitch, float width, float height);
-
 private:
     /// <summary>
     /// 播放循环
     /// </summary>
     void PlayLoop();
-
-    /// <summary>
-    /// 初始化SDL系统
-    /// </summary>
-    /// <returns>是否初始化成功</returns>
-    bool InitSDLSystem();
-
     /// <summary>
     /// SDL窗口管理器
     /// </summary>
     std::unique_ptr<SDLWindowManager> m_sdlManager;
 
-    /// <summary>
-    /// 安全释放AVChannelLayout
-    /// </summary>
-    /// <param name="layout">要释放的布局指针</param>
-    // 已废弃：使用FFmpegRAII.h中的RAII包装器
 
     /// <summary>
     /// 解码视频帧
@@ -197,7 +200,7 @@ private:
     /// <summary>
     /// 渲染视频帧
     /// </summary>
-    /// <param name="frame">视频帧</param>
+    /// <param name="frameInfo">视频帧信息</param>
     void RenderFrame(AVFrame* frame);
 
     // 音频相关方法已移除，音频播放由AudioFFmpegPlayer处理
@@ -344,6 +347,16 @@ private:
     /// 停止播放标志
     /// </summary>
     std::atomic<bool> m_bNeedStop = false;
+    /// <summary>
+    /// 音视频同步器
+    /// </summary>
+    std::unique_ptr<VideoAudioSync> m_videoAudioSync;
+
+    /// <summary>
+    /// 音频播放器（用于获取音频时钟）
+    /// </summary>
+    AudioFFmpegPlayer* m_audioPlayer = nullptr;
+
     /// <summary>
     /// 线程信息
     /// </summary>
