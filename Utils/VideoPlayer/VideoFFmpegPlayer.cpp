@@ -118,16 +118,14 @@ void VideoFFmpegPlayer::ResumePlay()
 {
     if (IsPaused() && m_pPlayWorker)
     {
-        // 恢复播放时，重置播放起始时间点为当前暂停位置
-        if (m_isPaused)
-        {
-            m_startTime = m_pauseTime;
-            m_playStartTimePoint = std::chrono::steady_clock::now();
-            m_isPaused = false;
-        }
+        // 恢复播放时，统一调用RecordPlayStartTime来重置时间基准
+        double resumePosition = m_pauseTime;
+        RecordPlayStartTime(resumePosition);
         
         m_pPlayWorker->SlotResumePlay();
         m_playState.TransitionTo(AVPlayState::Playing);
+        
+        LOG_INFO("Video ResumePlay - RecordPlayStartTime called with position: " + std::to_string(resumePosition) + " seconds");
     }
 }
 
@@ -199,9 +197,9 @@ void VideoFFmpegPlayer::SeekPlay(double seconds)
 {
     if (m_pPlayWorker && (IsPlaying() || IsPaused()))
     {
-        RecordPlayStartTime(seconds);
         m_pPlayWorker->SlotSeekPlay(seconds);
-        LOG_INFO("Video seek to: " + std::to_string(seconds) + " seconds");
+        m_pauseTime = seconds;  // 强制同步m_pauseTime为seek目标时间
+        LOG_INFO("Video seek to: " + std::to_string(seconds) + " seconds, m_pauseTime synchronized to: " + std::to_string(seconds));
     }
 }
 

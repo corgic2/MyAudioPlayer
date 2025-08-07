@@ -338,24 +338,29 @@ void AudioFFmpegPlayer::ProcessAudioData(const ST_OpenFileResult& openFileResult
 {
     TIME_START("AudioDataProcessing");
     LOG_INFO("=== Starting audio data processing from position: " + std::to_string(startSeconds) + " seconds ===");
-    
+
     // 处理音频数据
     ST_AVPacket pkt;
     const int BUFFER_SIZE = 8192;
-    
+
     // 清空之前的缓冲区
     {
         std::lock_guard<std::recursive_mutex> buffer_lock(m_bufferMutex);
         m_audioBuffer.clear();
         m_audioBuffer.reserve(BUFFER_SIZE * 4);
     }
-    
+
     int processedPackets = 0;
     int processedFrames = 0;
-    
+
     // 使用成员变量的重采样参数更新标记
     ST_AVFrame frame;
     FFmpegPublicUtils::SeekAudio(openFileResult.m_formatCtx->GetRawContext(), openFileResult.m_codecCtx->GetRawContext(), startSeconds);
+
+    // 标记是否处于seek后的跳过早期帧阶段
+    bool bSkipEarlyFrames = true;
+    int skippedFrames = 0;
+    
     while (pkt.ReadPacket(openFileResult.m_formatCtx->GetRawContext()))
     {
         if (pkt.GetRawPacket()->stream_index == m_audioStreamIdx)
@@ -369,6 +374,29 @@ void AudioFFmpegPlayer::ProcessAudioData(const ST_OpenFileResult& openFileResult
             while (frame.GetCodecFrame(openFileResult.m_codecCtx->GetRawContext()))
             {
                 processedFrames++;
+
+                // 获取音频帧时间戳
+                double audioPTS = 0.0;
+                if (frame.GetRawFrame()->pts != AV_NOPTS_VALUE)
+                {
+                    AVStream* audioStream = openFileResult.m_formatCtx->GetRawContext()->streams[m_audioStreamIdx];
+                    audioPTS = frame.GetRawFrame()->pts * av_q2d(audioStream->time_base);
+                }
+
+                // 在seek后跳过所有PTS小于目标时间的帧
+                if (bSkipEarlyFrames && audioPTS < startSeconds)
+                {
+                    skippedFrames++;
+                    LOG_DEBUG("Skipping early audio frame after seek: audioPTS=" + std::to_string(audioPTS) + ", target=" + std::to_string(startSeconds));
+                    continue;
+                }
+
+                // 找到第一个符合要求的帧，重置标记
+                if (bSkipEarlyFrames)
+                {
+                    bSkipEarlyFrames = false;
+                    LOG_INFO("Found first valid audio frame after seek: audioPTS=" + std::to_string(audioPTS) + ", target=" + std::to_string(startSeconds) + ", skipped=" + std::to_string(skippedFrames) + " frames");
+                }
 
                 // === 修复：在第一次获取解码帧时更新重采样参数 ===
                 if (!m_bResampleParamsUpdated)
@@ -457,11 +485,11 @@ void AudioFFmpegPlayer::ProcessAudioData(const ST_OpenFileResult& openFileResult
             }
             processedPackets++;
 
-            // 每处理100个包记录一次进度
-            if (processedPackets % 100 == 0 && processedPackets > 0)
-            {
-                LOG_INFO("Processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames");
-            }
+            //// 每处理100个包记录一次进度
+            //if (processedPackets % 100 == 0 && processedPackets > 0)
+            //{
+            //    LOG_INFO("Processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames");
+            //}
         }
 
         pkt.UnrefPacket();
@@ -555,16 +583,14 @@ void AudioFFmpegPlayer::ResumePlay()
         return;
     }
 
-    // 恢复播放时，重置播放起始时间点为当前暂停位置
-    if (m_isPaused)
-    {
-        m_startTime = m_pauseTime;
-        m_playStartTimePoint = std::chrono::steady_clock::now();
-        m_isPaused = false;
-    }
+    // 恢复播放时，统一调用RecordPlayStartTime来重置时间基准
+    double resumePosition = m_pauseTime;
+    RecordPlayStartTime(resumePosition);
 
     m_playState.TransitionTo(AVPlayState::Playing);
     m_playInfo->ResumeAudio();
+
+    LOG_INFO("Audio ResumePlay - RecordPlayStartTime called with position: " + std::to_string(resumePosition) + " seconds");
 }
 
 void AudioFFmpegPlayer::StopPlay()
@@ -593,11 +619,6 @@ bool AudioFFmpegPlayer::SeekAudio(double seconds)
     LOG_INFO("Seeking audio to position: " + std::to_string(seconds) + " seconds");
 
     // 暂停播放
-    bool wasPlaying = m_playState.GetCurrentState() == AVPlayState::Playing;
-    if (wasPlaying)
-    {
-        m_playInfo->PauseAudio();
-    }
 
     // 重新打开文件以获取新的文件上下文
     auto openFileResult = OpenMediaFile(GetCurrentFilePath());
@@ -622,27 +643,23 @@ bool AudioFFmpegPlayer::SeekAudio(double seconds)
     // 重置重采样参数更新标记
     m_bResampleParamsUpdated = false;
 
-    // 更新播放起始时间
-    RecordPlayStartTime(seconds);
-
-    // 如果正在播放，重新启动数据读取
-    if (wasPlaying)
-    {
-        // 重新处理音频数据，从seek位置开始
-        ProcessAudioData(*openFileResult, *m_resampler, *m_resampleParams, seconds);
-        m_playInfo->ResumeAudio();
-    }
-
+    // 注意：seek时不更新播放起始时间，由ResumePlay统一处理
+    // 重新处理音频数据，从seek位置开始
+    ProcessAudioData(*openFileResult, *m_resampler, *m_resampleParams, seconds);
     LOG_INFO("Audio seek completed successfully to position: " + std::to_string(seconds) + " seconds");
     return true;
 }
 
 void AudioFFmpegPlayer::SeekPlay(double seconds)
 {
-    if (m_playState.GetCurrentState() == AVPlayState::Playing)
+    LOG_INFO("AudioFFmpegPlayer::SeekPlay called - target position: " + std::to_string(seconds) + " seconds");
+    if (IsPlaying() || IsPaused())
     {
         SeekAudio(seconds);
+        m_pauseTime = seconds; // 强制同步m_pauseTime为seek目标时间
+        LOG_INFO("Audio seek to: " + std::to_string(seconds) + " seconds, m_pauseTime synchronized to: " + std::to_string(seconds));
     }
+    LOG_INFO("AudioFFmpegPlayer::SeekPlay completed");
 }
 
 void AudioFFmpegPlayer::SetInputDevice(const QString& deviceName)

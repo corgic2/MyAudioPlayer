@@ -191,24 +191,48 @@ void MediaPlayerManager::StopPlay()
 
 void MediaPlayerManager::SeekPlay(double seconds)
 {
+    LOG_INFO("MediaPlayerManager::SeekPlay - Seek to " + std::to_string(seconds) + " seconds");
+    
     if (m_currentMediaType == EM_MediaType::Audio && m_audioPlayer)
     {
+        m_audioPlayer->PausePlay();
         m_audioPlayer->SeekPlay(seconds);
+        m_audioPlayer->ResumePlay();
     }
     else if (m_currentMediaType == EM_MediaType::Video && m_videoPlayer)
     {
+        m_videoPlayer->PausePlay();
         m_videoPlayer->SeekPlay(seconds);
+        m_videoPlayer->ResumePlay();
     }
     else if (m_currentMediaType == EM_MediaType::VideoWithAudio)
     {
-        // 同时跳转音频和视频
+        // 先暂停
         if (m_audioPlayer)
         {
-            m_audioPlayer->SeekPlay(seconds);
+            m_audioPlayer->PausePlay();
+        }
+        if (m_videoPlayer)
+        {
+            m_videoPlayer->PausePlay();
         }
         if (m_videoPlayer)
         {
             m_videoPlayer->SeekPlay(seconds);
+        }
+        if (m_audioPlayer)
+        {
+            m_audioPlayer->SeekPlay(seconds);
+        }
+        // seek后统一调用ResumePlay，确保时间基准同步
+        LOG_INFO("MediaPlayerManager::SeekPlay - Synchronized resume after seek with target: " + std::to_string(seconds));
+        if (m_audioPlayer)
+        {
+            m_audioPlayer->ResumePlay();
+        }
+        if (m_videoPlayer)
+        {
+            m_videoPlayer->ResumePlay();
         }
     }
 }

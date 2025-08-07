@@ -93,6 +93,9 @@ void BaseFFmpegPlayer::RecordPlayStartTime(double startPosition)
     m_playStartTimePoint = std::chrono::steady_clock::now();
     m_pauseTime = 0.0;
     m_isPaused = false;
+    
+    LOG_INFO("RecordPlayStartTime called - m_startTime: " + std::to_string(m_startTime) + 
+             " seconds, m_playStartTimePoint updated to current time");
 }
 
 double BaseFFmpegPlayer::CalculateCurrentPosition() const

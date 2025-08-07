@@ -27,7 +27,7 @@ void CoreServerGlobal::Initialize()
     // 配置日志系统
     ST_LogConfig logConfig;
     logConfig.m_logFilePath = (logDir + "/app.log").toStdString();
-    logConfig.m_logLevel = EM_LogLevel::Debug;
+    logConfig.m_logLevel = EM_LogLevel::Info;
     logConfig.m_maxFileSize = 10 * 1024 * 1024; // 10MB
     logConfig.m_maxQueueSize = 10000;
     logConfig.m_asyncEnabled = true;

@@ -212,7 +212,7 @@ bool SDLWindowManager::UpdateTexture(const void* data, int pitch)
     if (SDL_UpdateTexture(m_texture, nullptr, data, pitch) != 0)
     {
         QString error = QString("Failed to update SDL texture: %1").arg(SDL_GetError());
-        LOG_ERROR(error.toStdString());
+        LOG_WARN(error.toStdString());
         emit ErrorOccurred(error);
         return false;
     }

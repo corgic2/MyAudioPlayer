@@ -3,6 +3,7 @@
 #include <ThreadPool/ThreadPool.h>
 #include "CoreServerGlobal.h"
 #include "../BasePlayer/FFmpegPublicUtils.h"
+#include "AudioPlayer/AudioFFmpegPlayer.h"
 #include "BaseDataDefine/ST_AVCodec.h"
 #include "BaseDataDefine/ST_AVCodecContext.h"
 #include "BaseDataDefine/ST_AVFormatContext.h"
@@ -156,17 +157,23 @@ void VideoPlayWorker::PlayLoop()
         bool frameProcessed = false;
 
         // 处理跳转请求
+        static bool bSeekFirstFrame = false;
+        static double seekTargetTime = 0.0;
+        
         if (m_bSeekRequested.load())
         {
             if (!m_pFormatCtx || !m_pVideoCodecCtx)
             {
                 m_bSeekRequested.store(false);
+                bSeekFirstFrame = false;
                 continue;
             }
 
-            double seekTarget = m_seekTarget.load();
-            int64_t timestamp = static_cast<int64_t>(seekTarget * AV_TIME_BASE);
+            seekTargetTime = m_seekTarget.load();
+            int64_t timestamp = static_cast<int64_t>(seekTargetTime * AV_TIME_BASE);
 
+            LOG_INFO("VideoPlayWorker::PlayLoop - Processing seek request to: " + std::to_string(seekTargetTime) + " seconds");
+            
             if (m_pFormatCtx->SeekFrame(-1, timestamp, AVSEEK_FLAG_BACKWARD))
             {
                 // 清空解码器缓冲
@@ -174,9 +181,10 @@ void VideoPlayWorker::PlayLoop()
                 {
                     m_pVideoCodecCtx->FlushBuffer();
                 }
-                m_currentTime = seekTarget;
+                m_currentTime = seekTargetTime;
                 m_startTime = av_gettime();
                 m_totalPauseTime = 0;
+                bSeekFirstFrame = true; // 标记需要跳过早期帧
 
                 // 重置音视频同步器状态
                 if (m_videoAudioSync)
@@ -184,7 +192,11 @@ void VideoPlayWorker::PlayLoop()
                     m_videoAudioSync->Reset();
                 }
 
-                LOG_INFO("Seek completed, time reset to: " + std::to_string(seekTarget) + " seconds");
+                LOG_INFO("VideoPlayWorker::PlayLoop - Seek completed, time reset to: " + std::to_string(seekTargetTime) + " seconds");
+            }
+            else
+            {
+                LOG_WARN("VideoPlayWorker::PlayLoop - Seek failed for target: " + std::to_string(seekTargetTime) + " seconds");
             }
             m_bSeekRequested.store(false);
         }
@@ -243,8 +255,6 @@ void VideoPlayWorker::PlayLoop()
         {
             emit SigPlayProgressUpdated(m_currentTime, m_videoInfo.m_duration);
         }
-
-        LOG_DEBUG("Looping ---------------------------");
     }
 
     // 播放结束，设置状态，没有中途结束时
@@ -597,7 +607,6 @@ bool VideoPlayWorker::DecodeVideoFrame()
         if (m_videoAudioSync && m_audioPlayer)
         {
             int syncResult = m_videoAudioSync->SyncVideoFrame(videoPTS, isKeyFrame);
-
             switch (syncResult)
             {
                 case 0: // 正常显示

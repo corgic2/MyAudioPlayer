@@ -3,10 +3,11 @@
 #include <SDL3/SDL_timer.h>
 #include <cmath>
 #include <algorithm>
+#include "LogSystem/LogSystem.h"
 
 VideoAudioSync::VideoAudioSync()
-    : m_audioPlayer(nullptr), m_syncThreshold(0.1) /// 默认100ms同步阈值
-    , m_maxWaitTime(1.0)                           /// 最大等待1秒
+    : m_audioPlayer(nullptr), m_syncThreshold(0.05) /// 默认50ms 约大于1帧 (24)同步阈值
+    , m_maxWaitTime(1.0)                            /// 最大等待1秒
     , m_consecutiveDrops(0)
     , m_totalFrameCount(0)
     , m_dropFrameCount(0)
@@ -34,7 +35,23 @@ int VideoAudioSync::SyncVideoFrame(double videoPTS, bool isKeyFrame)
 
     /// 计算时间差   
     double diff = videoPTS - audioClock;
-
+    
+    /// 只在关键帧或较大差异时记录详细日志
+    static bool bFirstFrameAfterSeek = false;
+    if (std::abs(diff) > 0.1 || isKeyFrame || m_totalFrameCount <= 5)
+    {
+        LOG_INFO("SyncVideoFrame: audioClock=" + std::to_string(audioClock) + 
+                 " videoPTS=" + std::to_string(videoPTS) + 
+                 " diff=" + std::to_string(diff) + 
+                 " isKeyFrame=" + std::to_string(isKeyFrame) +
+                 " frameCount=" + std::to_string(m_totalFrameCount));
+    }
+    else
+    {
+        LOG_DEBUG("SyncVideoFrame: audioClock=" + std::to_string(audioClock) + 
+                  " videoPTS=" + std::to_string(videoPTS) + 
+                  " diff=" + std::to_string(diff));
+    }
     /// 同步策略
     if (diff < -m_syncThreshold)
     {
@@ -79,7 +96,7 @@ int VideoAudioSync::SyncVideoFrame(double videoPTS, bool isKeyFrame)
 
 void VideoAudioSync::SetSyncThreshold(double threshold)
 {
-    m_syncThreshold = std::max(0.01, std::min(0.5, threshold)); // 限制在10ms-500ms之间
+    m_syncThreshold = std::max(0.01, std::min(0.02, threshold)); // 限制在10ms-20ms之间
 }
 
 double VideoAudioSync::GetAudioClock() const
@@ -96,7 +113,7 @@ void VideoAudioSync::Reset()
 
 void VideoAudioSync::SetMaxWaitTime(double maxWait)
 {
-    m_maxWaitTime = std::max(0.1, std::min(5.0, maxWait)); // 限制在100ms-5秒之间
+    m_maxWaitTime = std::max(0.1, std::min(1.0, maxWait)); // 限制在100ms-1秒之间
 }
 
 double VideoAudioSync::GetAudioPosition() const
