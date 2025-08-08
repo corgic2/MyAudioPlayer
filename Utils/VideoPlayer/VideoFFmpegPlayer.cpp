@@ -32,7 +32,6 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
     if (!FFmpegPublicUtils::ValidateFilePath(videoPath))
     {
         LOG_WARN("VideoFFmpegPlayer::StartPlay() : Invalid video file path");
-        emit SigError("无效的视频文件路径");
         return;
     }
 
@@ -40,7 +39,6 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
     if (!av_fileSystem::AVFileSystem::IsVideoFile(videoPath.toStdString()))
     {
         LOG_WARN("VideoFFmpegPlayer::StartPlay() : Unsupported video format: " + videoPath.toStdString());
-        emit SigError("不支持的视频格式");
         return;
     }
     // 打开媒体文件（统一使用基类方法）
@@ -48,16 +46,12 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
     if (!openFileResult || !openFileResult->m_formatCtx)
     {
         LOG_WARN("VideoFFmpegPlayer::StartPlay() : Failed to open media file: " + videoPath.toStdString());
-        emit SigError("无法打开媒体文件");
         return;
     }
 
     // 创建播放线程和工作对象
     m_pPlayWorker = std::make_unique<VideoPlayWorker>();
 
-    // 连接信号槽
-    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigPlayProgressUpdated, this, &VideoFFmpegPlayer::SigPlayProgressUpdated);
-    connect(m_pPlayWorker.get(), &VideoPlayWorker::SigError, this, &VideoFFmpegPlayer::SigError);
     connect(this, &VideoFFmpegPlayer::destroyed, m_pPlayWorker.get(), &VideoPlayWorker::deleteLater);
 
     // 获取父窗口句柄（用于嵌入Qt控件）
@@ -71,7 +65,6 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
     if (!m_pPlayWorker->InitPlayer(std::move(openFileResult), parentWindowId, nullptr, nullptr))
     {
         LOG_WARN("VideoFFmpegPlayer::StartPlay() : Failed to initialize player");
-        emit SigError("播放器初始化失败");
         // 清理资源
         m_pPlayWorker.reset();
         return;
@@ -152,7 +145,6 @@ void VideoFFmpegPlayer::StartRecording(const QString& outputPath)
     if (outputPath.isEmpty())
     {
         LOG_WARN("VideoFFmpegPlayer::StartRecording() : Invalid output file path");
-        emit SigError("无效的输出文件路径");
         return;
     }
 
@@ -163,11 +155,7 @@ void VideoFFmpegPlayer::StartRecording(const QString& outputPath)
 
     // 创建录制线程和工作对象
     m_pRecordWorker = std::make_unique<VideoRecordWorker>();
-
-    // 连接录制信号槽
-    connect(m_pRecordWorker.get(), &VideoRecordWorker::SigError, this, &VideoFFmpegPlayer::SigError);
     connect(this, &VideoFFmpegPlayer::destroyed, m_pRecordWorker.get(), &VideoRecordWorker::deleteLater);
-
     // 启动录制线程
     m_pRecordWorker->SlotStartRecord(outputPath);
     m_playState.TransitionTo(AVPlayState::Recording);

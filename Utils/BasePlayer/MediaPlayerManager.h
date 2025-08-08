@@ -161,28 +161,6 @@ signals:
     /// </summary>
     /// <param name="isRecording">是否正在录制</param>
     void SigRecordStateChanged(bool isRecording);
-
-    /// <summary>
-    /// 播放进度改变信号
-    /// </summary>
-    /// <param name="position">当前位置（秒）</param>
-    /// <param name="duration">总时长（秒）</param>
-    void SigProgressChanged(qint64 position, qint64 duration);
-
-    /// <summary>
-    /// 视频帧更新信号
-    /// </summary>
-    /// <param name="frameData">帧数据</param>
-    /// <param name="width">帧宽度</param>
-    /// <param name="height">帧高度</param>
-    void SigFrameUpdated(const uint8_t* frameData, int width, int height);
-
-    /// <summary>
-    /// 错误信号
-    /// </summary>
-    /// <param name="errorMsg">错误信息</param>
-    void SigError(const QString& errorMsg);
-
 private:
     /// <summary>
     /// 私有构造函数（单例模式）

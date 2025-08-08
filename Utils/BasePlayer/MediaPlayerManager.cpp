@@ -52,17 +52,6 @@ MediaPlayerManager::~MediaPlayerManager()
 
 void MediaPlayerManager::ConnectPlayerSignals()
 {
-    // 连接音频播放器信号
-    if (m_audioPlayer)
-    {
-        connect(m_audioPlayer.get(), &AudioFFmpegPlayer::SigProgressChanged, this, &MediaPlayerManager::SigProgressChanged);
-    }
-
-    // 连接视频播放器信号
-    if (m_videoPlayer)
-    {
-        connect(m_videoPlayer.get(), &VideoFFmpegPlayer::SigError, this, &MediaPlayerManager::SigError);
-    }
 }
 
 bool MediaPlayerManager::PlayMedia(const QString& filePath, double startPosition, const QStringList& args)
@@ -78,7 +67,6 @@ bool MediaPlayerManager::PlayMedia(const QString& filePath, double startPosition
     if (mediaType == EM_MediaType::Unknown)
     {
         LOG_WARN("MediaPlayerManager::PlayMedia() : Unknown media type for file: " + filePath.toStdString());
-        emit SigError("不支持的媒体文件格式");
         return false;
     }
 
@@ -128,7 +116,6 @@ bool MediaPlayerManager::PlayMedia(const QString& filePath, double startPosition
     else
     {
         LOG_WARN("Failed to start media playback");
-        emit SigError("播放失败");
     }
 
     return success;

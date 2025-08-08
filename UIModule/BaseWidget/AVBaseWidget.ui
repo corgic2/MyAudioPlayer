@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1714</width>
-    <height>972</height>
+    <height>974</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -128,7 +128,19 @@
       <item>
        <layout class="QVBoxLayout" name="controlLayout">
         <property name="spacing">
-         <number>0</number>
+         <number>4</number>
+        </property>
+        <property name="leftMargin">
+         <number>4</number>
+        </property>
+        <property name="topMargin">
+         <number>4</number>
+        </property>
+        <property name="rightMargin">
+         <number>4</number>
+        </property>
+        <property name="bottomMargin">
+         <number>4</number>
         </property>
         <item>
          <widget class="CustomProgressBar" name="customProgressBar">
@@ -246,13 +258,6 @@
            <property name="bottomMargin">
             <number>0</number>
            </property>
-           <item>
-            <layout class="QHBoxLayout" name="horizontalLayout_3">
-             <property name="spacing">
-              <number>0</number>
-             </property>
-            </layout>
-           </item>
           </layout>
          </widget>
         </item>

@@ -7,6 +7,8 @@
 #include "AudioPlayer//AudioFFmpegPlayer.h"
 #include "AudioPlayer/AudioPlayerUtils.h"
 #include "BasePlayer//FFmpegPublicUtils.h"
+#include "StyleSystem/SkinManager.h"
+
 void custom_log(void* ptr, int level, const char* fmt, va_list vl)
 {
     if (level <= av_log_get_level())
@@ -24,6 +26,13 @@ void InitCoreObject()
     av_log_set_callback(custom_log);
     // 设置全局编码为UTF-8（Qt 5及以下）
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
+    // 添加皮肤配置
+    SkinManager::instance()->addSkinVersionInfo("default", ":/Config/Default/skin_config.json");
+    SkinManager::instance()->addQrcResource(":/CustomUiWidget/CoreWidget");
+    SkinManager::instance()->addQrcResource(":/CustomUiWidget/DomainWidget");
+    SkinManager::instance()->addQrcResource(":/Config/Default");
+    // 设置默认皮肤
+    SkinManager::instance()->setCurrentSkinId("default");
 }
 int main(int argc, char* argv[])
 {

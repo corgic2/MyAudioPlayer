@@ -109,28 +109,6 @@ class VideoFFmpegPlayer : public BaseFFmpegPlayer
     /// </summary>
     void ForceStop() override;
 
-signals:
-    /// <summary>
-    /// 播放进度更新信号
-    /// </summary>
-    /// <param name="currentTime">当前时间(秒)</param>
-    /// <param name="totalTime">总时间(秒)</param>
-    void SigPlayProgressUpdated(double currentTime, double totalTime);
-
-    /// <summary>
-    /// 视频帧更新信号
-    /// </summary>
-    /// <param name="frameData">帧数据</param>
-    /// <param name="width">帧宽度</param>
-    /// <param name="height">帧高度</param>
-    void SigFrameUpdated(std::vector<uint8_t> frameData, int width, int height);
-
-    /// <summary>
-    /// 错误信号
-    /// </summary>
-    /// <param name="errorMsg">错误信息</param>
-    void SigError(const QString& errorMsg);
-
 private:
     /// <summary>
     /// 视频播放工作对象

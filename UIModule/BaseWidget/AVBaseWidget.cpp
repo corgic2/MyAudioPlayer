@@ -68,15 +68,10 @@ void AVBaseWidget::InitializeWidget()
     ui->RightLayoutFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
     ui->RightLayoutFrame->setLineWidth(1);
     ui->RightLayoutFrame->setMidLineWidth(0);
-
-    ui->ToolButtonFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
-    ui->ToolButtonFrame->setLineWidth(1);
-    ui->ToolButtonFrame->setMidLineWidth(0);
-
     ui->customProgressBar->setFixedHeight(15);
     // 设置进度条范围
-    ui->customProgressBar->setRange(0, 1000); // 使用1000为最大值，提高精度
-    ui->customProgressBar->setValue(0);
+    ui->customProgressBar->setRange(0, 100); // 使用1000为最大值，提高精度
+    ui->customProgressBar->SetProgressValue(0);
 
     m_audioPlayerWidget = new PlayerAudioModuleWidget(this);
     m_videoPlayerWidget = new PlayerVideoModuleWidget(this);
@@ -117,14 +112,6 @@ void AVBaseWidget::ConnectSignals()
     {
         connect(m_playerManager, &MediaPlayerManager::SigRecordStateChanged, this, [this](bool isRecording) {
             ui->ControlButtons->UpdateRecordState(isRecording);
-        });
-        
-        connect(m_playerManager, &MediaPlayerManager::SigProgressChanged, this, [this](qint64 position, qint64 duration) {
-            // 更新进度条（可选，主要使用定时器更新）
-        });
-        
-        connect(m_playerManager, &MediaPlayerManager::SigError, this, [this](const QString& errorMsg) {
-            QMessageBox::warning(this, "错误", errorMsg);
         });
     }
 }
@@ -223,11 +210,13 @@ void AVBaseWidget::StartAVPlay(const QString& filePath, double startPosition)
     
     // 使用MediaPlayerManager播放媒体文件
     if (m_playerManager->PlayMedia(filePath, startPosition))
-    {
+    {   
+        m_playTimer->start();
         LOG_INFO("Media playback started successfully");
     }
     else
     {
+        m_playTimer->stop();
         LOG_WARN("Failed to start media playback");
         QMessageBox::warning(this, "错误", "播放失败");
     }
@@ -254,7 +243,7 @@ void AVBaseWidget::SlotAVPlayFinished()
 
     // 播放完成后重置播放位置和进度条
     m_currentPosition = 0.0;
-    ui->customProgressBar->setValue(0);
+    ui->customProgressBar->SetProgressValue(0);
     ui->customProgressBar->setFormat("00:00 / 00:00");
 
     LOG_INFO("媒体播放完成，状态已重置");
@@ -617,8 +606,8 @@ void AVBaseWidget::SlotUpdatePlayProgress()
 
     if (duration > 0)
     {
-        int progressValue = static_cast<int>((currentPos / duration) * 1000);
-        ui->customProgressBar->SetAnimatedValue(progressValue);
+        int progressValue = static_cast<int>((currentPos / duration) * 100);
+        ui->customProgressBar->SetProgressValue(progressValue);
 
         // 更新音频波形图的播放位置（如果是音频文件）
         if (m_playerManager->GetCurrentMediaType() == EM_MediaType::Audio && m_audioPlayerWidget)

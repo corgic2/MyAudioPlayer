@@ -11,6 +11,7 @@ ControlButtonWidget::ControlButtonWidget(QWidget* parent)
     ui->setupUi(this);
     InitializeWidget();
     ConnectSignals();
+    ui->btnRecord->setHidden(true);
 }
 
 ControlButtonWidget::~ControlButtonWidget()

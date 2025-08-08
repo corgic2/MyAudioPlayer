@@ -248,13 +248,6 @@ void VideoPlayWorker::PlayLoop()
             // 短暂延迟避免CPU占用过高
             SDL_Delay(1);
         }
-
-        // 定期更新播放进度
-        static int frameCount = 0;
-        if (++frameCount % 25 == 0) // 每25帧更新一次进度（约每秒）
-        {
-            emit SigPlayProgressUpdated(m_currentTime, m_videoInfo.m_duration);
-        }
     }
 
     // 播放结束，设置状态，没有中途结束时
@@ -685,9 +678,6 @@ void VideoPlayWorker::RenderFrame(AVFrame* frame)
     {
         m_currentTime = m_videoInfo.m_duration;
     }
-
-    // 发送帧更新信号（保留用于进度显示）
-    emit SigFrameUpdated();
 }
 
 int VideoPlayWorker::CalculateFrameDelay(int64_t pts)

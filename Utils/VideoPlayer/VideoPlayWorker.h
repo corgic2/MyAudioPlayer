@@ -146,24 +146,6 @@ public slots:
 
 signals:
     /// <summary>
-    /// 播放进度更新信号
-    /// </summary>
-    /// <param name="currentTime">当前时间(秒)</param>
-    /// <param name="totalTime">总时间(秒)</param>
-    void SigPlayProgressUpdated(double currentTime, double totalTime);
-
-    /// <summary>
-    /// 视频帧更新信号
-    /// </summary>
-    void SigFrameUpdated();
-
-    /// <summary>
-    /// 错误信号
-    /// </summary>
-    /// <param name="errorMsg">错误信息</param>
-    void SigError(const QString& errorMsg);
-
-    /// <summary>
     /// SDL窗口创建完成信号
     /// </summary>
     void SigSDLWindowCreated();
