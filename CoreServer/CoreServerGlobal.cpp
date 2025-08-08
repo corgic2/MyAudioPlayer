@@ -1,6 +1,5 @@
 ﻿#include "CoreServerGlobal.h"
 
-#include "LogSystem/LogCompressor.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
 CoreServerGlobal::~CoreServerGlobal()

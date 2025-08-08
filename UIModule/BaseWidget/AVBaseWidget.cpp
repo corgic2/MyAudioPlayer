@@ -1,4 +1,4 @@
-﻿#include "AVBaseWidget.h"
+#include "AVBaseWidget.h"
 #include <QApplication>
 #include <QCloseEvent>
 #include <QFileDialog>
@@ -60,22 +60,6 @@ void AVBaseWidget::InitializeWidget()
     m_playTimer = new QTimer(this);
     m_playTimer->setInterval(100); // 100ms更新一次
 
-    // 设置文件列表标签样式
-    ui->labelFileList->SetFontSize(CustomLabel::FontSize_Medium);
-    ui->labelFileList->SetFontStyle(CustomLabel::FontStyle_Bold);
-    ui->labelFileList->SetFontColor(UIColorDefine::font_color::Primary);
-    ui->labelFileList->SetBackgroundType(CustomLabel::BackgroundType_Transparent);
-    ui->labelFileList->SetBackgroundColor(UIColorDefine::background_color::Transparent);
-
-    // 设置文件列表样式
-    ui->audioFileList->SetBackgroundColor(UIColorDefine::background_color::White);
-    ui->audioFileList->SetItemHoverColor(UIColorDefine::background_color::HoverBackground);
-    ui->audioFileList->SetItemSelectedColor(UIColorDefine::theme_color::Info);
-    ui->audioFileList->SetItemTextColor(UIColorDefine::font_color::Primary);
-    ui->audioFileList->SetItemHeight(40);
-    ui->audioFileList->SetBorderWidth(1);
-    ui->audioFileList->SetBorderColor(UIColorDefine::border_color::Default);
-
     // 设置各个Frame的边框样式
     ui->AVFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
     ui->AVFrame->setLineWidth(1);
@@ -89,23 +73,6 @@ void AVBaseWidget::InitializeWidget()
     ui->ToolButtonFrame->setLineWidth(1);
     ui->ToolButtonFrame->setMidLineWidth(0);
 
-    // 设置现代化进度条样式
-    ui->customProgressBar->SetProgressBarStyle(CustomProgressBar::ProgressBarStyle_Rounded);
-    ui->customProgressBar->SetBackgroundColor(UIColorDefine::background_color::HoverBackground);
-    ui->customProgressBar->SetProgressColor(UIColorDefine::theme_color::Primary);
-    ui->customProgressBar->SetTextColor(UIColorDefine::font_color::Primary);
-    ui->customProgressBar->SetEnableGradient(true);
-    ui->customProgressBar->SetGradientStartColor(UIColorDefine::gradient_color::Primary.start);
-    ui->customProgressBar->SetGradientEndColor(UIColorDefine::gradient_color::Primary.end);
-    ui->customProgressBar->SetEnableAnimation(true);
-    ui->customProgressBar->SetAnimationDuration(300);
-    ui->customProgressBar->SetTextPosition(CustomProgressBar::TextPosition_Center);
-    ui->customProgressBar->SetEnableBorder(true);
-    ui->customProgressBar->SetBorderColor(UIColorDefine::border_color::Primary);
-    ui->customProgressBar->SetBorderWidth(1);
-    ui->customProgressBar->SetBorderRadius(8);
-    ui->customProgressBar->SetEnableShadow(true);
-    ui->customProgressBar->SetShadowColor(UIColorDefine::shadow_color::Light);
     ui->customProgressBar->setFixedHeight(15);
     // 设置进度条范围
     ui->customProgressBar->setRange(0, 1000); // 使用1000为最大值，提高精度
@@ -140,7 +107,7 @@ void AVBaseWidget::ConnectSignals()
     connect(this, &AVBaseWidget::SigAVRecordFinished, this, &AVBaseWidget::SlotAVRecordFinished);
 
     // 连接进度条信号
-    connect(ui->customProgressBar, &CustomProgressBar::SigValueChanged, this, &AVBaseWidget::SlotProgressBarValueChanged);
+    connect(ui->customProgressBar, &CustomProgressBar::SigProgressValueChanged, this, &AVBaseWidget::SlotProgressBarValueChanged);
 
     // 连接播放进度更新定时器
     connect(m_playTimer, &QTimer::timeout, this, &AVBaseWidget::SlotUpdatePlayProgress);
@@ -651,7 +618,7 @@ void AVBaseWidget::SlotUpdatePlayProgress()
     if (duration > 0)
     {
         int progressValue = static_cast<int>((currentPos / duration) * 1000);
-        ui->customProgressBar->SetValueWithAnimation(progressValue);
+        ui->customProgressBar->SetAnimatedValue(progressValue);
 
         // 更新音频波形图的播放位置（如果是音频文件）
         if (m_playerManager->GetCurrentMediaType() == EM_MediaType::Audio && m_audioPlayerWidget)

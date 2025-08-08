@@ -5,15 +5,15 @@
 #include <QPaintEvent>
 #include <string>
 #include "LogSystem/LogSystem.h"
+#include "StyleSystem/SkinManager.h"
 #include "TimeSystem/TimeSystem.h"
-
 AudioWaveformWidget::AudioWaveformWidget(QWidget* parent)
     : QWidget(parent)
 {
     // 设置背景色为白色
     setAutoFillBackground(true);
     QPalette pal = palette();
-    pal.setColor(QPalette::Window, UIColorDefine::background_color::White);
+    pal.setColor(QPalette::Window, SkinManager::instance()->parseColorSheet("@white_color"));
     setPalette(pal);
 
     // 设置最小尺寸
@@ -85,14 +85,14 @@ void AudioWaveformWidget::paintEvent(QPaintEvent* event)
     if (m_samples.isEmpty())
     {
         // 绘制空白状态提示
-        painter.setPen(UIColorDefine::font_color::Secondary);
+        painter.setPen(SkinManager::instance()->parseColorSheet("@white_color"));
         painter.drawText(rect(), Qt::AlignCenter, "点击加载音频文件以显示波形");
         return;
     }
 
     // 设置波形颜色为主题色
-    painter.setPen(QPen(UIColorDefine::theme_color::Primary, 1));
-    painter.setBrush(UIColorDefine::theme_color::Primary);
+    painter.setPen(QPen(SkinManager::instance()->parseColorSheet("@white_color")));
+    painter.setBrush(SkinManager::instance()->parseColorSheet("@info_color"));
 
     const int height = this->height();
     const int width = this->width();
@@ -118,12 +118,12 @@ void AudioWaveformWidget::paintEvent(QPaintEvent* event)
         int peakHeight = static_cast<int>(peak * centerY * 0.9f); // 使用90%的高度显示峰值
 
         // 绘制RMS区域（填充）
-        QColor fillColor = UIColorDefine::theme_color::Primary;
+        QColor fillColor = SkinManager::instance()->parseColorSheet("@info_color");
         fillColor.setAlpha(128); // 半透明
         painter.fillRect(x, centerY - rmsHeight, SAMPLE_WIDTH, rmsHeight * 2, fillColor);
 
         // 绘制峰值线
-        painter.setPen(QPen(UIColorDefine::theme_color::Primary, 1));
+        painter.setPen(QPen(SkinManager::instance()->parseColorSheet("@info_color"), 1));
         painter.drawLine(x, centerY - peakHeight, x, centerY + peakHeight);
     }
     
@@ -142,12 +142,12 @@ void AudioWaveformWidget::paintEvent(QPaintEvent* event)
         int positionX = static_cast<int>(m_playbackPosition * width);
         if (positionX >= 0 && positionX < width)
         {
-            painter.setPen(QPen(UIColorDefine::theme_color::Error, 2));
+            painter.setPen(QPen(SkinManager::instance()->parseColorSheet("@error_color"), 2));
             painter.drawLine(positionX, 0, positionX, height);
         }
     }
     // 绘制中心线
-    painter.setPen(QPen(UIColorDefine::border_color::Default, 1));
+    painter.setPen(QPen(SkinManager::instance()->parseColorSheet("@dark_color"), 1));
     painter.drawLine(0, centerY, width, centerY);
     
     double indicatorDrawDuration = TimeSystem::Instance().StopTiming("IndicatorDraw", EM_TimeUnit::Microseconds);

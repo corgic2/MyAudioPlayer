@@ -11,8 +11,9 @@ if not exist "%~dp0x64\Debug\" mkdir "%~dp0x64\Debug"
 
 xcopy "%FFMPEGDIR%\include\*" "%~dp0include\" /E /I /Y
 xcopy "%SDLDIR%\include\*" "%~dp0include\" /E /I /Y
-xcopy "%CustomUIDir%\MuCustomUiWidget\*.h" "%~dp0include\" /E /I /Y
-xcopy "%CustomUIDir%\MuCustomUiWidget\*.ui" "%~dp0include\" /E /I /Y
+xcopy "%CustomUIDir%\MyCustomUIWidget\*.h" "%~dp0include\" /E /I /Y
+xcopy "%CustomUIDir%\StyleSystem\*.h" "%~dp0include\" /E /I /Y
+xcopy "%CustomUIDir%\MyCustomUIWidget\*.ui" "%~dp0include\" /E /I /Y
 xcopy "%SDKDIR%\include\*.h" "%~dp0include\" /E /I /Y
 xcopy "%SDKDIR%\x64\Debug\*" "%~dp0x64\Debug\" /E /I /Y
 

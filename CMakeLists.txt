@@ -115,14 +115,13 @@ file(STRINGS ${ffmpegLibFile} LIBRARIES)
 
 set(PublishDir "${CMAKE_SOURCE_DIR}/x64/$<CONFIG>")
 target_link_directories(${TARGET_NAME} PUBLIC ${PublishDir})
+target_link_libraries(${TARGET_NAME} PUBLIC "${PublishDir}/SDK.lib")
+target_link_libraries(${TARGET_NAME} PUBLIC "${PublishDir}/StyleSystem.lib")
+target_link_libraries(${TARGET_NAME} PUBLIC "${PublishDir}/MyCustomUiWidget.lib")
 target_link_libraries(${TARGET_NAME} PUBLIC "${PublishDir}/SDL3/libSDL3.dll.a")
-target_link_libraries(${TARGET_NAME} PUBLIC "${PublishDir}/MuCustomUiWidget.lib")
 foreach(lib ${LIBRARIES})
     string(STRIP ${lib} lib)
     if(lib)
         target_link_libraries(${TARGET_NAME} PUBLIC ${lib})
     endif()
 endforeach()
-
-
-target_link_libraries(${TARGET_NAME} PUBLIC "${PublishDir}/SDK.lib")

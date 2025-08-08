@@ -2,7 +2,7 @@
 #include <QDebug>
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
-
+#include "StyleSystem/SkinManager.h"
 PlayerVideoModuleWidget::PlayerVideoModuleWidget(QWidget* parent)
     : BaseModuleWidget(parent), ui(new Ui::PlayerVideoModuleWidgetClass())
 {
@@ -64,7 +64,7 @@ void PlayerVideoModuleWidget::CreateSDLPlaceholder()
 {
     m_sdlPlaceholder = new QWidget(this);
     m_sdlPlaceholder->setMinimumSize(1080, 720);
-    m_sdlPlaceholder->setStyleSheet(QString("background-color: %1; border: 1px solid %2;").arg(UIColorDefine::color_convert::ToCssString(UIColorDefine::background_color::Dark)).arg(UIColorDefine::color_convert::ToCssString(UIColorDefine::border_color::Default)));
+    m_sdlPlaceholder->setStyleSheet(QString("background-color: %1; border: 1px solid %2;").arg(UIColorDefine::color_convert::ToCssString(SkinManager::instance()->parseColorSheet("@dark_color"))).arg(UIColorDefine::color_convert::ToCssString(SkinManager::instance()->parseColorSheet("@dark_color"))));
     m_mainLayout->addWidget(m_sdlPlaceholder);
 }
 
