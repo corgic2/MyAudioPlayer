@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -208,4 +208,22 @@ public:
     /// <param name="formatCtx">格式上下文</param>
     /// <returns>时长（秒）</returns>
     static double GetFileDuration(AVFormatContext* formatCtx);
+
+    /// <summary>
+    /// 获取音视频文件详细信息
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <param name="fileName">文件名输出</param>
+    /// <param name="fileSize">文件大小输出（字节）</param>
+    /// <param name="duration">时长输出（秒）</param>
+    /// <param name="format">格式输出</param>
+    /// <param name="bitrate">比特率输出（bps）</param>
+    /// <param name="width">视频宽度输出</param>
+    /// <param name="height">视频高度输出</param>
+    /// <param name="sampleRate">音频采样率输出</param>
+    /// <param name="channels">音频声道数输出</param>
+    /// <returns>是否成功获取信息</returns>
+    static bool GetMediaFileInfo(const QString& filePath, QString& fileName, qint64& fileSize, 
+                                double& duration, QString& format, int& bitrate, 
+                                int& width, int& height, int& sampleRate, int& channels);
 };

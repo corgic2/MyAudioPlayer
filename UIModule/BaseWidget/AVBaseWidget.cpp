@@ -2,30 +2,32 @@
 #include <QApplication>
 #include <QCloseEvent>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QTimer>
 
 #include "ControlButtonWidget.h"
 #include "CoreServerGlobal.h"
 #include "../AVFileSystem/AVFileSystem.h"
+#include "BasePlayer/FFmpegPublicUtils.h"
 #include "BasePlayer/MediaPlayerManager.h"
 #include "CommonDefine/UIWidgetColorDefine.h"
 #include "CoreWidget/CustomComboBox.h"
 #include "CoreWidget/CustomLabel.h"
 #include "DomainWidget/FilePathIconListWidget.h"
 #include "FileSystem/FileSystem.h"
+#include "LogSystem/LogSystem.h"
 #include "SDKCommonDefine/SDKCommonDefine.h"
 #include "TimeSystem/TimeSystem.h"
-#include "LogSystem/LogSystem.h"
 
 AVBaseWidget::AVBaseWidget(QWidget* parent)
     : QWidget(parent), ui(new Ui::AVBaseWidgetClass())
 {
     ui->setupUi(this);
-    
+
     // 获取媒体播放管理器实例
     m_playerManager = MediaPlayerManager::Instance();
-    
+
     InitializeWidget();
     ConnectSignals();
 
@@ -64,7 +66,7 @@ void AVBaseWidget::InitializeWidget()
     ui->AVFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
     ui->AVFrame->setLineWidth(1);
     ui->AVFrame->setMidLineWidth(0);
-
+    // 清空显示
     ui->RightLayoutFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
     ui->RightLayoutFrame->setLineWidth(1);
     ui->RightLayoutFrame->setMidLineWidth(0);
@@ -110,7 +112,8 @@ void AVBaseWidget::ConnectSignals()
     // 连接MediaPlayerManager的信号
     if (m_playerManager)
     {
-        connect(m_playerManager, &MediaPlayerManager::SigRecordStateChanged, this, [this](bool isRecording) {
+        connect(m_playerManager, &MediaPlayerManager::SigRecordStateChanged, this, [this](bool isRecording)
+        {
             ui->ControlButtons->UpdateRecordState(isRecording);
         });
     }
@@ -142,7 +145,7 @@ void AVBaseWidget::SlotBtnPlayClicked()
 {
     LOG_INFO("播放按钮被点击");
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Play, false);
-    
+
     if (!m_currentAVFile.isEmpty())
     {
         if (!GetIsPlaying())
@@ -176,20 +179,20 @@ void AVBaseWidget::SlotBtnPlayClicked()
     {
         QMessageBox::information(this, tr("提示"), tr("请先选择要播放的媒体文件"));
     }
-    
+
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Play, true);
 }
 
 void AVBaseWidget::StartAVPlay(const QString& filePath, double startPosition)
 {
     LOG_INFO("Starting AV play: " + filePath.toStdString() + ", position: " + std::to_string(startPosition));
-    
+
     if (!m_playerManager)
     {
         LOG_WARN("MediaPlayerManager is null");
         return;
     }
-    
+
     // 确定文件类型并显示相应的控件
     if (av_fileSystem::AVFileSystem::IsAudioFile(filePath.toStdString()))
     {
@@ -207,12 +210,15 @@ void AVBaseWidget::StartAVPlay(const QString& filePath, double startPosition)
         QMessageBox::warning(this, "错误", "不支持的文件类型: " + filePath);
         return;
     }
-    
+
     // 使用MediaPlayerManager播放媒体文件
     if (m_playerManager->PlayMedia(filePath, startPosition))
-    {   
+    {
         m_playTimer->start();
         LOG_INFO("Media playback started successfully");
+
+        // 更新文件信息显示
+        UpdateFileInfoDisplay(filePath);
     }
     else
     {
@@ -225,15 +231,15 @@ void AVBaseWidget::StartAVPlay(const QString& filePath, double startPosition)
 void AVBaseWidget::StopAVPlay()
 {
     LOG_INFO("Stopping AV play");
-    
+
     if (m_playerManager)
     {
         m_playerManager->StopPlay();
     }
-    
+
     // 停止进度更新定时器
     m_playTimer->stop();
-    
+
     LOG_INFO("媒体播放已停止");
 }
 
@@ -252,7 +258,7 @@ void AVBaseWidget::SlotAVPlayFinished()
 void AVBaseWidget::SlotBtnForwardClicked()
 {
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Forward, false);
-    
+
     if (GetIsPlaying() && m_playerManager)
     {
         // 快进15秒
@@ -262,7 +268,7 @@ void AVBaseWidget::SlotBtnForwardClicked()
         m_playerManager->SeekPlay(newPosition);
         m_currentPosition = newPosition;
     }
-    
+
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Forward, true);
 }
 
@@ -278,14 +284,14 @@ void AVBaseWidget::SlotBtnBackwardClicked()
         m_playerManager->SeekPlay(newPosition);
         m_currentPosition = newPosition;
     }
-    
+
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Backward, true);
 }
 
 void AVBaseWidget::SlotBtnNextClicked()
 {
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Next, false);
-    
+
     // 获取当前项的索引
     FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
     int currentIndex = -1;
@@ -314,13 +320,13 @@ void AVBaseWidget::SlotBtnNextClicked()
         // 直接切换到下一个文件，复用现有播放器
         bool wasPlaying = GetIsPlaying();
         ui->audioFileList->setCurrentItem(nextItem);
-        
+
         if (wasPlaying)
         {
             // 复用现有播放器，不创建新线程
             StartAVPlay(m_currentAVFile, 0.0);
         }
-        
+
         emit SigAVFileSelected(filePath);
     }
 
@@ -330,7 +336,7 @@ void AVBaseWidget::SlotBtnNextClicked()
 void AVBaseWidget::SlotBtnPreviousClicked()
 {
     ui->ControlButtons->SetButtonEnabled(ControlButtonWidget::EM_ControlButtonType::Previous, false);
-    
+
     // 获取当前项的索引
     FilePathIconListWidgetItem* currentItem = ui->audioFileList->GetCurrentItem();
     int currentIndex = -1;
@@ -345,7 +351,7 @@ void AVBaseWidget::SlotBtnPreviousClicked()
             }
         }
     }
-    
+
     FilePathIconListWidgetItem* prevItem = ui->audioFileList->GetItem((currentIndex - 1 + ui->audioFileList->GetItemCount()) % ui->audioFileList->GetItemCount());
     if (prevItem)
     {
@@ -359,13 +365,13 @@ void AVBaseWidget::SlotBtnPreviousClicked()
         // 直接切换到上一个文件，复用现有播放器
         bool wasPlaying = GetIsPlaying();
         ui->audioFileList->setCurrentItem(prevItem);
-        
+
         if (wasPlaying)
         {
             // 复用现有播放器，不创建新线程
             StartAVPlay(filePath, 0.0);
         }
-        
+
         emit SigAVFileSelected(filePath);
     }
 
@@ -382,6 +388,10 @@ void AVBaseWidget::SlotAVFileSelected(const QString& filePath)
 
     m_currentAVFile = filePath;
     ui->ControlButtons->SetCurrentAudioFile(filePath);
+
+    // 更新文件信息显示
+    UpdateFileInfoDisplay(filePath);
+
     emit SigAVFileSelected(m_currentAVFile);
 }
 
@@ -394,7 +404,7 @@ void AVBaseWidget::SlotAVFileDoubleClicked(const QString& filePath)
     ui->ControlButtons->UpdatePlayState(true);
     // 直接开始播放新文件，复用现有播放器
     StartAVPlay(filePath, 0.0);
-    
+
     emit SigAVFileSelected(m_currentAVFile);
 }
 
@@ -497,16 +507,16 @@ FilePathIconListWidgetItem::ST_NodeInfo AVBaseWidget::GetFileInfo(int index) con
 void AVBaseWidget::StartAVRecord(const QString& filePath)
 {
     LOG_INFO("Starting AV record: " + filePath.toStdString());
-    
+
     if (!m_playerManager)
     {
         LOG_WARN("MediaPlayerManager is null");
         return;
     }
-    
+
     // 根据当前文件类型或默认设置确定录制类型
-    EM_MediaType recordType = EM_MediaType::Audio; // 默认录制音频
-    
+    auto recordType = EM_MediaType::Audio; // 默认录制音频
+
     if (!m_currentAVFile.isEmpty())
     {
         if (av_fileSystem::AVFileSystem::IsVideoFile(m_currentAVFile.toStdString()))
@@ -514,7 +524,7 @@ void AVBaseWidget::StartAVRecord(const QString& filePath)
             recordType = EM_MediaType::Video;
         }
     }
-    
+
     // 使用MediaPlayerManager开始录制
     m_playerManager->StartRecording(filePath, recordType);
 }
@@ -522,13 +532,13 @@ void AVBaseWidget::StartAVRecord(const QString& filePath)
 void AVBaseWidget::StopAVRecord()
 {
     LOG_INFO("Stopping AV record");
-    
+
     if (!m_playerManager)
     {
         LOG_WARN("MediaPlayerManager is null");
         return;
     }
-    
+
     // 使用MediaPlayerManager停止录制
     m_playerManager->StopRecording();
 }
@@ -634,4 +644,169 @@ QString AVBaseWidget::FormatTime(int seconds) const
     int minutes = seconds / 60;
     int secs = seconds % 60;
     return QString("%1:%2").arg(minutes, 2, 10, QChar('0')).arg(secs, 2, 10, QChar('0'));
+}
+
+void AVBaseWidget::UpdateFileInfoDisplay(const QString& filePath)
+{
+    if (filePath.isEmpty())
+    {
+        // 清空显示
+        ui->labelFileName->setText("文件名：--");
+        ui->labelFileSize->setText("文件大小：--");
+        ui->labelDuration->setText("时长：--");
+        ui->labelFormat->setText("格式：--");
+        ui->labelBitrate->setText("比特率：--");
+        ui->labelResolution->setText("分辨率：--");
+        ui->labelSampleRate->setText("采样率：--");
+        ui->labelChannels->setText("声道：--");
+        return;
+    }
+
+    QString fileName;
+    qint64 fileSize = 0;
+    double duration = 0.0;
+    QString format;
+    int bitrate = 0;
+    int width = 0;
+    int height = 0;
+    int sampleRate = 0;
+    int channels = 0;
+
+    if (FFmpegPublicUtils::GetMediaFileInfo(filePath, fileName, fileSize, duration, format, bitrate, width, height, sampleRate, channels))
+    {
+        // 更新显示信息
+        ui->labelFileName->setText(QString("文件名：%1").arg(fileName));
+
+        // 格式化文件大小
+        QString sizeText;
+        if (fileSize < 1024)
+        {
+            sizeText = QString("%1 B").arg(fileSize);
+        }
+        else if (fileSize < 1024 * 1024)
+        {
+            sizeText = QString("%1 KB").arg(fileSize / 1024.0, 0, 'f', 1);
+        }
+        else if (fileSize < 1024 * 1024 * 1024)
+        {
+            sizeText = QString("%1 MB").arg(fileSize / (1024.0 * 1024.0), 0, 'f', 1);
+        }
+        else
+        {
+            sizeText = QString("%1 GB").arg(fileSize / (1024.0 * 1024.0 * 1024.0), 0, 'f', 1);
+        }
+        ui->labelFileSize->setText(QString("文件大小：%1").arg(sizeText));
+
+        // 格式化时长
+        ui->labelDuration->setText(QString("时长：%1").arg(FormatTime(static_cast<int>(duration))));
+
+        // 格式化格式
+        ui->labelFormat->setText(QString("格式：%1").arg(format.toUpper()));
+
+        // 格式化比特率
+        if (bitrate > 0)
+        {
+            QString bitrateText;
+            if (bitrate < 1000)
+            {
+                bitrateText = QString("%1 bps").arg(bitrate);
+            }
+            else if (bitrate < 1000000)
+            {
+                bitrateText = QString("%1 kbps").arg(bitrate / 1000);
+            }
+            else
+            {
+                bitrateText = QString("%1 Mbps").arg(bitrate / 1000000.0, 0, 'f', 1);
+            }
+            ui->labelBitrate->setText(QString("比特率：%1").arg(bitrateText));
+        }
+        else
+        {
+            ui->labelBitrate->setText("比特率：--");
+        }
+
+        // 分辨率（视频文件）
+        if (width > 0 && height > 0 && av_fileSystem::AVFileSystem::IsVideoFile(filePath.toStdString()))
+        {
+            ui->labelResolution->setText(QString("分辨率：%1x%2").arg(width).arg(height));
+        }
+        else
+        {
+            ui->labelResolution->setText("分辨率：--");
+        }
+
+        // 采样率（音频文件）
+        if (sampleRate > 0)
+        {
+            ui->labelSampleRate->setText(QString("采样率：%1 Hz").arg(sampleRate));
+        }
+        else
+        {
+            ui->labelSampleRate->setText("采样率：--");
+        }
+
+        // 声道数
+        if (channels > 0)
+        {
+            QString channelsText;
+            switch (channels)
+            {
+                case 1:
+                    channelsText = "单声道";
+                    break;
+                case 2:
+                    channelsText = "立体声";
+                    break;
+                case 6:
+                    channelsText = "5.1 声道";
+                    break;
+                case 8:
+                    channelsText = "7.1 声道";
+                    break;
+                default:
+                    channelsText = QString("%1 声道").arg(channels);
+                    break;
+            }
+            ui->labelChannels->setText(QString("声道：%1").arg(channelsText));
+        }
+        else
+        {
+            ui->labelChannels->setText("声道：--");
+        }
+    }
+    else
+    {
+        // 获取信息失败，只显示文件名和大小
+        QFileInfo fileInfo(filePath);
+        ui->labelFileName->setText(QString("文件名：%1").arg(fileInfo.fileName()));
+
+        qint64 size = fileInfo.size();
+        QString sizeText;
+        if (size < 1024)
+        {
+            sizeText = QString("%1 B").arg(size);
+        }
+        else if (size < 1024 * 1024)
+        {
+            sizeText = QString("%1 KB").arg(size / 1024.0, 0, 'f', 1);
+        }
+        else if (size < 1024 * 1024 * 1024)
+        {
+            sizeText = QString("%1 MB").arg(size / (1024.0 * 1024.0), 0, 'f', 1);
+        }
+        else
+        {
+            sizeText = QString("%1 GB").arg(size / (1024.0 * 1024.0 * 1024.0), 0, 'f', 1);
+        }
+        ui->labelFileSize->setText(QString("文件大小：%1").arg(sizeText));
+
+        // 其他信息设为不可用
+        ui->labelDuration->setText("时长：获取失败");
+        ui->labelFormat->setText("格式：获取失败");
+        ui->labelBitrate->setText("比特率：获取失败");
+        ui->labelResolution->setText("分辨率：获取失败");
+        ui->labelSampleRate->setText("采样率：获取失败");
+        ui->labelChannels->setText("声道：获取失败");
+    }
 }

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <QWidget>
 #include "ui_AVBaseWidget.h"
@@ -200,6 +200,12 @@ private:
     /// <param name="seconds">秒数</param>
     /// <returns>格式化后的时间字符串 (MM:SS)</returns>
     QString FormatTime(int seconds) const;
+
+    /// <summary>
+    /// 更新文件信息显示
+    /// </summary>
+    /// <param name="filePath">文件路径</param>
+    void UpdateFileInfoDisplay(const QString& filePath);
 
 private:
     Ui::AVBaseWidgetClass* ui;

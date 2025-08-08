@@ -229,35 +229,104 @@
          <number>0</number>
         </property>
         <item>
-         <widget class="QFrame" name="ToolButtonFrame">
+         <widget class="CustomFrame" name="InfoStream"/>
+        </item>
+        <item>
+         <widget class="CustomFrame" name="FileInfoData">
           <property name="maximumSize">
            <size>
             <width>16777215</width>
             <height>300</height>
            </size>
           </property>
-          <property name="frameShape">
-           <enum>QFrame::StyledPanel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Raised</enum>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_5">
+          <layout class="QVBoxLayout" name="verticalLayoutFileInfo">
            <property name="spacing">
-            <number>0</number>
+            <number>5</number>
            </property>
            <property name="leftMargin">
-            <number>0</number>
+            <number>10</number>
            </property>
            <property name="topMargin">
-            <number>0</number>
+            <number>10</number>
            </property>
            <property name="rightMargin">
-            <number>0</number>
+            <number>10</number>
            </property>
            <property name="bottomMargin">
-            <number>0</number>
+            <number>10</number>
            </property>
+           <item>
+            <widget class="CustomLabel" name="labelFileName">
+             <property name="text">
+              <string>文件名：--</string>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="CustomLabel" name="labelFileSize">
+             <property name="text">
+              <string>文件大小：--</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="CustomLabel" name="labelDuration">
+             <property name="text">
+              <string>时长：--</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="CustomLabel" name="labelFormat">
+             <property name="text">
+              <string>格式：--</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="CustomLabel" name="labelBitrate">
+             <property name="text">
+              <string>比特率：--</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="CustomLabel" name="labelResolution">
+             <property name="text">
+              <string>分辨率：--</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="CustomLabel" name="labelSampleRate">
+             <property name="text">
+              <string>采样率：--</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="CustomLabel" name="labelChannels">
+             <property name="text">
+              <string>声道：--</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="verticalSpacer">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
           </layout>
          </widget>
         </item>
@@ -270,6 +339,11 @@
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <customwidgets>
+  <customwidget>
+   <class>CustomFrame</class>
+   <extends>QFrame</extends>
+   <header>CoreWidget/CustomFrame.h</header>
+  </customwidget>
   <customwidget>
    <class>CustomLabel</class>
    <extends>QLabel</extends>

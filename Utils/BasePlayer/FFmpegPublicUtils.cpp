@@ -1,9 +1,10 @@
-﻿#include "FFmpegPublicUtils.h"
+#include "FFmpegPublicUtils.h"
 #include <qDebug>
+#include <QFileInfo>
 #include <string>
 #include <unordered_map>
-#include "LogSystem/LogSystem.h"
 #include "FileSystem/FileSystem.h"
+#include "LogSystem/LogSystem.h"
 #include "SDL3/SDL_init.h"
 
 const AVCodec* FFmpegPublicUtils::FindEncoder(const char* formatName)
@@ -473,8 +474,7 @@ bool FFmpegPublicUtils::ValidateFilePath(const QString& filePath)
     return true;
 }
 
-bool FFmpegPublicUtils::GetAudioStreamInfo(AVFormatContext* formatCtx, int streamIndex,
-                                          int& sampleRate, int& channels, AVSampleFormat& format, double& duration)
+bool FFmpegPublicUtils::GetAudioStreamInfo(AVFormatContext* formatCtx, int streamIndex, int& sampleRate, int& channels, AVSampleFormat& format, double& duration)
 {
     if (!formatCtx || streamIndex < 0 || streamIndex >= static_cast<int>(formatCtx->nb_streams))
     {
@@ -523,7 +523,7 @@ bool FFmpegPublicUtils::SeekAudio(AVFormatContext* formatCtx, AVCodecContext* co
 
     // 计算目标时间戳
     int64_t targetTs = static_cast<int64_t>(seconds * AV_TIME_BASE);
-    
+
     // 执行定位
     int ret = av_seek_frame(formatCtx, -1, targetTs, AVSEEK_FLAG_BACKWARD);
     if (ret < 0)
@@ -536,7 +536,7 @@ bool FFmpegPublicUtils::SeekAudio(AVFormatContext* formatCtx, AVCodecContext* co
 
     // 清空解码器缓冲
     avcodec_flush_buffers(codecCtx);
-    
+
     return true;
 }
 
@@ -550,7 +550,7 @@ bool FFmpegPublicUtils::SeekVideo(AVFormatContext* formatCtx, AVCodecContext* co
 
     // 计算目标时间戳
     int64_t targetTs = static_cast<int64_t>(seconds * AV_TIME_BASE);
-    
+
     // 执行定位
     int ret = av_seek_frame(formatCtx, -1, targetTs, AVSEEK_FLAG_BACKWARD);
     if (ret < 0)
@@ -563,7 +563,7 @@ bool FFmpegPublicUtils::SeekVideo(AVFormatContext* formatCtx, AVCodecContext* co
 
     // 清空解码器缓冲
     avcodec_flush_buffers(codecCtx);
-    
+
     return true;
 }
 
@@ -593,4 +593,79 @@ double FFmpegPublicUtils::GetFileDuration(AVFormatContext* formatCtx)
     }
 
     return maxDuration;
+}
+
+bool FFmpegPublicUtils::GetMediaFileInfo(const QString& filePath, QString& fileName, qint64& fileSize, double& duration, QString& format, int& bitrate, int& width, int& height, int& sampleRate, int& channels)
+{
+    if (!ValidateFilePath(filePath))
+    {
+        return false;
+    }
+
+    // 获取文件名
+    QFileInfo fileInfo(filePath);
+    fileName = fileInfo.fileName();
+    fileSize = fileInfo.size();
+
+    // 初始化输出参数
+    duration = 0.0;
+    format = "Unknown";
+    bitrate = 0;
+    width = 0;
+    height = 0;
+    sampleRate = 0;
+    channels = 0;
+
+    // 使用FFmpeg获取详细信息
+    ST_AVFormatContext formatCtx;
+    formatCtx.OpenInputFilePath(filePath.toStdString().c_str());
+    // 获取格式信息
+    if (formatCtx.GetRawContext()->iformat && formatCtx.GetRawContext()->iformat->name)
+    {
+        format = QString::fromStdString(formatCtx.GetRawContext()->iformat->name);
+    }
+
+    // 获取时长
+    duration = GetFileDuration(formatCtx.GetRawContext());
+
+    // 获取比特率
+    if (formatCtx.GetRawContext()->bit_rate > 0)
+    {
+        bitrate = static_cast<int>(formatCtx.GetRawContext()->bit_rate);
+    }
+    int audioStreamIndex = formatCtx.FindBestStream(AVMEDIA_TYPE_AUDIO);
+    // 查找音频流
+    if (audioStreamIndex >= 0)
+    {
+        AVStream* audioStream = formatCtx.GetRawContext()->streams[audioStreamIndex];
+        AVCodecParameters* audioCodecPar = audioStream->codecpar;
+
+        sampleRate = audioCodecPar->sample_rate;
+        channels = audioCodecPar->ch_layout.nb_channels;
+
+        // 如果整体比特率为0，尝试从音频流获取
+        if (bitrate == 0 && audioCodecPar->bit_rate > 0)
+        {
+            bitrate = static_cast<int>(audioCodecPar->bit_rate);
+        }
+    }
+
+    // 查找视频流
+    int videoStreamIndex = formatCtx.FindBestStream(AVMEDIA_TYPE_VIDEO);
+    if (videoStreamIndex >= 0)
+    {
+        AVStream* videoStream = formatCtx.GetRawContext()->streams[videoStreamIndex];
+        AVCodecParameters* videoCodecPar = videoStream->codecpar;
+
+        width = videoCodecPar->width;
+        height = videoCodecPar->height;
+
+        // 如果整体比特率为0，尝试从视频流获取
+        if (bitrate == 0 && videoCodecPar->bit_rate > 0)
+        {
+            bitrate = static_cast<int>(videoCodecPar->bit_rate);
+        }
+    }
+
+    return true;
 }
