@@ -105,7 +105,10 @@ signals:
     /// <param name="position">当前位置（秒）</param>
     /// <param name="duration">总时长（秒）</param>
     void SigProgressChanged(qint64 position, qint64 duration);
-
+    /// <summary>
+    /// 播放完毕
+    /// </summary>
+    void SigAudioPlayerFinished();
 private:
     /// <summary>
     /// 打开设备
@@ -157,4 +160,6 @@ private:
     std::unique_ptr<ST_ResampleParams> m_resampleParams{nullptr}; /// 重采样参数
     int m_audioStreamIdx{-1};                                   /// 音频流索引
     bool m_bResampleParamsUpdated{false};                       /// 重采样参数是否已更新
+
+    size_t m_audioPlayerFinishedThreadID;
 };

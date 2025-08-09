@@ -36,7 +36,7 @@ MediaPlayerManager::MediaPlayerManager(QObject* parent)
     // 创建音频和视频播放器实例（但不立即使用）
     m_audioPlayer = std::make_unique<AudioFFmpegPlayer>(this);
     m_videoPlayer = std::make_unique<VideoFFmpegPlayer>(this);
-
+    
     // 连接信号槽
     ConnectPlayerSignals();
 
@@ -68,6 +68,7 @@ MediaPlayerManager::~MediaPlayerManager()
 
 void MediaPlayerManager::ConnectPlayerSignals()
 {
+    connect(m_audioPlayer.get(), &AudioFFmpegPlayer::SigAudioPlayerFinished, this, &MediaPlayerManager::SigPlayerFinished);
 }
 
 void MediaPlayerManager::ResizeVideoWindows(int width, int height)

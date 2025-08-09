@@ -167,6 +167,10 @@ signals:
     /// </summary>
     /// <param name="isRecording">是否正在录制</param>
     void SigRecordStateChanged(bool isRecording);
+    /// <summary>
+    /// 播放完毕
+    /// </summary>
+    void SigPlayerFinished();
 private:
     /// <summary>
     /// 私有构造函数（单例模式）

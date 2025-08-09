@@ -41,14 +41,14 @@ AudioFFmpegPlayer::AudioFFmpegPlayer(QObject* parent)
 AudioFFmpegPlayer::~AudioFFmpegPlayer()
 {
     LOG_INFO("AudioFFmpegPlayer destructor called");
-    
+
     // 确保播放和录制停止
     StopPlay();
     StopRecording();
-    
+
     // 清理音频资源
     PlayerStateReSet();
-    
+
     // 清理录制设备
     if (m_recordDevice)
     {
@@ -372,7 +372,7 @@ void AudioFFmpegPlayer::ProcessAudioData(const ST_OpenFileResult& openFileResult
     // 标记是否处于seek后的跳过早期帧阶段
     bool bSkipEarlyFrames = true;
     int skippedFrames = 0;
-    
+
     while (pkt.ReadPacket(openFileResult.m_formatCtx->GetRawContext()))
     {
         if (pkt.GetRawPacket()->stream_index == m_audioStreamIdx)
@@ -496,12 +496,6 @@ void AudioFFmpegPlayer::ProcessAudioData(const ST_OpenFileResult& openFileResult
                 }
             }
             processedPackets++;
-
-            //// 每处理100个包记录一次进度
-            //if (processedPackets % 100 == 0 && processedPackets > 0)
-            //{
-            //    LOG_INFO("Processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames");
-            //}
         }
 
         pkt.UnrefPacket();
@@ -533,6 +527,38 @@ void AudioFFmpegPlayer::ProcessAudioData(const ST_OpenFileResult& openFileResult
 
     // 清空音频流缓冲区，确保seek时不会有旧数据
     m_playInfo->FlushAudioStream();
+    m_audioPlayerFinishedThreadID = CoreServerGlobal::Instance().GetThreadPool().CreateDedicatedThread("AudioPlayerFinished", [this]()
+    {
+        while (IsPlaying() && m_playInfo)
+        {
+            // 如果正在seek，跳过结束判断
+            if (m_playInfo->IsSeeking())
+            {
+                SDL_Delay(50);  // seek期间稍微延长等待时间
+                continue;
+            }
+            
+            // 只有在非seek状态下才检查数据是否结束
+            if (m_playInfo->GetDataIsEnd())
+            {
+                break;
+            }
+            
+            SDL_Delay(20);
+        }
+        
+        // 确保不是由于seek导致的误判
+        if (m_playInfo && !m_playInfo->IsSeeking() && IsPlaying())
+        {
+            LOG_INFO("Audio playback naturally finished");
+            emit SigAudioPlayerFinished();
+        }
+        else
+        {
+            LOG_INFO("Audio playback ended due to seek or manual stop");
+        }
+    });
+
 
     LOG_INFO("=== Audio data processing completed, processed " + std::to_string(processedPackets) + " packets, " + std::to_string(processedFrames) + " frames ===");
 
@@ -564,6 +590,8 @@ void AudioFFmpegPlayer::PlayerStateReSet()
         m_audioBuffer.clear();
         m_audioBuffer.shrink_to_fit();
     }
+
+    CoreServerGlobal::Instance().GetThreadPool().StopDedicatedThread(m_audioPlayerFinishedThreadID);
 }
 
 void AudioFFmpegPlayer::PausePlay()
@@ -615,7 +643,7 @@ void AudioFFmpegPlayer::StopPlay()
 bool AudioFFmpegPlayer::SeekAudio(double seconds)
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);
-
+    m_playInfo->SetSeeking(true);
     if (GetCurrentFilePath().isEmpty() || !m_playInfo)
     {
         return false;
@@ -654,7 +682,7 @@ bool AudioFFmpegPlayer::SeekAudio(double seconds)
 
     // 重置重采样参数更新标记
     m_bResampleParamsUpdated = false;
-
+    m_playInfo->SetSeeking(false);
     // 注意：seek时不更新播放起始时间，由ResumePlay统一处理
     // 重新处理音频数据，从seek位置开始
     ProcessAudioData(*openFileResult, *m_resampler, *m_resampleParams, seconds);

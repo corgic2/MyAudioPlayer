@@ -173,6 +173,12 @@ void ST_AudioPlayInfo::PutDataToStream(const void *buf, int len)
 
 bool ST_AudioPlayInfo::GetDataIsEnd()
 {
+    // 如果正在seek，不认为数据已结束
+    if (IsSeeking())
+    {
+        return false;
+    }
+    
     if (!m_audioStream.GetRawStream())
     {
         return true;

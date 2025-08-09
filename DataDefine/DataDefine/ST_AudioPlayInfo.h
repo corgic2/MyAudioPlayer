@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include "BaseDataDefine/ST_AVPacket.h"
 #include "BaseDataDefine/ST_SDLAudioDeviceID.h"
 #include "BaseDataDefine/ST_SDLAudioStream.h"
@@ -140,6 +141,21 @@ class ST_AudioPlayInfo
         }
     }
 
+    /// <summary>
+    /// 设置seek状态
+    /// </summary>
+    void SetSeeking(bool seeking)
+    {
+        m_isSeeking = seeking;
+    }
+    
+    /// <summary>
+    /// 是否正在执行seek操作
+    /// </summary>
+    bool IsSeeking() const
+    {
+        return m_isSeeking.load();
+    }
   private:
     ST_SDLAudioStream m_audioStream;     /// 音频流
     ST_SDLAudioDeviceID m_audioDeviceId; /// 音频设备ID
@@ -148,8 +164,5 @@ class ST_AudioPlayInfo
     double m_duration;                   /// 音频总时长（秒）
     double m_currentPosition;            /// 当前播放位置（秒）
     int64_t m_startTime;                 /// 开始播放的时间戳
+    std::atomic<bool> m_isSeeking{false};  /// 是否正在执行seek操作
 };
-
-
-
-

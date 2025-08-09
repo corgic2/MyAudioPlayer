@@ -116,6 +116,7 @@ void AVBaseWidget::ConnectSignals()
         {
             ui->ControlButtons->UpdateRecordState(isRecording);
         });
+        connect(m_playerManager, &MediaPlayerManager::SigPlayerFinished, this, &AVBaseWidget::SlotAVPlayFinished);
     }
 }
 
@@ -251,7 +252,7 @@ void AVBaseWidget::SlotAVPlayFinished()
     m_currentPosition = 0.0;
     ui->customProgressBar->SetProgressValue(0);
     ui->customProgressBar->setFormat("00:00 / 00:00");
-
+    ui->ControlButtons->UpdatePlayState(false);
     LOG_INFO("媒体播放完成，状态已重置");
 }
 
