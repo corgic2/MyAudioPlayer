@@ -136,7 +136,7 @@ void MainWidget::SlotOpenAVFolder()
 
     if (!dir.isEmpty())
     {
-        std::vector<std::string> audioFiles = av_fileSystem::AVFileSystem::GetAudioFiles(my_sdk::FileSystem::QtPathToStdPath(dir.toStdString()), false);
+        std::vector<std::string> audioFiles = av_fileSystem::AVFileSystem::GetAVFiles(my_sdk::FileSystem::QtPathToStdPath(dir.toStdString()), false);
 
         QStringList filePaths;
         for (const auto& file : audioFiles)

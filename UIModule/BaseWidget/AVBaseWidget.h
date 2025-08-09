@@ -128,6 +128,10 @@ protected:
     /// </summary>
     /// <param name="event">关闭事件指针</param>
     void closeEvent(QCloseEvent* event) override;
+    /// <summary>
+    /// Resize事件
+    /// </summary>
+    /// <param name="event"></param>
     void resizeEvent(QResizeEvent* event) override;
 private:
     /// <summary>

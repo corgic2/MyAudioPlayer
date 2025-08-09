@@ -25,10 +25,11 @@ void CoreServerGlobal::Initialize()
         my_sdk::FileSystem::CreateWindowsDirectory(logDir.toStdString());
     }
 
+    // 修改日志配置部分，使用宏定义
     // 配置日志系统
     ST_LogConfig logConfig;
     logConfig.m_logFilePath = (logDir + "/app.log").toStdString();
-    logConfig.m_logLevel = EM_LogLevel::Info;
+    logConfig.m_logLevel = DEFAULT_LOG_LEVEL;  // 使用宏定义的默认日志级别
     logConfig.m_maxFileSize = 10 * 1024 * 1024; // 10MB
     logConfig.m_maxQueueSize = 10000;
     logConfig.m_asyncEnabled = true;

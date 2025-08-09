@@ -1,4 +1,4 @@
-﻿# 指定CMake的最低版本
+# 指定CMake的最低版本
 cmake_minimum_required(VERSION 3.10)
 
 # 设置项目名称
@@ -125,3 +125,10 @@ foreach(lib ${LIBRARIES})
         target_link_libraries(${TARGET_NAME} PUBLIC ${lib})
     endif()
 endforeach()
+
+# 在文件中找到add_executable之前添加编译器定义
+
+# 为Release版本添加NDEBUG定义
+if(CMAKE_BUILD_TYPE STREQUAL "Release" )
+    target_compile_definitions(${TARGET_NAME} PRIVATE NDEBUG)
+endif()

@@ -1,10 +1,16 @@
-﻿#pragma once
+#pragma once
 #include <filesystem>
 #include <memory>
 #include <QApplication>
 #include "FileSystem/FileSystem.h"
 #include "LogSystem/LogSystem.h"
 #include "ThreadPool/ThreadPool.h"
+// 根据构建类型设置默认日志级别
+#ifdef NDEBUG
+#define DEFAULT_LOG_LEVEL EM_LogLevel::Error
+#else
+#define DEFAULT_LOG_LEVEL EM_LogLevel::Info
+#endif
 
 /// <summary>
 /// 核心服务全局类
