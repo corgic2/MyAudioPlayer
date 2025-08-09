@@ -491,6 +491,20 @@ int AVBaseWidget::GetFileIndex(const QString& filePath) const
 
 void AVBaseWidget::closeEvent(QCloseEvent* event)
 {
+    LOG_INFO("AVBaseWidget closing - stopping all playback and recording");
+    
+    // 停止所有播放和录制
+    StopAVPlay();
+    StopAVRecord();
+    
+    // 等待工作线程完成
+    if (m_playerManager)
+    {
+        // 确保播放管理器完成清理
+        m_playerManager->StopPlay();
+        m_playerManager->StopRecording();
+    }
+    
     event->accept();
 }
 

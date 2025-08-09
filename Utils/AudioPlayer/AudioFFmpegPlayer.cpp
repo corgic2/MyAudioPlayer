@@ -1,4 +1,4 @@
-﻿#include "AudioFFmpegPlayer.h"
+#include "AudioFFmpegPlayer.h"
 #include <QFile>
 #include "AudioPlayerUtils.h"
 
@@ -40,8 +40,20 @@ AudioFFmpegPlayer::AudioFFmpegPlayer(QObject* parent)
 
 AudioFFmpegPlayer::~AudioFFmpegPlayer()
 {
+    LOG_INFO("AudioFFmpegPlayer destructor called");
+    
+    // 确保播放和录制停止
     StopPlay();
     StopRecording();
+    
+    // 清理音频资源
+    PlayerStateReSet();
+    
+    // 清理录制设备
+    if (m_recordDevice)
+    {
+        m_recordDevice.reset();
+    }
 }
 
 

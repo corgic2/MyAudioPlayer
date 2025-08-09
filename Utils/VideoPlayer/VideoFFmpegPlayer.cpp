@@ -17,8 +17,13 @@ VideoFFmpegPlayer::VideoFFmpegPlayer(QObject* parent)
 
 VideoFFmpegPlayer::~VideoFFmpegPlayer()
 {
+    LOG_INFO("VideoFFmpegPlayer destructor called");
+    
+    // 确保停止播放和录制
     StopPlay();
     StopRecording();
+
+    LOG_INFO("VideoFFmpegPlayer cleanup completed");
 }
 
 void VideoFFmpegPlayer::SetVideoDisplayWidget(PlayerVideoModuleWidget* videoWidget)

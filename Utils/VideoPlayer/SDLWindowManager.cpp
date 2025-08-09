@@ -8,6 +8,7 @@ SDLWindowManager::SDLWindowManager(QObject* parent)
 
 SDLWindowManager::~SDLWindowManager()
 {
+    LOG_INFO("SDLWindowManager destructor called");
     DestroyWindow();
 }
 

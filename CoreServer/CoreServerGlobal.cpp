@@ -1,9 +1,11 @@
-﻿#include "CoreServerGlobal.h"
+#include "CoreServerGlobal.h"
 
 #include "SDKCommonDefine/SDKCommonDefine.h"
 
 CoreServerGlobal::~CoreServerGlobal()
 {
+    GetLogSystem().Shutdown();
+    GetThreadPool().Shutdown();
     SAFE_DELETE_POINTER_VALUE(m_threadPool);
 }
 
@@ -17,7 +19,7 @@ void CoreServerGlobal::Initialize()
     config.m_keepAliveTime = 60000; // 1分钟
     m_threadPool = new ThreadPool(config);
     // 创建日志目录
-    QString logDir = QApplication::applicationDirPath() + QString("logs");
+    QString logDir = QApplication::applicationDirPath() + QString("/logs");
     if (!my_sdk::FileSystem::Exists(logDir.toStdString()))
     {
         my_sdk::FileSystem::CreateWindowsDirectory(logDir.toStdString());

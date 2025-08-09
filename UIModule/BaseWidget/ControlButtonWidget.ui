@@ -10,6 +10,12 @@
     <height>36</height>
    </rect>
   </property>
+  <property name="maximumSize">
+   <size>
+    <width>16777215</width>
+    <height>36</height>
+   </size>
+  </property>
   <property name="windowTitle">
    <string>AudioControlButtonWidget</string>
   </property>
@@ -33,7 +39,7 @@
     <widget class="CustomToolButton" name="btnRecord">
      <property name="minimumSize">
       <size>
-       <width>0</width>
+       <width>30</width>
        <height>36</height>
       </size>
      </property>
@@ -49,7 +55,7 @@
     <widget class="CustomToolButton" name="btnPrevious">
      <property name="minimumSize">
       <size>
-       <width>0</width>
+       <width>30</width>
        <height>36</height>
       </size>
      </property>
@@ -65,7 +71,7 @@
     <widget class="CustomToolButton" name="btnBackward">
      <property name="minimumSize">
       <size>
-       <width>0</width>
+       <width>30</width>
        <height>36</height>
       </size>
      </property>
@@ -81,7 +87,7 @@
     <widget class="CustomToolButton" name="btnPlay">
      <property name="minimumSize">
       <size>
-       <width>0</width>
+       <width>30</width>
        <height>36</height>
       </size>
      </property>
@@ -97,7 +103,7 @@
     <widget class="CustomToolButton" name="btnForward">
      <property name="minimumSize">
       <size>
-       <width>0</width>
+       <width>30</width>
        <height>36</height>
       </size>
      </property>
@@ -113,7 +119,7 @@
     <widget class="CustomToolButton" name="btnNext">
      <property name="minimumSize">
       <size>
-       <width>0</width>
+       <width>30</width>
        <height>36</height>
       </size>
      </property>

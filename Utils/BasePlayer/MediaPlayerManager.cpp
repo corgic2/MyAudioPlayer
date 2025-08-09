@@ -1,4 +1,4 @@
-﻿#include "MediaPlayerManager.h"
+#include "MediaPlayerManager.h"
 #include <QFileInfo>
 #include <QMutexLocker>
 #include "AVFileSystem.h"
@@ -46,8 +46,24 @@ MediaPlayerManager::MediaPlayerManager(QObject* parent)
 MediaPlayerManager::~MediaPlayerManager()
 {
     LOG_INFO("MediaPlayerManager destructor called");
+    
+    // 确保所有播放停止
     StopPlay();
     StopRecording();
+    
+    // 清理播放器实例
+    if (m_audioPlayer)
+    {
+        m_audioPlayer.reset();
+    }
+    
+    if (m_videoPlayer)
+    {
+        m_videoPlayer.reset();
+    }
+    
+    m_currentMediaType = EM_MediaType::Unknown;
+    m_currentFilePath.clear();
 }
 
 void MediaPlayerManager::ConnectPlayerSignals()
