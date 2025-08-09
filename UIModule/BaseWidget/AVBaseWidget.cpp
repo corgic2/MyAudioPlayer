@@ -319,15 +319,10 @@ void AVBaseWidget::SlotBtnNextClicked()
         m_currentPosition = 0.0;
 
         // 直接切换到下一个文件，复用现有播放器
-        bool wasPlaying = GetIsPlaying();
         ui->audioFileList->setCurrentItem(nextItem);
-
-        if (wasPlaying)
-        {
-            // 复用现有播放器，不创建新线程
-            StartAVPlay(m_currentAVFile, 0.0);
-        }
-
+        ui->ControlButtons->UpdatePlayState(true);
+        // 复用现有播放器，不创建新线程
+        StartAVPlay(m_currentAVFile, 0.0);
         emit SigAVFileSelected(filePath);
     }
 
@@ -364,15 +359,10 @@ void AVBaseWidget::SlotBtnPreviousClicked()
         m_currentPosition = 0.0;
 
         // 直接切换到上一个文件，复用现有播放器
-        bool wasPlaying = GetIsPlaying();
         ui->audioFileList->setCurrentItem(prevItem);
-
-        if (wasPlaying)
-        {
-            // 复用现有播放器，不创建新线程
-            StartAVPlay(filePath, 0.0);
-        }
-
+        ui->ControlButtons->UpdatePlayState(true);
+        // 复用现有播放器，不创建新线程
+        StartAVPlay(filePath, 0.0);
         emit SigAVFileSelected(filePath);
     }
 
@@ -493,11 +483,11 @@ int AVBaseWidget::GetFileIndex(const QString& filePath) const
 void AVBaseWidget::closeEvent(QCloseEvent* event)
 {
     LOG_INFO("AVBaseWidget closing - stopping all playback and recording");
-    
+
     // 停止所有播放和录制
     StopAVPlay();
     StopAVRecord();
-    
+
     // 等待工作线程完成
     if (m_playerManager)
     {
@@ -505,7 +495,7 @@ void AVBaseWidget::closeEvent(QCloseEvent* event)
         m_playerManager->StopPlay();
         m_playerManager->StopRecording();
     }
-    
+
     event->accept();
 }
 
