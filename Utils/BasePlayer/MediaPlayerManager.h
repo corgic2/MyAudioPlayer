@@ -146,6 +146,12 @@ public:
     /// <param name="videoWidget">视频显示控件</param>
     void SetVideoDisplayWidget(PlayerVideoModuleWidget* videoWidget);
     /// <summary>
+    /// 重构视频窗口
+    /// </summary>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    void ResizeVideoWindows(int width, int height);
+    /// <summary>
     /// 获取音频指针
     /// </summary>
     /// <returns></returns>

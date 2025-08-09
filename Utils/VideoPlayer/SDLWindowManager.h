@@ -147,6 +147,22 @@ public:
     /// <param name="width">宽度输出</param>
     /// <param name="height">高度输出</param>
     void GetWindowSize(int& width, int& height);
+    
+    /// <summary>
+    /// 调整窗口大小（不中断视频播放）
+    /// </summary>
+    /// <param name="width">新宽度</param>
+    /// <param name="height">新高度</param>
+    /// <returns>是否调整成功</returns>
+    bool ResizeWindow(int width, int height);
+
+    /// <summary>
+    /// 重新创建纹理以适应新的窗口大小
+    /// </summary>
+    /// <param name="width">新宽度</param>
+    /// <param name="height">新高度</param>
+    /// <returns>是否重新创建成功</returns>
+    bool RecreateTexture(int width, int height);
 
 signals:
     /// <summary>
@@ -160,13 +176,6 @@ signals:
     /// <param name="width">新宽度</param>
     /// <param name="height">新高度</param>
     void WindowResized(int width, int height);
-
-    /// <summary>
-    /// 错误信号
-    /// </summary>
-    /// <param name="error">错误信息</param>
-    void ErrorOccurred(const QString& error);
-
 private:
     SDL_Window* m_window{nullptr};           /// SDL窗口
     SDL_Renderer* m_renderer{nullptr};       /// SDL渲染器

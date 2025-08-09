@@ -128,7 +128,7 @@ protected:
     /// </summary>
     /// <param name="event">关闭事件指针</param>
     void closeEvent(QCloseEvent* event) override;
-
+    void resizeEvent(QResizeEvent* event) override;
 private:
     /// <summary>
     /// 连接信号槽

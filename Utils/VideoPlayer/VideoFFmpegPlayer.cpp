@@ -74,7 +74,7 @@ void VideoFFmpegPlayer::StartPlay(const QString& videoPath, bool bStart, double 
         m_pPlayWorker.reset();
         return;
     }
-
+    ResizeSDLWindows(m_pVideoDisplayWidget->width(), m_pVideoDisplayWidget->height());
     // 设置音频播放器用于音视频同步
     m_pPlayWorker->SetAudioPlayer(MediaPlayerManager::Instance()->GetAudioPlayerPtr());
 
@@ -264,4 +264,12 @@ void VideoFFmpegPlayer::ForceStop()
     BaseFFmpegPlayer::ForceStop();
 
     LOG_INFO("VideoFFmpegPlayer force stop completed");
+}
+
+void VideoFFmpegPlayer::ResizeSDLWindows(int width, int height)
+{
+    if (m_pPlayWorker)
+    {
+        emit m_pPlayWorker.get()->SigSDLWindowsResize(width, height);
+    }
 }

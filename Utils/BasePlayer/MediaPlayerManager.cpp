@@ -70,6 +70,15 @@ void MediaPlayerManager::ConnectPlayerSignals()
 {
 }
 
+void MediaPlayerManager::ResizeVideoWindows(int width, int height)
+{
+    if (m_currentMediaType != EM_MediaType::Video && m_currentMediaType != EM_MediaType::VideoWithAudio)
+    {
+        return;
+    }
+    emit m_videoPlayer->ResizeSDLWindows(width, height);
+}
+
 bool MediaPlayerManager::PlayMedia(const QString& filePath, double startPosition, const QStringList& args)
 {
     if (filePath.isEmpty())

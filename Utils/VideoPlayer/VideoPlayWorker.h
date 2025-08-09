@@ -162,6 +162,12 @@ signals:
     /// <param name="width"></param>
     /// <param name="height"></param>
     void SigRenderFrameOnMainThread(const uint8_t* rgbData, int pitch, float width, float height);
+    /// <summary>
+    /// resize播放窗口
+    /// </summary>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    void SigSDLWindowsResize(int width, int height);
 private:
     /// <summary>
     /// 播放循环

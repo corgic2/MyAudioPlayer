@@ -26,7 +26,6 @@ bool SDLWindowManager::CreateWindow(int width, int height, const QString& title)
     {
         QString error = QString("Failed to create SDL window: %1").arg(SDL_GetError());
         LOG_ERROR(error.toStdString());
-        emit ErrorOccurred(error);
         return false;
     }
 
@@ -39,7 +38,6 @@ bool SDLWindowManager::CreateWindow(int width, int height, const QString& title)
     {
         QString error = QString("Failed to create SDL renderer: %1").arg(SDL_GetError());
         LOG_ERROR(error.toStdString());
-        emit ErrorOccurred(error);
         SDL_DestroyWindow(m_window);
         m_window = nullptr;
         return false;
@@ -50,7 +48,7 @@ bool SDLWindowManager::CreateWindow(int width, int height, const QString& title)
 
     m_windowValid = true;
     m_windowVisible = true;
-    
+
     LOG_INFO("SDL window created successfully: " + std::to_string(width) + "x" + std::to_string(height));
     return true;
 }
@@ -65,10 +63,10 @@ bool SDLWindowManager::CreateEmbeddedWindow(int width, int height, WId parentWin
 
     // 使用SDL3的新API创建嵌入父窗口的SDL窗口
     SDL_PropertiesID props = SDL_CreateProperties();
-    if (!props) {
+    if (!props)
+    {
         QString error = QString("Failed to create SDL properties: %1").arg(SDL_GetError());
         LOG_ERROR(error.toStdString());
-        emit ErrorOccurred(error);
         return false;
     }
 
@@ -88,7 +86,6 @@ bool SDLWindowManager::CreateEmbeddedWindow(int width, int height, WId parentWin
     {
         QString error = QString("Failed to create embedded SDL window: %1").arg(SDL_GetError());
         LOG_ERROR(error.toStdString());
-        emit ErrorOccurred(error);
         return false;
     }
 
@@ -101,7 +98,6 @@ bool SDLWindowManager::CreateEmbeddedWindow(int width, int height, WId parentWin
     {
         QString error = QString("Failed to create SDL renderer for embedded window: %1").arg(SDL_GetError());
         LOG_ERROR(error.toStdString());
-        emit ErrorOccurred(error);
         SDL_DestroyWindow(m_window);
         m_window = nullptr;
         return false;
@@ -112,7 +108,7 @@ bool SDLWindowManager::CreateEmbeddedWindow(int width, int height, WId parentWin
 
     m_windowValid = true;
     m_windowVisible = true;
-    
+
     LOG_INFO("SDL embedded window created successfully: " + std::to_string(width) + "x" + std::to_string(height));
     return true;
 }
@@ -139,7 +135,7 @@ void SDLWindowManager::DestroyWindow()
 
     m_windowValid = false;
     m_windowVisible = false;
-    
+
     LOG_INFO("SDL window destroyed");
     emit WindowClosed();
 }
@@ -159,7 +155,7 @@ void SDLWindowManager::ShowWindow(bool show)
     {
         SDL_HideWindow(m_window);
     }
-    
+
     m_windowVisible = show;
 }
 
@@ -190,7 +186,6 @@ bool SDLWindowManager::CreateVideoTexture(float width, float height)
     {
         QString error = QString("Failed to create SDL texture: %1").arg(SDL_GetError());
         LOG_ERROR(error.toStdString());
-        emit ErrorOccurred(error);
         return false;
     }
 
@@ -209,7 +204,6 @@ bool SDLWindowManager::UpdateTexture(const void* data, int pitch)
     {
         QString error = QString("Failed to update SDL texture: %1").arg(SDL_GetError());
         LOG_WARN(error.toStdString());
-        emit ErrorOccurred(error);
         return false;
     }
 
@@ -311,4 +305,77 @@ void SDLWindowManager::GetWindowSize(int& width, int& height)
         width = 0;
         height = 0;
     }
+}
+
+bool SDLWindowManager::ResizeWindow(int width, int height)
+{
+    if (!m_window)
+    {
+        LOG_ERROR("Cannot resize window: window not initialized");
+        return false;
+    }
+
+    if (width <= 0 || height <= 0)
+    {
+        LOG_ERROR("Invalid window dimensions: " + std::to_string(width) + "x" + std::to_string(height));
+        return false;
+    }
+
+
+    // 设置窗口大小
+    SDL_SetWindowSize(m_window, width, height);
+
+    // 重新创建纹理以适应新的大小
+    if (m_texture)
+    {
+        SDL_DestroyTexture(m_texture);
+        m_texture = nullptr;
+    }
+
+    // 创建新的纹理
+    m_texture = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, width, height);
+    if (!m_texture)
+    {
+        QString error = QString("Failed to create texture after resize: %1").arg(SDL_GetError());
+        LOG_ERROR(error.toStdString());
+        return false;
+    }
+
+    LOG_INFO("Window resized successfully to: " + std::to_string(width) + "x" + std::to_string(height));
+    emit WindowResized(width, height);
+    return true;
+}
+
+bool SDLWindowManager::RecreateTexture(int width, int height)
+{
+    if (!m_renderer)
+    {
+        LOG_ERROR("Cannot recreate texture: renderer not initialized");
+        return false;
+    }
+
+    if (width <= 0 || height <= 0)
+    {
+        LOG_ERROR("Invalid texture dimensions: " + std::to_string(width) + "x" + std::to_string(height));
+        return false;
+    }
+
+    // 销毁旧纹理
+    if (m_texture)
+    {
+        SDL_DestroyTexture(m_texture);
+        m_texture = nullptr;
+    }
+
+    // 创建新的纹理
+    m_texture = SDL_CreateTexture(m_renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING, width, height);
+    if (!m_texture)
+    {
+        QString error = QString("Failed to recreate texture: %1").arg(SDL_GetError());
+        LOG_ERROR(error.toStdString());
+        return false;
+    }
+
+    LOG_INFO("Texture recreated successfully: " + std::to_string(width) + "x" + std::to_string(height));
+    return true;
 }

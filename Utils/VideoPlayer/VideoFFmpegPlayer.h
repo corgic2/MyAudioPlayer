@@ -108,7 +108,12 @@ class VideoFFmpegPlayer : public BaseFFmpegPlayer
     /// 强制停止所有活动（重写基类方法）
     /// </summary>
     void ForceStop() override;
-
+    /// <summary>
+    /// resize播放窗口
+    /// </summary>
+    /// <param name="width"></param>
+    /// <param name="height"></param>
+    void ResizeSDLWindows(int width, int height);
 private:
     /// <summary>
     /// 视频播放工作对象

@@ -25,6 +25,7 @@ VideoPlayWorker::VideoPlayWorker(QObject* parent)
             m_sdlManager->RenderFrame();
         }
     });
+    connect(this, &VideoPlayWorker::SigSDLWindowsResize, m_sdlManager.get(), &SDLWindowManager::ResizeWindow);
 }
 
 VideoPlayWorker::~VideoPlayWorker()
@@ -518,7 +519,6 @@ bool VideoPlayWorker::InitPlayer(std::unique_ptr<ST_OpenFileResult> openFileResu
         LOG_ERROR("Failed to create SDL texture for video rendering");
         return false;
     }
-
     // 连接窗口大小改变信号
     connect(m_sdlManager.get(), &SDLWindowManager::WindowResized, this, [this](int width, int height)
     {

@@ -508,6 +508,13 @@ void AVBaseWidget::closeEvent(QCloseEvent* event)
     event->accept();
 }
 
+void AVBaseWidget::resizeEvent(QResizeEvent* event)
+{
+    QWidget::resizeEvent(event);
+
+    m_playerManager->ResizeVideoWindows(ui->AVFrame->width(), ui->AVFrame->height());
+}
+
 FilePathIconListWidgetItem::ST_NodeInfo AVBaseWidget::GetFileInfo(int index) const
 {
     FilePathIconListWidgetItem* item = ui->audioFileList->GetItem(index);
