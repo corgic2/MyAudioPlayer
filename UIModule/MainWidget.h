@@ -5,7 +5,6 @@
 #include <QMessageBox>
 #include "ui_MainWidget.h"
 #include "BusinessLogic/MediaService.h"
-#include "Utils/QtCustomAPI.h"
 
 QT_BEGIN_NAMESPACE namespace Ui
 {
@@ -118,9 +117,4 @@ private:
     /// 当前音视频文件路径
     /// </summary>
     QString m_currentAVFile;
-    
-    /// <summary>
-    /// Qt自定义API对象指针
-    /// </summary>
-    QtCustomAPI* m_qtCustomAPI = nullptr;
 };

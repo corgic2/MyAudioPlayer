@@ -23,14 +23,12 @@
 #include "AVFileSystem.h"
 #include "AudioWidget/PlayerAudioModuleWidget.h"
 #include "BusinessLogic/MediaService.h"
+#include "SDKCommonDefine/SDKCommonDefine.h"
 
 MainWidget::MainWidget(QWidget* parent)
     : QMainWindow(parent), ui(new Ui::MainWidgetClass()), m_currentAVFile("")
 {
     ui->setupUi(this);
-
-    // 初始化QtCustomAPI
-    m_qtCustomAPI = new QtCustomAPI(this);
 
     InitializeMenuBar();
     InitializeToolBar();
@@ -136,12 +134,12 @@ void MainWidget::SlotOpenAVFolder()
 
     if (!dir.isEmpty())
     {
-        std::vector<std::string> audioFiles = av_fileSystem::AVFileSystem::GetAVFiles(my_sdk::FileSystem::QtPathToStdPath(dir.toStdString()), false);
+        std::vector<std::string> audioFiles = av_fileSystem::AVFileSystem::GetAVFiles(dir.toStdString(), false);
 
         QStringList filePaths;
         for (const auto& file : audioFiles)
         {
-            filePaths << QString::fromStdString(my_sdk::FileSystem::StdPathToQtPath(file));
+            filePaths << QString::fromStdString(file);
         }
 
         if (!filePaths.isEmpty())

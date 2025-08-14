@@ -1,4 +1,4 @@
-#include "AVBaseWidget.h"
+﻿#include "AVBaseWidget.h"
 #include <QApplication>
 #include <QCloseEvent>
 #include <QFileDialog>
@@ -405,7 +405,7 @@ void AVBaseWidget::AddAVFiles(const QStringList& filePaths)
     for (const QString& filePath : filePaths)
     {
         LOG_DEBUG("添加文件: " + filePath.toStdString());
-        std::string stdPath = my_sdk::FileSystem::QtPathToStdPath(filePath.toStdString());
+        std::string stdPath = filePath.toStdString();
         if (!av_fileSystem::AVFileSystem::IsAVFile(stdPath))
         {
             continue;

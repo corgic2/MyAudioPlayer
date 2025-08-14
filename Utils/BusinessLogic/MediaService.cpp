@@ -41,11 +41,11 @@ QStringList MediaService::GetAudioFilesFromDirectory(const QString& directory, b
 {
     QStringList result;
 
-    std::vector<std::string> audioFiles = av_fileSystem::AVFileSystem::GetAudioFiles(my_sdk::FileSystem::QtPathToStdPath(directory.toStdString()), recursive);
+    std::vector<std::string> audioFiles = av_fileSystem::AVFileSystem::GetAudioFiles(directory.toStdString(), recursive);
 
     for (const auto& file : audioFiles)
     {
-        result << QString::fromStdString(my_sdk::FileSystem::StdPathToQtPath(file));
+        result << QString::fromStdString(file);
     }
     return result;
 }
@@ -54,11 +54,11 @@ QStringList MediaService::GetVideoFilesFromDirectory(const QString& directory, b
 {
     QStringList result;
 
-    std::vector<std::string> videoFiles = av_fileSystem::AVFileSystem::GetVideoFiles(my_sdk::FileSystem::QtPathToStdPath(directory.toStdString()), recursive);
+    std::vector<std::string> videoFiles = av_fileSystem::AVFileSystem::GetVideoFiles(directory.toStdString(), recursive);
 
     for (const auto& file : videoFiles)
     {
-        result << QString::fromStdString(my_sdk::FileSystem::StdPathToQtPath(file));
+        result << QString::fromStdString(file);
     }
 
     return result;
