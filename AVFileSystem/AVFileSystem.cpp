@@ -27,7 +27,7 @@ namespace av_fileSystem
     {
         std::string ext = my_sdk::FileSystem::GetExtension(filePath);
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-
+        ext.erase(ext.begin());
         // 音频格式
         if (ext == "mp3")
         {
