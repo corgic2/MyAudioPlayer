@@ -1,4 +1,4 @@
-#include "MediaPlayerManager.h"
+﻿#include "MediaPlayerManager.h"
 #include <QFileInfo>
 #include <QMutexLocker>
 #include "AVFileSystem.h"
@@ -435,7 +435,7 @@ EM_MediaType MediaPlayerManager::DetectMediaType(const QString& filePath)
 
     // 如果上述方法无法检测，则通过文件扩展名检测
     QString extension = QString::fromStdString(my_sdk::FileSystem::GetExtension(stdFilePath)).toLower();
-
+    extension.remove(0,1);
     // 音频格式
     QStringList audioFormats = {"mp3", "wav", "flac", "aac", "ogg", "m4a", "wma", "ape", "pcm"};
     if (audioFormats.contains(extension))

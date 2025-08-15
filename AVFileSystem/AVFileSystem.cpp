@@ -6,6 +6,7 @@ namespace av_fileSystem
     bool AVFileSystem::IsAVFile(const std::string& filePath)
     {
         std::string ext = my_sdk::FileSystem::GetExtension(filePath);
+        ext.erase(ext.begin());
         std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
         const std::vector<std::string> avExts = GetSupportedAVExtensions();
         return std::find(avExts.begin(), avExts.end(), ext) != avExts.end();

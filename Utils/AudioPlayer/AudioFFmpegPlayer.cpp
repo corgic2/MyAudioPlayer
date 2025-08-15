@@ -1,4 +1,4 @@
-#include "AudioFFmpegPlayer.h"
+﻿#include "AudioFFmpegPlayer.h"
 #include <QFile>
 #include "AudioPlayerUtils.h"
 
@@ -76,6 +76,7 @@ std::unique_ptr<ST_OpenAudioDevice> AudioFFmpegPlayer::OpenDevice(const QString&
 void AudioFFmpegPlayer::StartRecording(const QString& outputFilePath)
 {
     QString encoderFormat = QString::fromStdString(my_sdk::FileSystem::GetExtension(outputFilePath.toStdString()));
+    encoderFormat.remove(0,1);
     LOG_INFO("Starting audio recording, output file: " + outputFilePath.toStdString() + ", encoder format: " + encoderFormat.toStdString());
 
     if (m_playState.GetCurrentState() == AVPlayState::Recording)

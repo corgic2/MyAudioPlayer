@@ -126,7 +126,7 @@ bool VideoRecordWorker::InitRecorder(const QString& outputPath)
     // 分配输出格式上下文
     m_pOutputFormatCtx = std::make_unique<ST_AVFormatContext>();
     QString extension = QString::fromStdString(my_sdk::FileSystem::GetExtension(outputPath.toStdString()));
-
+    extension.remove(0, 1);
     if (!m_pOutputFormatCtx->OpenOutputFilePath(nullptr, extension.toLocal8Bit().constData(), outputPath.toLocal8Bit().constData()))
     {
         LOG_WARN("Failed to create output format context");
