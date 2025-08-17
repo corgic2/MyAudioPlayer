@@ -5,7 +5,9 @@
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QTimer>
-
+#include <QInputDialog>
+#include <QDateTime>
+#include <QDir>
 #include "ControlButtonWidget.h"
 #include "CoreServerGlobal.h"
 #include "../AVFileSystem/AVFileSystem.h"
@@ -30,13 +32,7 @@ AVBaseWidget::AVBaseWidget(QWidget* parent)
 
     InitializeWidget();
     ConnectSignals();
-
-    // 设置文件列表的JSON文件路径并加载
-    QString jsonPath = QApplication::applicationDirPath() + "/audiofiles.json";
-    ui->audioFileList->SetJsonFilePath(jsonPath);
-    ui->audioFileList->EnableAutoSave(true);
-    ui->audioFileList->SetAutoSaveInterval(1800000); // 30分钟
-    ui->audioFileList->LoadFileListFromJson();
+    InitializePlaylistManager();
 }
 
 AVBaseWidget::~AVBaseWidget()
@@ -61,19 +57,6 @@ void AVBaseWidget::InitializeWidget()
     // 初始化播放定时器
     m_playTimer = new QTimer(this);
     m_playTimer->setInterval(100); // 100ms更新一次
-
-    // 设置各个Frame的边框样式
-    ui->AVFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
-    ui->AVFrame->setLineWidth(1);
-    ui->AVFrame->setMidLineWidth(0);
-    // 清空显示
-    ui->RightLayoutFrame->setFrameStyle(QFrame::Box | QFrame::Raised);
-    ui->RightLayoutFrame->setLineWidth(1);
-    ui->RightLayoutFrame->setMidLineWidth(0);
-    ui->customProgressBar->setFixedHeight(15);
-    // 设置进度条范围
-    ui->customProgressBar->setRange(0, 100); // 使用1000为最大值，提高精度
-    ui->customProgressBar->SetProgressValue(0);
 
     m_audioPlayerWidget = new PlayerAudioModuleWidget(this);
     m_videoPlayerWidget = new PlayerVideoModuleWidget(this);
@@ -104,7 +87,7 @@ void AVBaseWidget::ConnectSignals()
     connect(this, &AVBaseWidget::SigAVRecordFinished, this, &AVBaseWidget::SlotAVRecordFinished);
 
     // 连接进度条信号
-    connect(ui->customProgressBar, &CustomProgressBar::SigProgressValueChanged, this, &AVBaseWidget::SlotProgressBarValueChanged);
+    connect(ui->ControlButtons, &ControlButtonWidget::SigProgressChanged , this, &AVBaseWidget::SlotProgressBarValueChanged);
 
     // 连接播放进度更新定时器
     connect(m_playTimer, &QTimer::timeout, this, &AVBaseWidget::SlotUpdatePlayProgress);
@@ -194,32 +177,20 @@ void AVBaseWidget::StartAVPlay(const QString& filePath, double startPosition)
         return;
     }
 
-    // 确定文件类型并显示相应的控件
-    if (av_fileSystem::AVFileSystem::IsAudioFile(filePath.toStdString()))
-    {
-        m_audioPlayerWidget->LoadWaveWidegt(filePath);
-        ShowAVWidget(true);
-    }
-    else if (av_fileSystem::AVFileSystem::IsVideoFile(filePath.toStdString()))
-    {
-        // 设置视频显示控件
-        m_playerManager->SetVideoDisplayWidget(m_videoPlayerWidget);
-        ShowAVWidget(false);
-    }
-    else
-    {
-        QMessageBox::warning(this, "错误", "不支持的文件类型: " + filePath);
-        return;
-    }
-
     // 使用MediaPlayerManager播放媒体文件
     if (m_playerManager->PlayMedia(filePath, startPosition))
     {
+        // 获取并设置总时长（转换为毫秒）
+        double duration = m_playerManager->GetDuration();
+        qint64 durationMs = static_cast<qint64>(duration * 1000);
+        ui->ControlButtons->SetDuration(durationMs);
+        
+        // 设置初始进度（毫秒）
+        qint64 startPositionMs = static_cast<qint64>(startPosition * 1000);
+        ui->ControlButtons->SetProgressValue(startPositionMs);
+        
         m_playTimer->start();
-        LOG_INFO("Media playback started successfully");
-
-        // 更新文件信息显示
-        UpdateFileInfoDisplay(filePath);
+        LOG_INFO("Media playback started successfully, duration: " + std::to_string(duration) + " seconds");
     }
     else
     {
@@ -250,8 +221,6 @@ void AVBaseWidget::SlotAVPlayFinished()
 
     // 播放完成后重置播放位置和进度条
     m_currentPosition = 0.0;
-    ui->customProgressBar->SetProgressValue(0);
-    ui->customProgressBar->setFormat("00:00 / 00:00");
     ui->ControlButtons->UpdatePlayState(false);
     LOG_INFO("媒体播放完成，状态已重置");
 }
@@ -380,9 +349,6 @@ void AVBaseWidget::SlotAVFileSelected(const QString& filePath)
     m_currentAVFile = filePath;
     ui->ControlButtons->SetCurrentAudioFile(filePath);
 
-    // 更新文件信息显示
-    UpdateFileInfoDisplay(filePath);
-
     emit SigAVFileSelected(m_currentAVFile);
 }
 
@@ -429,6 +395,7 @@ void AVBaseWidget::AddAVFiles(const QStringList& filePaths)
             }
         }
     }
+    ui->audioFileList->SaveFileListToJson();
 }
 
 void AVBaseWidget::RemoveAVFile(const QString& filePath)
@@ -452,6 +419,7 @@ void AVBaseWidget::RemoveAVFile(const QString& filePath)
             emit SigAVFileSelected(QString());
         }
     }
+    ui->audioFileList->SaveFileListToJson();
 }
 
 void AVBaseWidget::ClearAVFiles()
@@ -465,6 +433,7 @@ void AVBaseWidget::ClearAVFiles()
     ui->audioFileList->Clear();
     m_currentAVFile.clear();
     ui->ControlButtons->SetCurrentAudioFile(QString());
+    ui->audioFileList->SaveFileListToJson();
 }
 
 int AVBaseWidget::GetFileIndex(const QString& filePath) const
@@ -502,8 +471,6 @@ void AVBaseWidget::closeEvent(QCloseEvent* event)
 void AVBaseWidget::resizeEvent(QResizeEvent* event)
 {
     QWidget::resizeEvent(event);
-
-    m_playerManager->ResizeVideoWindows(ui->AVFrame->width(), ui->AVFrame->height());
 }
 
 FilePathIconListWidgetItem::ST_NodeInfo AVBaseWidget::GetFileInfo(int index) const
@@ -590,31 +557,27 @@ bool AVBaseWidget::GetIsRecording() const
     return m_playerManager && m_playerManager->IsRecording();
 }
 
-void AVBaseWidget::SlotProgressBarValueChanged(int value)
+void AVBaseWidget::SlotProgressBarValueChanged(qint64 value)
 {
     if (m_isProgressBarUpdating || !m_playerManager)
     {
         return;
     }
 
-    // 计算跳转位置
+    // 计算跳转位置（value是毫秒，需要转换为秒）
     double duration = m_playerManager->GetDuration();
     if (duration > 0)
     {
-        double seekPosition = (static_cast<double>(value) / 1000.0) * duration;
-        m_currentPosition = seekPosition;
+        m_currentPosition = value / 1000.0;
 
-        // 跳转播放位置
-        if (GetIsPlaying())
-        {
-            m_playerManager->SeekPlay(seekPosition);
-        }
+        // 跳转播放位置（转换为秒）
+        m_playerManager->SeekPlay(m_currentPosition);
     }
 }
 
 void AVBaseWidget::SlotUpdatePlayProgress()
 {
-    if (!m_playerManager || !GetIsPlaying())
+    if (!m_playerManager)
     {
         return;
     }
@@ -628,18 +591,9 @@ void AVBaseWidget::SlotUpdatePlayProgress()
 
     if (duration > 0)
     {
-        int progressValue = static_cast<int>((currentPos / duration) * 100);
-        ui->customProgressBar->SetProgressValue(progressValue);
-
-        // 更新音频波形图的播放位置（如果是音频文件）
-        if (m_playerManager->GetCurrentMediaType() == EM_MediaType::Audio && m_audioPlayerWidget)
-        {
-            m_audioPlayerWidget->UpdateWaveformPosition(currentPos, duration);
-        }
-
-        // 更新进度条文本显示
-        QString timeText = QString("%1 / %2").arg(FormatTime(static_cast<int>(currentPos))).arg(FormatTime(static_cast<int>(duration)));
-        ui->customProgressBar->setFormat(timeText);
+        // 更新进度条（转换为毫秒）
+        qint64 currentPosMs = static_cast<qint64>(currentPos * 1000);
+        ui->ControlButtons->SetProgressValue(currentPosMs);
     }
 
     m_isProgressBarUpdating = false;
@@ -651,174 +605,173 @@ void AVBaseWidget::SlotUpdatePlayProgress()
     }
 }
 
-QString AVBaseWidget::FormatTime(int seconds) const
+void AVBaseWidget::InitializePlaylistManager()
 {
-    int minutes = seconds / 60;
-    int secs = seconds % 60;
-    return QString("%1:%2").arg(minutes, 2, 10, QChar('0')).arg(secs, 2, 10, QChar('0'));
+    // 创建ContentDirectory文件夹
+    QString playlistDir = GetPlaylistDirectory();
+    QDir dir;
+    if (!dir.exists(playlistDir))
+    {
+        dir.mkpath(playlistDir);
+    }
+
+    // 连接左侧歌单列表的信号
+    connect(ui->AudioDirectory, &FilePathIconListWidget::SigItemSelected, this, &AVBaseWidget::SlotPlaylistSelected);
+    connect(ui->AudioDirectory, &FilePathIconListWidget::SigItemDoubleClicked, this, &AVBaseWidget::SlotPlaylistSelected);
+
+    // 连接添加/删除按钮的信号
+    connect(ui->AddDirectory, &QAbstractButton::clicked, this, &AVBaseWidget::SlotAddDirectoryClicked);
+    connect(ui->DeleteDirectory, &QAbstractButton::clicked, this, &AVBaseWidget::SlotDeleteDirectoryClicked);
+
+    // 设置左侧歌单列表的JSON文件路径
+    QString playlistsJsonPath = GetPlaylistDirectory() + "/playlists.json";
+    ui->AudioDirectory->SetJsonFilePath(playlistsJsonPath);
+    ui->AudioDirectory->EnableAutoSave(true);
+    ui->AudioDirectory->SetAutoSaveInterval(1800000); // 30分钟
+
+    // 加载歌单列表
+    LoadPlaylists();
 }
 
-void AVBaseWidget::UpdateFileInfoDisplay(const QString& filePath)
+QString AVBaseWidget::GetPlaylistDirectory() const
 {
-    if (filePath.isEmpty())
+    return QApplication::applicationDirPath() + "/ContentDirectory";
+}
+
+void AVBaseWidget::LoadPlaylists()
+{
+    if (!ui->AudioDirectory->LoadFileListFromJson())
     {
-        // 清空显示
-        ui->labelFileName->setText("文件名：--");
-        ui->labelFileSize->setText("文件大小：--");
-        ui->labelDuration->setText("时长：--");
-        ui->labelFormat->setText("格式：--");
-        ui->labelBitrate->setText("比特率：--");
-        ui->labelResolution->setText("分辨率：--");
-        ui->labelSampleRate->setText("采样率：--");
-        ui->labelChannels->setText("声道：--");
+        // 如果没有歌单，创建默认歌单
+        CreateDefaultPlaylist();
+    }
+}
+
+void AVBaseWidget::CreateDefaultPlaylist()
+{
+    QString defaultPlaylistPath = GetPlaylistDirectory() + "/default_playlist.json";
+    
+    // 创建默认歌单文件
+    FilePathIconListWidgetItem::ST_NodeInfo playlistInfo;
+    playlistInfo.filePath = defaultPlaylistPath;
+    playlistInfo.displayName = "默认歌单";
+    playlistInfo.iconPath = "";
+    
+    ui->AudioDirectory->AddFileItem(playlistInfo);
+    ui->AudioDirectory->SaveFileListToJson();
+    
+    // 创建空的默认歌单内容文件
+    QFile defaultPlaylistFile(defaultPlaylistPath);
+    if (defaultPlaylistFile.open(QIODevice::WriteOnly | QIODevice::Text))
+    {
+        defaultPlaylistFile.write("{}");
+        defaultPlaylistFile.close();
+    }
+}
+
+void AVBaseWidget::AddNewPlaylist()
+{
+    QString playlistName = QInputDialog::getText(this, tr("新建歌单"), tr("请输入歌单名称:"));
+    if (playlistName.isEmpty())
+    {
         return;
     }
 
-    QString fileName;
-    qint64 fileSize = 0;
-    double duration = 0.0;
-    QString format;
-    int bitrate = 0;
-    int width = 0;
-    int height = 0;
-    int sampleRate = 0;
-    int channels = 0;
+    // 生成唯一的文件名
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
+    QString filename = playlistName + "_" + timestamp + ".json";
+    QString playlistPath = GetPlaylistDirectory() + "/" + filename;
 
-    if (FFmpegPublicUtils::GetMediaFileInfo(filePath, fileName, fileSize, duration, format, bitrate, width, height, sampleRate, channels))
+    // 创建新的歌单文件
+    FilePathIconListWidgetItem::ST_NodeInfo playlistInfo;
+    playlistInfo.filePath = playlistPath;
+    playlistInfo.displayName = playlistName;
+    playlistInfo.iconPath = "";
+
+    ui->AudioDirectory->AddFileItem(playlistInfo);
+    ui->AudioDirectory->SaveFileListToJson();
+
+    // 创建空的歌单内容文件
+    QFile playlistFile(playlistPath);
+    if (playlistFile.open(QIODevice::WriteOnly | QIODevice::Text))
     {
-        // 更新显示信息
-        ui->labelFileName->setText(QString("文件名：%1").arg(fileName));
+        playlistFile.write("{}");
+        playlistFile.close();
+    }
 
-        // 格式化文件大小
-        QString sizeText;
-        if (fileSize < 1024)
+    // 自动选中新创建的歌单
+    ui->AudioDirectory->setCurrentItem(ui->AudioDirectory->item(ui->AudioDirectory->GetItemCount() - 1));
+    LoadPlaylistContent(playlistPath);
+}
+
+void AVBaseWidget::DeleteCurrentPlaylist()
+{
+    FilePathIconListWidgetItem* currentItem = ui->AudioDirectory->GetCurrentItem();
+    if (!currentItem)
+    {
+        QMessageBox::warning(this, tr("警告"), tr("请先选择要删除的歌单"));
+        return;
+    }
+
+    QString playlistName = currentItem->GetNodeInfo().displayName;
+    QString playlistPath = currentItem->GetNodeInfo().filePath;
+
+    // 不允许删除默认歌单
+    if (playlistName == "默认歌单")
+    {
+        QMessageBox::warning(this, tr("警告"), tr("默认歌单不能被删除"));
+        return;
+    }
+
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this, tr("确认删除"), 
+        tr("确定要删除歌单 \"%1\" 吗？\n此操作将同时删除对应的JSON文件。").arg(playlistName),
+        QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::Yes)
+    {
+        // 删除JSON文件
+        QFile::remove(playlistPath);
+
+        // 从列表中移除
+        ui->AudioDirectory->RemoveItem(currentItem);
+        ui->AudioDirectory->SaveFileListToJson();
+
+        // 清空音频文件列表
+        ui->audioFileList->Clear();
+
+        // 如果没有歌单了，创建默认歌单
+        if (ui->AudioDirectory->GetItemCount() == 0)
         {
-            sizeText = QString("%1 B").arg(fileSize);
-        }
-        else if (fileSize < 1024 * 1024)
-        {
-            sizeText = QString("%1 KB").arg(fileSize / 1024.0, 0, 'f', 1);
-        }
-        else if (fileSize < 1024 * 1024 * 1024)
-        {
-            sizeText = QString("%1 MB").arg(fileSize / (1024.0 * 1024.0), 0, 'f', 1);
+            CreateDefaultPlaylist();
         }
         else
         {
-            sizeText = QString("%1 GB").arg(fileSize / (1024.0 * 1024.0 * 1024.0), 0, 'f', 1);
-        }
-        ui->labelFileSize->setText(QString("文件大小：%1").arg(sizeText));
-
-        // 格式化时长
-        ui->labelDuration->setText(QString("时长：%1").arg(FormatTime(static_cast<int>(duration))));
-
-        // 格式化格式
-        ui->labelFormat->setText(QString("格式：%1").arg(format.toUpper()));
-
-        // 格式化比特率
-        if (bitrate > 0)
-        {
-            QString bitrateText;
-            if (bitrate < 1000)
-            {
-                bitrateText = QString("%1 bps").arg(bitrate);
-            }
-            else if (bitrate < 1000000)
-            {
-                bitrateText = QString("%1 kbps").arg(bitrate / 1000);
-            }
-            else
-            {
-                bitrateText = QString("%1 Mbps").arg(bitrate / 1000000.0, 0, 'f', 1);
-            }
-            ui->labelBitrate->setText(QString("比特率：%1").arg(bitrateText));
-        }
-        else
-        {
-            ui->labelBitrate->setText("比特率：--");
-        }
-
-        // 分辨率（视频文件）
-        if (width > 0 && height > 0 && av_fileSystem::AVFileSystem::IsVideoFile(filePath.toStdString()))
-        {
-            ui->labelResolution->setText(QString("分辨率：%1x%2").arg(width).arg(height));
-        }
-        else
-        {
-            ui->labelResolution->setText("分辨率：--");
-        }
-
-        // 采样率（音频文件）
-        if (sampleRate > 0)
-        {
-            ui->labelSampleRate->setText(QString("采样率：%1 Hz").arg(sampleRate));
-        }
-        else
-        {
-            ui->labelSampleRate->setText("采样率：--");
-        }
-
-        // 声道数
-        if (channels > 0)
-        {
-            QString channelsText;
-            switch (channels)
-            {
-                case 1:
-                    channelsText = "单声道";
-                    break;
-                case 2:
-                    channelsText = "立体声";
-                    break;
-                case 6:
-                    channelsText = "5.1 声道";
-                    break;
-                case 8:
-                    channelsText = "7.1 声道";
-                    break;
-                default:
-                    channelsText = QString("%1 声道").arg(channels);
-                    break;
-            }
-            ui->labelChannels->setText(QString("声道：%1").arg(channelsText));
-        }
-        else
-        {
-            ui->labelChannels->setText("声道：--");
+            // 选中第一个歌单
+            ui->AudioDirectory->setCurrentItem(ui->AudioDirectory->item(0));
+            SlotPlaylistSelected(ui->AudioDirectory->GetItem(0)->GetNodeInfo().filePath);
         }
     }
-    else
-    {
-        // 获取信息失败，只显示文件名和大小
-        QFileInfo fileInfo(filePath);
-        ui->labelFileName->setText(QString("文件名：%1").arg(fileInfo.fileName()));
+}
 
-        qint64 size = fileInfo.size();
-        QString sizeText;
-        if (size < 1024)
-        {
-            sizeText = QString("%1 B").arg(size);
-        }
-        else if (size < 1024 * 1024)
-        {
-            sizeText = QString("%1 KB").arg(size / 1024.0, 0, 'f', 1);
-        }
-        else if (size < 1024 * 1024 * 1024)
-        {
-            sizeText = QString("%1 MB").arg(size / (1024.0 * 1024.0), 0, 'f', 1);
-        }
-        else
-        {
-            sizeText = QString("%1 GB").arg(size / (1024.0 * 1024.0 * 1024.0), 0, 'f', 1);
-        }
-        ui->labelFileSize->setText(QString("文件大小：%1").arg(sizeText));
+void AVBaseWidget::LoadPlaylistContent(const QString& playlistPath)
+{
+    // 设置音频文件列表的JSON路径为当前歌单的路径
+    ui->audioFileList->SetJsonFilePath(playlistPath);
+    ui->audioFileList->LoadFileListFromJson();
+}
 
-        // 其他信息设为不可用
-        ui->labelDuration->setText("时长：获取失败");
-        ui->labelFormat->setText("格式：获取失败");
-        ui->labelBitrate->setText("比特率：获取失败");
-        ui->labelResolution->setText("分辨率：获取失败");
-        ui->labelSampleRate->setText("采样率：获取失败");
-        ui->labelChannels->setText("声道：获取失败");
-    }
+void AVBaseWidget::SlotPlaylistSelected(const QString& playlistPath)
+{
+    LoadPlaylistContent(playlistPath);
+}
+
+void AVBaseWidget::SlotAddDirectoryClicked()
+{
+    AddNewPlaylist();
+}
+
+void AVBaseWidget::SlotDeleteDirectoryClicked()
+{
+    DeleteCurrentPlaylist();
 }

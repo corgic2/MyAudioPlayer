@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <QWidget>
 #include "ui_AVBaseWidget.h"
@@ -115,7 +115,7 @@ protected slots:
     /// 进度条值改变槽函数
     /// </summary>
     /// <param name="value">进度值</param>
-    void SlotProgressBarValueChanged(int value);
+    void SlotProgressBarValueChanged(qint64 value);
     
     /// <summary>
     /// 更新播放进度槽函数
@@ -199,17 +199,63 @@ private:
     bool GetIsRecording() const;
 
     /// <summary>
-    /// 格式化时间显示
+    /// 格式化时间显示（已废弃，使用MusicProgressBar内部的时间格式化）
     /// </summary>
     /// <param name="seconds">秒数</param>
-    /// <returns>格式化后的时间字符串 (MM:SS)</returns>
-    QString FormatTime(int seconds) const;
+    /// <returns>格式化后的时间字符串</returns>
+    // QString FormatTime(int seconds) const;
 
     /// <summary>
-    /// 更新文件信息显示
+    /// 初始化歌单管理
     /// </summary>
-    /// <param name="filePath">文件路径</param>
-    void UpdateFileInfoDisplay(const QString& filePath);
+    void InitializePlaylistManager();
+
+    /// <summary>
+    /// 获取歌单目录路径
+    /// </summary>
+    QString GetPlaylistDirectory() const;
+
+    /// <summary>
+    /// 添加新歌单
+    /// </summary>
+    void AddNewPlaylist();
+
+    /// <summary>
+    /// 删除当前选中的歌单
+    /// </summary>
+    void DeleteCurrentPlaylist();
+
+    /// <summary>
+    /// 加载歌单列表
+    /// </summary>
+    void LoadPlaylists();
+
+    /// <summary>
+    /// 加载指定歌单的内容
+    /// </summary>
+    /// <param name="playlistPath">歌单JSON文件路径</param>
+    void LoadPlaylistContent(const QString& playlistPath);
+
+    /// <summary>
+    /// 创建示例歌单
+    /// </summary>
+    void CreateDefaultPlaylist();
+
+private slots:
+    /// <summary>
+    /// 歌单被选中槽函数
+    /// </summary>
+    void SlotPlaylistSelected(const QString& playlistPath);
+
+    /// <summary>
+    /// 添加目录按钮点击槽函数
+    /// </summary>
+    void SlotAddDirectoryClicked();
+
+    /// <summary>
+    /// 删除目录按钮点击槽函数
+    /// </summary>
+    void SlotDeleteDirectoryClicked();
 
 private:
     Ui::AVBaseWidgetClass* ui;

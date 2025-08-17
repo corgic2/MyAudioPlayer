@@ -1,0 +1,10 @@
+<RCC>
+    <qresource prefix="/AVBaseWidget">
+        <file>images/BackButton.png</file>
+        <file>images/ForwardButton.png</file>
+        <file>images/NextMediaButton.png</file>
+        <file>images/PauseButton.png</file>
+        <file>images/PlayerButton.png</file>
+        <file>images/PreviousButton.png</file>
+    </qresource>
+</RCC>

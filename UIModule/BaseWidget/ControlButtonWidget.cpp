@@ -23,6 +23,20 @@ void ControlButtonWidget::InitializeWidget()
 {
     // 初始化按钮状态
     UpdateButtonEnabledStates();
+
+    // 设置按钮图标
+    InitializeButtonIcons();
+}
+
+void ControlButtonWidget::InitializeButtonIcons()
+{
+    // 设置各个按钮的图标
+    ui->btnRecord->SetPixMapFilePath(":/AVBaseWidget/images/PlayerButton.png");
+    ui->btnPlay->SetPixMapFilePath(":/AVBaseWidget/images/PlayerButton.png");
+    ui->btnForward->SetPixMapFilePath(":/AVBaseWidget/images/ForwardButton.png");
+    ui->btnBackward->SetPixMapFilePath(":/AVBaseWidget/images/BackButton.png");
+    ui->btnNext->SetPixMapFilePath(":/AVBaseWidget/images/NextMediaButton.png");
+    ui->btnPrevious->SetPixMapFilePath(":/AVBaseWidget/images/PreviousButton.png");
 }
 
 void ControlButtonWidget::ConnectSignals()
@@ -33,17 +47,22 @@ void ControlButtonWidget::ConnectSignals()
     connect(ui->btnBackward, &CustomToolButton::clicked, this, &ControlButtonWidget::SigBackwardClicked);
     connect(ui->btnNext, &CustomToolButton::clicked, this, &ControlButtonWidget::SigNextClicked);
     connect(ui->btnPrevious, &CustomToolButton::clicked, this, &ControlButtonWidget::SigPreviousClicked);
+    connect(ui->musicProgressBar, &MusicProgressBar::SigPositionChanged, this, &ControlButtonWidget::SigProgressChanged);
 }
 
 void ControlButtonWidget::UpdatePlayState(bool isPlaying)
 {
     if (isPlaying)
     {
-        ui->btnPlay->setText(tr("暂停"));
+        ui->btnPlay->setText(tr(""));
+        ui->btnPlay->SetPixMapFilePath(":/AVBaseWidget/images/PauseButton.png");
+        ui->btnPlay->setToolTip(tr("暂停"));
     }
     else
     {
-        ui->btnPlay->setText(tr("播放"));
+        ui->btnPlay->setText(tr(""));
+        ui->btnPlay->SetPixMapFilePath(":/AVBaseWidget/images/PlayerButton.png");
+        ui->btnPlay->setToolTip(tr("播放"));
     }
 }
 
@@ -51,11 +70,15 @@ void ControlButtonWidget::UpdateRecordState(bool isRecording)
 {
     if (isRecording)
     {
-        ui->btnRecord->setText(tr("停止录制"));
+        ui->btnRecord->setText(tr(""));
+        ui->btnRecord->SetPixMapFilePath(":/AVBaseWidget/images/ForwardButton.png");
+        ui->btnRecord->setToolTip(tr("停止录制"));
     }
     else
     {
-        ui->btnRecord->setText(tr("录制"));
+        ui->btnRecord->setText(tr(""));
+        ui->btnRecord->SetPixMapFilePath(":/AVBaseWidget/images/PlayerButton.png");
+        ui->btnRecord->setToolTip(tr("录制"));
     }
 }
 
@@ -123,3 +146,17 @@ CustomToolButton* ControlButtonWidget::GetButtonByType(EM_ControlButtonType butt
     }
 }
 
+void ControlButtonWidget::SetProgressValue(int value)
+{
+    ui->musicProgressBar->SetPosition(value);
+}
+
+void ControlButtonWidget::SetDuration(qint64 duration)
+{
+    ui->musicProgressBar->SetDuration(duration);
+}
+
+void ControlButtonWidget::SetBufferProgress(int bufferProgress)
+{
+    ui->musicProgressBar->SetBufferPosition(bufferProgress);
+}

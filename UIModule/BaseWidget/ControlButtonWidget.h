@@ -85,6 +85,24 @@ public:
     /// <returns>是否启用</returns>
     bool IsButtonEnabled(EM_ControlButtonType buttonType) const;
 
+    /// <summary>
+    /// 设置进度条值
+    /// </summary>
+    /// <param name="value">进度值(0-1000)</param>
+    void SetProgressValue(int value);
+
+    /// <summary>
+    /// 设置总时长
+    /// </summary>
+    /// <param name="duration">总时长(秒)</param>
+    void SetDuration(qint64 duration);
+
+    /// <summary>
+    /// 设置缓冲进度
+    /// </summary>
+    /// <param name="bufferProgress">缓冲进度(0-1000)</param>
+    void SetBufferProgress(int bufferProgress);
+
 signals:
     /// <summary>
     /// 录制按钮点击信号
@@ -121,7 +139,11 @@ signals:
     /// </summary>
     /// <param name="filePath">新的音频文件路径</param>
     void SigCurrentAudioFileChanged(const QString& filePath);
-
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="value"></param>
+    void SigProgressChanged(qint64 value);
 private:
     /// <summary>
     /// 初始化界面
@@ -140,8 +162,12 @@ private:
     /// <returns>按钮指针，如果类型无效则返回nullptr</returns>
     CustomToolButton* GetButtonByType(EM_ControlButtonType buttonType) const;
 
+    /// <summary>
+    /// 初始化按钮图标
+    /// </summary>
+    void InitializeButtonIcons();
 private:
     Ui::ControlButtonWidget* ui;
     QString m_currentAudioFile;                              /// 当前音频文件路径
     QMap<EM_ControlButtonType, bool> m_originalButtonState; /// 按钮原始状态映射
-}; 
+};

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1722</width>
-    <height>974</height>
+    <height>995</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -25,361 +25,212 @@
   <property name="windowTitle">
    <string>AVBaseWidget</string>
   </property>
-  <layout class="QHBoxLayout" name="horizontalLayout">
+  <layout class="QVBoxLayout" name="verticalLayout_6">
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout">
+    <layout class="QHBoxLayout" name="horizontalLayout">
      <property name="spacing">
-      <number>4</number>
+      <number>0</number>
      </property>
      <item>
-      <widget class="CustomLabel" name="labelFileList">
+      <widget class="QWidget" name="widget" native="true">
        <property name="maximumSize">
         <size>
          <width>300</width>
          <height>16777215</height>
         </size>
        </property>
-       <property name="text">
-        <string>音频文件列表</string>
-       </property>
-       <property name="textFormat">
-        <enum>Qt::PlainText</enum>
-       </property>
-       <property name="EM_LabelFormat" stdset="0">
-        <enum>CustomLabel::EM_Title</enum>
-       </property>
+       <layout class="QVBoxLayout" name="verticalLayout">
+        <property name="spacing">
+         <number>0</number>
+        </property>
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <layout class="QHBoxLayout" name="horizontalLayout_2">
+          <item>
+           <widget class="CustomToolButton" name="AddDirectory">
+            <property name="minimumSize">
+             <size>
+              <width>24</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>24</width>
+              <height>24</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="CustomToolButton" name="DeleteDirectory">
+            <property name="minimumSize">
+             <size>
+              <width>24</width>
+              <height>24</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>24</width>
+              <height>24</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="FilePathIconListWidget" name="AudioDirectory">
+          <property name="minimumSize">
+           <size>
+            <width>300</width>
+            <height>0</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>300</width>
+            <height>16777215</height>
+           </size>
+          </property>
+         </widget>
+        </item>
+       </layout>
       </widget>
      </item>
      <item>
-      <widget class="FilePathIconListWidget" name="audioFileList">
-       <property name="minimumSize">
-        <size>
-         <width>300</width>
-         <height>0</height>
-        </size>
+      <widget class="QFrame" name="frame">
+       <property name="frameShape">
+        <enum>QFrame::StyledPanel</enum>
        </property>
-       <property name="maximumSize">
-        <size>
-         <width>300</width>
-         <height>16777215</height>
-        </size>
+       <property name="frameShadow">
+        <enum>QFrame::Raised</enum>
        </property>
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <property name="leftMargin">
+         <number>0</number>
+        </property>
+        <property name="topMargin">
+         <number>0</number>
+        </property>
+        <property name="rightMargin">
+         <number>0</number>
+        </property>
+        <property name="bottomMargin">
+         <number>0</number>
+        </property>
+        <item>
+         <layout class="QVBoxLayout" name="verticalLayout_3">
+          <item>
+           <widget class="CustomFrame" name="DirectoryInfo">
+            <property name="minimumSize">
+             <size>
+              <width>600</width>
+              <height>200</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>200</height>
+             </size>
+            </property>
+            <property name="frameShape">
+             <enum>QFrame::StyledPanel</enum>
+            </property>
+            <property name="frameShadow">
+             <enum>QFrame::Raised</enum>
+            </property>
+            <property name="lineWidth">
+             <number>1</number>
+            </property>
+            <property name="midLineWidth">
+             <number>0</number>
+            </property>
+            <property name="EM_FrameFormat" stdset="0">
+             <enum>CustomFrame::EM_Normal</enum>
+            </property>
+            <property name="frameFormat" stdset="0">
+             <string>EM_Normal</string>
+            </property>
+            <property name="layoutType" stdset="0">
+             <string>Vertical</string>
+            </property>
+            <layout class="QVBoxLayout" name="verticalLayout_2">
+             <property name="spacing">
+              <number>2</number>
+             </property>
+             <property name="leftMargin">
+              <number>4</number>
+             </property>
+             <property name="topMargin">
+              <number>4</number>
+             </property>
+             <property name="rightMargin">
+              <number>4</number>
+             </property>
+             <property name="bottomMargin">
+              <number>4</number>
+             </property>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="FilePathIconListWidget" name="audioFileList">
+            <property name="minimumSize">
+             <size>
+              <width>600</width>
+              <height>0</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
       </widget>
      </item>
     </layout>
    </item>
    <item>
-    <widget class="QFrame" name="frame">
-     <property name="frameShape">
-      <enum>QFrame::StyledPanel</enum>
-     </property>
-     <property name="frameShadow">
-      <enum>QFrame::Raised</enum>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_3">
-      <property name="spacing">
-       <number>0</number>
-      </property>
-      <property name="leftMargin">
-       <number>0</number>
-      </property>
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <property name="rightMargin">
-       <number>0</number>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
-      <item>
-       <layout class="QVBoxLayout" name="controlLayout">
-        <property name="spacing">
-         <number>4</number>
-        </property>
-        <property name="leftMargin">
-         <number>4</number>
-        </property>
-        <property name="topMargin">
-         <number>4</number>
-        </property>
-        <property name="rightMargin">
-         <number>4</number>
-        </property>
-        <property name="bottomMargin">
-         <number>4</number>
-        </property>
-        <item>
-         <widget class="QFrame" name="AVFrame">
-          <property name="minimumSize">
-           <size>
-            <width>1080</width>
-            <height>720</height>
-           </size>
-          </property>
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>16777215</height>
-           </size>
-          </property>
-          <property name="styleSheet">
-           <string notr="true">background-color:rgba(0,0,0,0.4)</string>
-          </property>
-          <property name="frameShape">
-           <enum>QFrame::StyledPanel</enum>
-          </property>
-          <property name="frameShadow">
-           <enum>QFrame::Raised</enum>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout_6">
-           <property name="spacing">
-            <number>0</number>
-           </property>
-           <property name="leftMargin">
-            <number>0</number>
-           </property>
-           <property name="topMargin">
-            <number>0</number>
-           </property>
-           <property name="rightMargin">
-            <number>0</number>
-           </property>
-           <property name="bottomMargin">
-            <number>0</number>
-           </property>
-          </layout>
-         </widget>
-        </item>
-        <item>
-         <widget class="CustomProgressBar" name="customProgressBar">
-          <property name="minimum">
-           <number>0</number>
-          </property>
-          <property name="maximum">
-           <number>1000</number>
-          </property>
-          <property name="value">
-           <number>0</number>
-          </property>
-          <property name="enableGradient" stdset="0">
-           <bool>true</bool>
-          </property>
-          <property name="enableAnimation" stdset="0">
-           <bool>true</bool>
-          </property>
-          <property name="animationDuration" stdset="0">
-           <number>300</number>
-          </property>
-          <property name="enableShadow" stdset="0">
-           <bool>true</bool>
-          </property>
-          <property name="enableBorder" stdset="0">
-           <bool>true</bool>
-          </property>
-          <property name="borderWidth" stdset="0">
-           <number>1</number>
-          </property>
-          <property name="borderRadius" stdset="0">
-           <number>8</number>
-          </property>
-          <property name="enableStripes" stdset="0">
-           <bool>false</bool>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="ControlButtonWidget" name="ControlButtons" native="true">
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>36</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item>
-    <widget class="QFrame" name="RightLayoutFrame">
+    <widget class="ControlButtonWidget" name="ControlButtons" native="true">
      <property name="minimumSize">
       <size>
-       <width>300</width>
-       <height>0</height>
+       <width>0</width>
+       <height>80</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>300</width>
-       <height>16777215</height>
+       <width>16777215</width>
+       <height>80</height>
       </size>
      </property>
-     <property name="frameShape">
-      <enum>QFrame::StyledPanel</enum>
-     </property>
-     <property name="frameShadow">
-      <enum>QFrame::Raised</enum>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout_4">
-      <property name="spacing">
-       <number>0</number>
-      </property>
-      <property name="leftMargin">
-       <number>0</number>
-      </property>
-      <property name="topMargin">
-       <number>0</number>
-      </property>
-      <property name="rightMargin">
-       <number>0</number>
-      </property>
-      <property name="bottomMargin">
-       <number>0</number>
-      </property>
-      <item>
-       <layout class="QVBoxLayout" name="verticalLayout_2">
-        <property name="spacing">
-         <number>0</number>
-        </property>
-        <item>
-         <widget class="CustomFrame" name="InfoStream">
-          <property name="EM_FrameFormat" stdset="0">
-           <enum>CustomFrame::EM_Card</enum>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="CustomFrame" name="FileInfoData">
-          <property name="maximumSize">
-           <size>
-            <width>16777215</width>
-            <height>300</height>
-           </size>
-          </property>
-          <property name="EM_FrameFormat" stdset="0">
-           <enum>CustomFrame::EM_Card</enum>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayoutFileInfo">
-           <property name="spacing">
-            <number>5</number>
-           </property>
-           <property name="leftMargin">
-            <number>10</number>
-           </property>
-           <property name="topMargin">
-            <number>10</number>
-           </property>
-           <property name="rightMargin">
-            <number>10</number>
-           </property>
-           <property name="bottomMargin">
-            <number>10</number>
-           </property>
-           <item>
-            <widget class="CustomLabel" name="labelFileName">
-             <property name="text">
-              <string>文件名：--</string>
-             </property>
-             <property name="wordWrap">
-              <bool>true</bool>
-             </property>
-             <property name="EM_LabelFormat" stdset="0">
-              <enum>CustomLabel::EM_SubTitle</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="CustomLabel" name="labelFileSize">
-             <property name="text">
-              <string>文件大小：--</string>
-             </property>
-             <property name="EM_LabelFormat" stdset="0">
-              <enum>CustomLabel::EM_SubTitle</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="CustomLabel" name="labelDuration">
-             <property name="text">
-              <string>时长：--</string>
-             </property>
-             <property name="EM_LabelFormat" stdset="0">
-              <enum>CustomLabel::EM_SubTitle</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="CustomLabel" name="labelFormat">
-             <property name="text">
-              <string>格式：--</string>
-             </property>
-             <property name="EM_LabelFormat" stdset="0">
-              <enum>CustomLabel::EM_SubTitle</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="CustomLabel" name="labelBitrate">
-             <property name="text">
-              <string>比特率：--</string>
-             </property>
-             <property name="EM_LabelFormat" stdset="0">
-              <enum>CustomLabel::EM_SubTitle</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="CustomLabel" name="labelResolution">
-             <property name="text">
-              <string>分辨率：--</string>
-             </property>
-             <property name="EM_LabelFormat" stdset="0">
-              <enum>CustomLabel::EM_SubTitle</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="CustomLabel" name="labelSampleRate">
-             <property name="text">
-              <string>采样率：--</string>
-             </property>
-             <property name="EM_LabelFormat" stdset="0">
-              <enum>CustomLabel::EM_SubTitle</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="CustomLabel" name="labelChannels">
-             <property name="text">
-              <string>声道：--</string>
-             </property>
-             <property name="EM_LabelFormat" stdset="0">
-              <enum>CustomLabel::EM_SubTitle</enum>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <spacer name="verticalSpacer">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-          </layout>
-         </widget>
-        </item>
-       </layout>
-      </item>
-     </layout>
     </widget>
    </item>
   </layout>
@@ -393,14 +244,9 @@
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>CustomLabel</class>
-   <extends>QLabel</extends>
-   <header>CoreWidget/CustomLabel.h</header>
-  </customwidget>
-  <customwidget>
-   <class>CustomProgressBar</class>
-   <extends>QProgressBar</extends>
-   <header>CoreWidget/CustomProgressBar.h</header>
+   <class>CustomToolButton</class>
+   <extends>QToolButton</extends>
+   <header>CoreWidget/CustomToolButton.h</header>
   </customwidget>
   <customwidget>
    <class>FilePathIconListWidget</class>
